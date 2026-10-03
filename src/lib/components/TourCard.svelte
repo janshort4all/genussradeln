@@ -47,7 +47,7 @@
 		border: 2px solid var(--color-border);
 		border-radius: 1rem;
 		overflow: hidden;
-		box-shadow: 0 2px 10px rgb(27 31 26 / 0.07);
+		box-shadow: 0 2px 10px rgb(36 53 57 / 0.07);
 		transition: border-color 0.15s;
 	}
 
@@ -76,7 +76,7 @@
 		color: var(--color-text);
 		font-size: var(--text-small);
 		font-weight: 700;
-		box-shadow: 0 1px 4px rgb(27 31 26 / 0.15);
+		box-shadow: 0 1px 4px rgb(36 53 57 / 0.15);
 	}
 
 	.body {
@@ -128,7 +128,7 @@
 	}
 
 	.facts :global(svg) {
-		color: var(--color-green);
+		color: var(--color-olive);
 	}
 
 	.highlight {

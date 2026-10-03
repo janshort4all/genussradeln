@@ -110,7 +110,7 @@
 		border: 2px solid var(--color-border);
 		border-radius: var(--radius);
 		background: var(--color-surface);
-		box-shadow: 0 1px 2px rgb(27 31 26 / 0.06);
+		box-shadow: 0 1px 2px rgb(36 53 57 / 0.06);
 		text-align: center;
 		font-weight: 700;
 		line-height: 1.25;
@@ -125,8 +125,12 @@
 	}
 
 	.option :global(.icon) {
-		color: var(--color-green);
+		color: var(--color-olive);
 		flex: none;
+	}
+
+	.option:has(input:checked) :global(.icon) {
+		color: var(--color-green);
 	}
 
 	/* Eingabefeld unsichtbar, aber fokussierbar – die ganze Kachel ist das Label */
@@ -158,7 +162,7 @@
 		height: 1.625rem;
 		border-radius: 50%;
 		background: var(--color-green);
-		color: #ffffff;
+		color: var(--color-surface);
 		box-shadow: 0 0 0 2px var(--color-bg);
 	}
 

@@ -28,11 +28,15 @@ beschrieben in `docs/lastenheft.md` → Abschnitt „Bedienung“.
 8. Echte `<button>`/`<a>`/`<label>`-Elemente, keine klickbaren `div`s.
 9. Im Zweifel: weglassen. Einfachheit schlägt Funktionsumfang.
 
-Farben (aus dem Mockup):
-- Hintergrund `#F7F5EF`, Text `#1B1F1A`, Nebentext `#4A4D45`, Rahmen `#CFCAB9`
-- Grün (Marke, Auswahl) `#1F5E3B`, helles Grün `#E3EEDF`
-- Orange (Hauptaktion, Route) `#B93A0B`; in der dunklen Navigation `#FF8A4C`
-- Navigation: Hintergrund `#000000` (OLED spart Strom)
+Farben: **nur Farben aus dem Logo** (`assets/logo-original.png`) bzw. hellere/dunklere Abstufungen davon.
+Logo-Grundfarben: Creme `#F7F2E5`, Dunkelgrün `#283C30`, Olivgrün `#768641`, Terrakotta `#DD8258`,
+Sonnengelb `#F1B34C`, Taubenblau `#32596F`, Wasserblau `#AFC6D1`, Khaki `#CEB37B`, Schiefer `#243539`.
+Alle Werte als CSS-Variablen in `src/app.css`:
+- Hintergrund Creme `#F7F2E5`, Flächen `#FDFBF5`, Text Schiefer `#243539`, Nebentext Taubenblau `#32596F`, Rahmen `#DDD2B5`
+- Marke/Auswahl Dunkelgrün `#283C30`, helles Grün `#E8EBD6`; Olivgrün `#768641` nur für Icons/Grafik (zu hell für Text)
+- Hauptaktion Terrakotta, abgedunkelt `#B0552F` (Original `#DD8258` schafft mit weißer Schrift kein 4,5 : 1)
+- Navigation: Hintergrund `#000000` (OLED spart Strom – bewusste Ausnahme), Akzent Sonnengelb `#F1B34C`
+- Logo/App-Symbole neu erzeugen: `npm run icons` (Skript `scripts/make-logo.mjs`)
 
 ## Strom sparen (Navigation läuft auf dem Handy)
 

@@ -71,7 +71,7 @@
 
 	.primary {
 		background: var(--color-orange);
-		color: #ffffff;
+		color: var(--color-surface);
 		box-shadow: 0 3px 0 var(--color-orange-dark);
 	}
 

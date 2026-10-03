@@ -40,7 +40,7 @@
 		max-width: calc(100% - 2rem);
 		padding: 0.5rem 1rem;
 		border-radius: var(--radius);
-		background: rgb(255 255 255 / 0.92);
+		background: rgb(253 251 245 / 0.92);
 		color: var(--color-green);
 		font-weight: 700;
 	}

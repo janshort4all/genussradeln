@@ -111,7 +111,7 @@
 		gap: 0.375rem;
 		padding: 0.25rem 0.75rem;
 		border-radius: 999px;
-		background: rgb(255 255 255 / 0.9);
+		background: rgb(253 251 245 / 0.9);
 		color: var(--color-text-muted);
 		font-size: var(--text-small);
 		font-weight: 700;
@@ -140,7 +140,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius);
 		padding: 0.625rem 0.75rem;
-		box-shadow: 0 1px 2px rgb(27 31 26 / 0.05);
+		box-shadow: 0 1px 2px rgb(36 53 57 / 0.05);
 	}
 
 	dt {
@@ -152,7 +152,7 @@
 	}
 
 	dt :global(svg) {
-		color: var(--color-green);
+		color: var(--color-olive);
 	}
 
 	dd {

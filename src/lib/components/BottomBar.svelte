@@ -47,7 +47,7 @@
 		z-index: 10;
 		background: var(--color-surface);
 		border-top: 1px solid var(--color-border);
-		box-shadow: 0 -4px 16px rgb(27 31 26 / 0.06);
+		box-shadow: 0 -4px 16px rgb(36 53 57 / 0.06);
 		padding-bottom: env(safe-area-inset-bottom);
 	}
 

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import Bike from '@lucide/svelte/icons/bike';
+	import { asset, resolve } from '$app/paths';
 	import Binoculars from '@lucide/svelte/icons/binoculars';
 	import Clock3 from '@lucide/svelte/icons/clock-3';
 	import Feather from '@lucide/svelte/icons/feather';
@@ -20,7 +19,6 @@
 	import WavesHorizontal from '@lucide/svelte/icons/waves-horizontal';
 	import Button from '$lib/components/Button.svelte';
 	import ChoiceGroup from '$lib/components/ChoiceGroup.svelte';
-	import HeroLandscape from '$lib/components/illustrations/HeroLandscape.svelte';
 
 	// Tourwunsch (F1, F2, F3, F5) – wird ab M2 an die Tourberechnung übergeben
 	let start = $state('here');
@@ -46,10 +44,7 @@
 </svelte:head>
 
 <header class="intro">
-	<div class="hero">
-		<HeroLandscape />
-		<p class="brand"><Bike size={26} strokeWidth={2.25} aria-hidden="true" /> Genuss-Radeln</p>
-	</div>
+	<img class="logo" src={asset('/logo.webp')} alt="Genuss-Radeln" width="640" height="640" />
 	<h1>Worauf haben Sie heute Lust?</h1>
 	<p class="lead">Sagen Sie uns Ihren Wunsch – wir schlagen Ihnen drei schöne Touren vor.</p>
 </header>
@@ -168,30 +163,12 @@
 		margin-bottom: 1.5rem;
 	}
 
-	/* Titelbild bis an den Bildschirmrand, unten sanft abgerundet */
-	.hero {
-		position: relative;
-		height: 11.5rem;
-		margin: -0.5rem -1rem 1.25rem;
-		border-radius: 0 0 1.5rem 1.5rem;
-		overflow: hidden;
-	}
-
-	.brand {
-		position: absolute;
-		top: 0.875rem;
-		left: 1rem;
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		margin: 0;
-		padding: 0.25rem 0.875rem 0.25rem 0.625rem;
-		border-radius: 999px;
-		background: rgb(255 255 255 / 0.85);
-		font-family: var(--font-title);
-		font-size: var(--text-large);
-		font-weight: 700;
-		color: var(--color-green);
+	/* Logo-Hintergrund ist dieselbe Creme-Farbe wie die Seite → wirkt randlos */
+	.logo {
+		display: block;
+		width: min(15rem, 70%);
+		height: auto;
+		margin: 0 auto 0.5rem;
 	}
 
 	.lead {
@@ -215,7 +192,7 @@
 	.mic-hint :global(svg) {
 		flex: none;
 		margin-top: 0.15em;
-		color: var(--color-green);
+		color: var(--color-olive);
 	}
 
 	.switch-measure {

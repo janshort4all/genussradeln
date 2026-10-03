@@ -5,23 +5,33 @@
  */
 
 :root {
-	/* Farben */
-	--color-bg: #f7f5ef;
-	--color-surface: #ffffff;
-	--color-text: #1b1f1a;
-	--color-text-muted: #4a4d45;
-	--color-border: #cfcab9;
-	--color-green: #1f5e3b;
-	--color-green-light: #e3eedf;
-	--color-orange: #b93a0b;
-	--color-orange-dark: #962e08;
+	/*
+	 * Farben – nur aus dem Logo (assets/logo-original.png) bzw. deren hellere/dunklere Abstufungen.
+	 * Logo-Grundfarben: Creme #F7F2E5, Dunkelgrün #283C30, Olivgrün #768641, Terrakotta #DD8258,
+	 * Sonnengelb #F1B34C, Taubenblau #32596F, Wasserblau #AFC6D1, Khaki #CEB37B, Schiefer #243539.
+	 */
+	--color-bg: #f7f2e5; /* Creme */
+	--color-surface: #fdfbf5; /* Creme, aufgehellt */
+	--color-text: #243539; /* Schiefer – 11 : 1 auf Creme */
+	--color-text-muted: #32596f; /* Taubenblau – 6,6 : 1 auf Creme */
+	--color-border: #ddd2b5; /* Khaki, aufgehellt */
+	--color-green: #283c30; /* Dunkelgrün – Marke, Auswahl, Links */
+	--color-green-light: #e8ebd6; /* Olivgrün, stark aufgehellt */
+	--color-olive: #768641; /* Olivgrün – Icons und Akzente (3,5 : 1, nicht für Fließtext) */
+	--color-orange: #b0552f; /* Terrakotta, abgedunkelt → weiße Schrift 5 : 1 */
+	--color-orange-dark: #8e4425;
+	--color-orange-light: #f6e1d5; /* Terrakotta, aufgehellt */
+	--color-sun: #f1b34c; /* Sonnengelb */
+	--color-sun-light: #fbeccc;
+	--color-blue: #32596f; /* Taubenblau */
+	--color-blue-light: #dfe8ec; /* Wasserblau, aufgehellt */
 
-	/* Navigation (dunkel, OLED) */
+	/* Navigation (dunkel, OLED – Schwarz bewusst, spart Strom) */
 	--color-nav-bg: #000000;
-	--color-nav-text: #ffffff;
-	--color-nav-muted: #c9c9c9;
-	--color-nav-orange: #ff8a4c;
-	--color-nav-surface: #161616;
+	--color-nav-text: #fdfbf5;
+	--color-nav-muted: #cfd8dc;
+	--color-nav-orange: #f1b34c; /* Sonnengelb – 11 : 1 auf Schwarz */
+	--color-nav-surface: #1a2629; /* Schiefer, abgedunkelt */
 
 	/* Schrift */
 	--font-text: 'Atkinson Hyperlegible', system-ui, sans-serif;

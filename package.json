@@ -10,7 +10,7 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"icons": "pwa-assets-generator --preset minimal-2023 static/icon.svg"
+		"icons": "node scripts/make-logo.mjs"
 	},
 	"devDependencies": {
 		"@lucide/svelte": "^1.51.0",
@@ -20,6 +20,7 @@
 		"@types/node": "^24.19.1",
 		"@vite-pwa/assets-generator": "^1.0.4",
 		"@vite-pwa/sveltekit": "^1.1.0",
+		"sharp": "^0.35.5",
 		"svelte": "^5.56.7",
 		"svelte-check": "^4.6.0",
 		"typescript": "^6.0.3",

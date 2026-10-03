@@ -35,7 +35,7 @@
 
 	.battery-hint.knapp,
 	.battery-hint.voll-laden {
-		background: #f9e3d8;
-		color: #a3330a;
+		background: var(--color-orange-light);
+		color: var(--color-orange-dark);
 	}
 </style>

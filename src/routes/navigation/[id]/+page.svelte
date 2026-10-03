@@ -121,7 +121,7 @@
 		display: grid;
 		place-items: center;
 		padding: 1rem;
-		border: 1px solid #333333;
+		border: 1px solid var(--color-nav-surface);
 		border-radius: var(--radius);
 		color: var(--color-nav-muted);
 		text-align: center;
