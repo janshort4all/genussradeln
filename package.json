@@ -12,6 +12,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"icons": "node scripts/make-logo.mjs",
 		"data:landscape": "node scripts/fetch-landscape.ts",
+		"data:pois": "node scripts/fetch-pois.ts",
 		"test": "vitest run",
 		"routing:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File routing/setup.ps1",
 		"routing:start": "powershell -NoProfile -ExecutionPolicy Bypass -File routing/start.ps1",

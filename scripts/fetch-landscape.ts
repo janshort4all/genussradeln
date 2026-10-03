@@ -10,49 +10,37 @@
  * Aufruf: npm run data:landscape   (Overpass-Antworten werden in scripts/.cache/ zwischengespeichert)
  * Daten: © OpenStreetMap-Mitwirkende, ODbL.
  */
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { loadRegionTiles, REGION as BOUNDS, type OsmElement } from './lib/overpass.ts';
 
 type Point = [number, number]; // [lon, lat]
 
-const BOUNDS = { west: 5.9, south: 51.0, east: 7.33, north: 51.92 };
 const CELL_LON = 0.0015; // ≈ 104 m bei 51,4° N
 const CELL_LAT = 0.0009; // ≈ 100 m
 const WIDTH = Math.ceil((BOUNDS.east - BOUNDS.west) / CELL_LON);
 const HEIGHT = Math.ceil((BOUNDS.north - BOUNDS.south) / CELL_LAT);
-const TILES_X = 4;
-const TILES_Y = 4;
 
 // Klassen (höhere Zahl gewinnt bei Überlappung)
 const GREEN = 1;
 const FOREST = 2;
 const WATER = 3;
 
-const SERVERS = [
-	'https://overpass-api.de/api/interpreter',
-	'https://overpass.private.coffee/api/interpreter',
-	'https://overpass.kumi.systems/api/interpreter'
-];
-const CACHE_DIR = new URL('./.cache/landscape/', import.meta.url);
-
-interface OsmElement {
-	type: 'way' | 'relation';
-	id: number;
-	tags?: Record<string, string>;
-	geometry?: { lat: number; lon: number }[];
-	members?: { type: string; role: string; geometry?: { lat: number; lon: number }[] }[];
-}
-
 const grid = new Uint8Array(WIDTH * HEIGHT);
 const done = new Set<string>();
 
-await mkdir(CACHE_DIR, { recursive: true });
-console.log(`Raster ${WIDTH} × ${HEIGHT} Zellen, ${TILES_X * TILES_Y} Kacheln`);
+console.log(`Raster ${WIDTH} × ${HEIGHT} Zellen`);
 
-for (let ty = 0; ty < TILES_Y; ty++) {
-	for (let tx = 0; tx < TILES_X; tx++) {
-		const elements = await loadTile(tx, ty);
+await loadRegionTiles({
+	cacheName: 'landscape',
+	tiles: [4, 4],
+	body: (bbox) => `  nwr["natural"~"^(water|wood|grassland|heath|wetland)$"](${bbox});
+  nwr["waterway"~"^(riverbank|river|canal)$"](${bbox});
+  nwr["landuse"~"^(forest|meadow|orchard)$"](${bbox});
+  nwr["leisure"~"^(park|nature_reserve)$"](${bbox});`,
+	output: 'out geom;',
+	onTile: (elements, tx, ty) => {
 		let count = 0;
 		for (const element of elements) {
 			const key = `${element.type}/${element.id}`;
@@ -66,7 +54,7 @@ for (let ty = 0; ty < TILES_Y; ty++) {
 		}
 		console.log(`Kachel ${tx},${ty}: ${elements.length} Objekte, ${count} neu gerastert`);
 	}
-}
+});
 
 const counts = [0, 0, 0, 0];
 for (const v of grid) counts[v]++;
@@ -113,66 +101,6 @@ function classify(tags: Record<string, string>): { value: number; line?: boolean
 	)
 		return { value: GREEN };
 	return undefined;
-}
-
-async function loadTile(tx: number, ty: number): Promise<OsmElement[]> {
-	const cacheFile = new URL(`tile-${tx}-${ty}.json`, CACHE_DIR);
-	try {
-		return JSON.parse(await readFile(cacheFile, 'utf8')).elements;
-	} catch {
-		// noch nicht im Zwischenspeicher
-	}
-	const tileW = (BOUNDS.east - BOUNDS.west) / TILES_X;
-	const tileH = (BOUNDS.north - BOUNDS.south) / TILES_Y;
-	const s = BOUNDS.south + ty * tileH;
-	const w = BOUNDS.west + tx * tileW;
-	// Kachel in 2 × 2 Stücke teilen – kleinere Anfragen werden von ausgelasteten Servern eher beantwortet
-	const elements: OsmElement[] = [];
-	for (let sy = 0; sy < 2; sy++) {
-		for (let sx = 0; sx < 2; sx++) {
-			const south = s + (sy * tileH) / 2;
-			const west = w + (sx * tileW) / 2;
-			const bbox = `${south},${west},${south + tileH / 2},${west + tileW / 2}`;
-			elements.push(...(await queryOverpass(bbox, `${tx},${ty}/${sx}${sy}`)));
-		}
-	}
-	await writeFile(cacheFile, JSON.stringify({ elements }));
-	return elements;
-}
-
-async function queryOverpass(bbox: string, label: string): Promise<OsmElement[]> {
-	const query = `[out:json][timeout:300];
-(
-  nwr["natural"~"^(water|wood|grassland|heath|wetland)$"](${bbox});
-  nwr["waterway"~"^(riverbank|river|canal)$"](${bbox});
-  nwr["landuse"~"^(forest|meadow|orchard)$"](${bbox});
-  nwr["leisure"~"^(park|nature_reserve)$"](${bbox});
-);
-out geom;`;
-
-	for (let attempt = 0; attempt < 15; attempt++) {
-		// Hauptserver bevorzugen, Ausweichserver nur jeder dritte Versuch
-		const server = attempt % 3 === 2 ? SERVERS[1 + ((attempt / 3) | 0) % 2] : SERVERS[0];
-		try {
-			const response = await fetch(server, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
-					'User-Agent': 'Genuss-Radeln/0.1 (Testprojekt, einmaliger Export)'
-				},
-				body: 'data=' + encodeURIComponent(query),
-				signal: AbortSignal.timeout(200_000)
-			});
-			if (!response.ok) throw new Error(`HTTP ${response.status}`);
-			const json = await response.json();
-			if (json.remark?.includes('error')) throw new Error(json.remark);
-			return json.elements;
-		} catch (error) {
-			console.log(`  Stück ${label}: ${server} fehlgeschlagen (${(error as Error).message}), neuer Versuch …`);
-			await new Promise((resolve) => setTimeout(resolve, 5000 * (attempt + 1)));
-		}
-	}
-	throw new Error(`Stück ${label} konnte nicht geladen werden.`);
 }
 
 function toPoints(geometry: { lat: number; lon: number }[] | undefined): Point[] {

@@ -11,18 +11,22 @@ export function makeLandscape(fill: (row: number, col: number) => number = () =>
 	return new Landscape(meta, cells);
 }
 
-/** Weg entlang der Punkte, alle Abschnitte mit denselben Eigenschaften */
+/**
+ * Weg entlang der Punkte, alle Abschnitte mit denselben Eigenschaften.
+ * `climbPerKm`: gleichmäßiger Anstieg in Höhenmetern je km (sonst flach auf 30 m).
+ */
 export function makePath(
 	line: LngLat[],
-	props: Partial<{ roadClass: string; network: string; surface: string; slope: number }> = {}
+	props: Partial<{ roadClass: string; network: string; surface: string; slope: number; climbPerKm: number }> = {}
 ): RoutePath {
 	const last = line.length - 1;
+	const climb = props.climbPerKm ?? 0;
 	return {
 		distance: lineLength(line),
 		time: 0,
 		ascend: 0,
 		descend: 0,
-		coordinates: line.map(([lon, lat]) => [lon, lat, 30]),
+		coordinates: line.map(([lon, lat], i) => [lon, lat, 30 + (climb * lineLength(line.slice(0, i + 1))) / 1000]),
 		details: {
 			road_class: [[0, last, props.roadClass ?? 'residential']],
 			bike_network: [[0, last, props.network ?? 'missing']],

@@ -1,10 +1,11 @@
 /** Nachbewertung eines Wegs: Wie schön ist er? (Gewichte in weights.ts) */
 import { resample, segmentLengths, type LngLat } from '$lib/geo/geo';
 import type { DetailInterval, RoutePath } from '$lib/routing/graphhopper';
+import { climbWordOf, elevationProfile, type ClimbWord } from '$lib/tour/elevation';
 import type { Landscape } from './landscape';
-import { CLIMB_WORDS, SAMPLE_STEP_M, SCORE, SURROUNDINGS_RADIUS_CELLS } from './weights';
+import { SAMPLE_STEP_M, SCORE, SURROUNDINGS_RADIUS_CELLS } from './weights';
 
-export type ClimbWord = 'flach' | 'leicht hügelig' | 'hügelig';
+export type { ClimbWord };
 
 export interface RouteStats {
 	/** Meter */
@@ -43,12 +44,6 @@ export function detailShare<T>(
 	return Math.min(1, sum / total);
 }
 
-export function climbWord(steepShare: number): ClimbWord {
-	if (steepShare < CLIMB_WORDS.flatBelow) return 'flach';
-	if (steepShare < CLIMB_WORDS.gentleBelow) return 'leicht hügelig';
-	return 'hügelig';
-}
-
 export function lineOf(path: RoutePath): LngLat[] {
 	return path.coordinates.map(([lon, lat]) => [lon, lat]);
 }
@@ -78,13 +73,6 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape): RouteStats
 		nature /= samples.length;
 	}
 
-	const steep = detailShare(
-		d.average_slope,
-		lengths,
-		total,
-		(v) => Math.abs(Number(v)) >= CLIMB_WORDS.steepSlopePercent
-	);
-
 	return {
 		distance: path.distance,
 		water,
@@ -98,7 +86,7 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape): RouteStats
 			detailShare(d.surface, lengths, total, (v) => BAD_SURFACES.has(v)),
 			detailShare(d.smoothness, lengths, total, (v) => BAD_SMOOTHNESS.has(v))
 		),
-		climb: climbWord(steep)
+		climb: climbWordOf(elevationProfile(path.coordinates))
 	};
 }
 

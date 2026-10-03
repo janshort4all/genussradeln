@@ -4,8 +4,9 @@
  */
 
 import type { SceneKind } from '$lib/components/illustrations/TourScene.svelte';
+import { STOP_LABELS, type StopKind } from '$lib/stops/kinds';
 
-export type StopKind = 'cafe' | 'biergarten' | 'toilette' | 'aussicht' | 'bank' | 'laden';
+export type { StopKind };
 export type BatteryLevel = 'locker' | 'knapp' | 'voll-laden';
 export type LandscapeTag = 'wasser' | 'wald' | 'gruen' | 'aussicht';
 
@@ -98,14 +99,7 @@ export const batteryText: Record<BatteryLevel, string> = {
 	'voll-laden': 'Akku vorher voll laden'
 };
 
-export const stopLabel: Record<StopKind, string> = {
-	cafe: 'Café',
-	biergarten: 'Biergarten',
-	toilette: 'Toilette',
-	aussicht: 'Aussicht',
-	bank: 'Bank',
-	laden: 'Ladepunkt'
-};
+export const stopLabel: Record<StopKind, string> = STOP_LABELS;
 
 export const tagLabel: Record<LandscapeTag, string> = {
 	wasser: 'Am Wasser',

@@ -96,11 +96,56 @@ export const DIVERSITY_MAX_OVERLAP = 0.6;
 /** So viele Wege werden höchstens vorgeschlagen */
 export const MAX_SUGGESTIONS = 3;
 
-/** „Steigung in Worten“: Anteil der Strecke mit mehr als 4 % Steigung/Gefälle */
+/** Stopps unterwegs (F9): so weit dürfen sie neben dem Weg liegen (Meter) */
+export const STOP_RADIUS_M = {
+	cafe: 200,
+	eis: 200,
+	biergarten: 200,
+	toilette: 150,
+	aussicht: 150,
+	laden: 150,
+	rast: 100,
+	bank: 50
+} as const;
+
+/** Bewertung von Stopps nach Merkmalen aus OpenStreetMap (keine Sterne – die gibt es dort nicht) */
+export const STOP_SCORE = {
+	/** Grundwert je Art */
+	base: { cafe: 1, eis: 1, biergarten: 1.2, toilette: 1, aussicht: 1.2, laden: 1, rast: 0.8, bank: 0.5 },
+	/** Sitzplätze draußen / Terrasse */
+	outdoor: 1,
+	/** Lage am Wasser */
+	water: 1,
+	/** Lage im Grünen oder am Wald */
+	greenOrForest: 0.6,
+	/** gepflegter Eintrag (Website bzw. Öffnungszeiten, je Merkmal) */
+	wellMaintained: 0.3,
+	wheelchair: 0.3,
+	backrest: 0.5,
+	covered: 0.3,
+	/** Abzug je 100 m Entfernung vom Weg */
+	offRoutePer100m: 0.4
+} as const;
+
+/** Stopps ausdünnen, damit die Liste übersichtlich bleibt */
+export const STOP_LIMITS = {
+	/** Cafés/Eis/Biergärten: bester je Abschnitt … */
+	foodWindowKm: 2,
+	/** … und insgesamt höchstens */
+	foodMax: 6,
+	toiletWindowKm: 3,
+	viewMax: 5,
+	chargingMax: 3,
+	restWindowKm: 2,
+	benchWindowKm: 3
+} as const;
+
+/** „Steigung in Worten“ aus dem geglätteten Höhenprofil (tour/elevation.ts) */
 export const CLIMB_WORDS = {
-	steepSlopePercent: 4,
-	/** darunter „flach“ */
-	flatBelow: 0.03,
-	/** darunter „leicht hügelig“, sonst „hügelig“ */
-	gentleBelow: 0.1
+	/** unter so vielen Höhenmetern bergauf je km: „flach“ … */
+	flatBelowMPerKm: 4,
+	/** … darunter „leicht hügelig“, sonst „hügelig“ */
+	gentleBelowMPerKm: 10,
+	/** ein einzelnes Stück mit so viel Prozent Steigung macht mindestens „leicht hügelig“ */
+	steepGradePercent: 6
 } as const;

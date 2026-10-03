@@ -8,6 +8,8 @@ import Armchair from '@lucide/svelte/icons/armchair';
 import Beer from '@lucide/svelte/icons/beer';
 import Binoculars from '@lucide/svelte/icons/binoculars';
 import Coffee from '@lucide/svelte/icons/coffee';
+import IceCreamCone from '@lucide/svelte/icons/ice-cream-cone';
+import Tent from '@lucide/svelte/icons/tent';
 import PlugZap from '@lucide/svelte/icons/plug-zap';
 import Sprout from '@lucide/svelte/icons/sprout';
 import Toilet from '@lucide/svelte/icons/toilet';
@@ -34,7 +36,9 @@ export const stopIcons: Record<StopKind, IconStyle> = {
 	toilette: { icon: Toilet, ...water },
 	aussicht: { icon: Binoculars, ...green },
 	bank: { icon: Armchair, ...khaki },
-	laden: { icon: PlugZap, ...sun }
+	laden: { icon: PlugZap, ...sun },
+	eis: { icon: IceCreamCone, ...terracotta },
+	rast: { icon: Tent, ...green }
 };
 
 export const landscapeIcons: Record<LandscapeTag, IconStyle> = {

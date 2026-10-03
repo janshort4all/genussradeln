@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { offset, type LngLat } from '$lib/geo/geo';
 import { FOREST, NONE, WATER } from './landscape';
 import { mutualOverlap, overlapShare } from './overlap';
-import { analyzeRoute, beautyScore, climbWord, combineStats, detailShare } from './score';
+import { analyzeRoute, beautyScore, combineStats, detailShare } from './score';
 import { makeLandscape, makePath } from './test-helpers';
 
 const start: LngLat = [6.55, 51.35];
@@ -17,14 +17,6 @@ describe('detailShare', () => {
 		];
 		expect(detailShare(intervals, lengths, 400, (v) => v === 'cycleway')).toBeCloseTo(0.75);
 		expect(detailShare(undefined, lengths, 400, () => true)).toBe(0);
-	});
-});
-
-describe('climbWord', () => {
-	it('beschreibt Steigung in Worten', () => {
-		expect(climbWord(0)).toBe('flach');
-		expect(climbWord(0.05)).toBe('leicht hügelig');
-		expect(climbWord(0.2)).toBe('hügelig');
 	});
 });
 
@@ -51,7 +43,7 @@ describe('analyzeRoute', () => {
 	it('kombiniert Hin- und Rückweg längengewichtet', () => {
 		const landscape = makeLandscape((row) => (row >= 50 && row <= 60 ? FOREST : NONE));
 		const a = analyzeRoute(makePath(east(1000)), landscape);
-		const b = analyzeRoute(makePath(east(3000), { slope: 6 }));
+		const b = analyzeRoute(makePath(east(3000), { climbPerKm: 20 }));
 		const both = combineStats([a, b]);
 		expect(both.distance).toBeCloseTo(4000, -1);
 		expect(both.forest).toBeCloseTo(0.25, 1);
