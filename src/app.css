@@ -1,0 +1,188 @@
+/*
+ * Grundgestaltung Genuss-Radeln
+ * Farben aus dem Mockup, Schriftgrößen in rem (vergrößerte Systemschrift funktioniert mit).
+ * 1rem = 16px → Fließtext 1.125rem = 18px, Überschriften ab 1.75rem = 28px.
+ */
+
+:root {
+	/* Farben */
+	--color-bg: #f7f5ef;
+	--color-surface: #ffffff;
+	--color-text: #1b1f1a;
+	--color-text-muted: #4a4d45;
+	--color-border: #cfcab9;
+	--color-green: #1f5e3b;
+	--color-green-light: #e3eedf;
+	--color-orange: #b93a0b;
+	--color-orange-dark: #962e08;
+
+	/* Navigation (dunkel, OLED) */
+	--color-nav-bg: #000000;
+	--color-nav-text: #ffffff;
+	--color-nav-muted: #c9c9c9;
+	--color-nav-orange: #ff8a4c;
+	--color-nav-surface: #161616;
+
+	/* Schrift */
+	--font-text: 'Atkinson Hyperlegible', system-ui, sans-serif;
+	--font-title: 'Bricolage Grotesque Variable', 'Atkinson Hyperlegible', system-ui, sans-serif;
+	--text-base: 1.125rem; /* 18px */
+	--text-small: 1.0625rem; /* 17px – kleiner geht nicht */
+	--text-large: 1.25rem; /* 20px */
+	--text-h1: 2rem; /* 32px */
+	--text-h2: 1.75rem; /* 28px */
+
+	/* Maße */
+	--tap: 3rem; /* 48px Mindestgröße für Tap-Flächen */
+	--gap: 1rem;
+	--radius: 0.75rem;
+	--page-width: 40rem;
+	--bottom-bar-height: 4.75rem;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+}
+
+body {
+	margin: 0;
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-text);
+	font-size: var(--text-base);
+	line-height: 1.5;
+	-webkit-tap-highlight-color: transparent;
+}
+
+h1,
+h2,
+h3 {
+	font-family: var(--font-title);
+	font-weight: 700;
+	line-height: 1.15;
+	margin: 0 0 0.5em;
+	letter-spacing: -0.01em;
+}
+
+h1 {
+	font-size: var(--text-h1);
+}
+
+h2,
+h3 {
+	font-size: var(--text-h2);
+}
+
+p {
+	margin: 0 0 1em;
+}
+
+a {
+	color: var(--color-green);
+	text-underline-offset: 0.15em;
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+	color: inherit;
+}
+
+/* Textfelder */
+.field {
+	display: block;
+	margin: 0 0 1.5rem;
+}
+
+.field-label {
+	display: block;
+	font-weight: 700;
+	font-size: var(--text-large);
+	margin-bottom: 0.5rem;
+}
+
+.field-hint {
+	display: block;
+	color: var(--color-text-muted);
+	font-size: var(--text-small);
+	margin-top: 0.375rem;
+}
+
+.field input,
+.field textarea {
+	display: block;
+	width: 100%;
+	min-height: var(--tap);
+	padding: 0.75rem 0.875rem;
+	border: 2px solid var(--color-border);
+	border-radius: var(--radius);
+	background: var(--color-surface);
+}
+
+.field textarea {
+	resize: vertical;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+	color: var(--color-text-muted);
+	opacity: 1;
+}
+
+.field input:focus,
+.field textarea:focus {
+	border-color: var(--color-green);
+}
+
+/* Deutlich sichtbarer Fokus für Tastatur-Bedienung */
+:focus-visible {
+	outline: 3px solid var(--color-orange);
+	outline-offset: 3px;
+}
+
+/* Nur für Screenreader */
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.muted {
+	color: var(--color-text-muted);
+}
+
+/* Platzhalter für Karten, bis MapLibre eingebaut ist */
+.map-placeholder {
+	display: grid;
+	place-items: center;
+	background: var(--color-green-light);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius);
+	color: var(--color-text-muted);
+	text-align: center;
+	padding: 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation: none !important;
+		transition: none !important;
+	}
+}
