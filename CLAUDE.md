@@ -205,7 +205,9 @@ npm run icons        # App-Symbole aus static/icon.svg neu erzeugen
 ```
 
 GitHub-Pages-Build lokal nachstellen (App unter Unterpfad, wie online):
-`$env:BASE_PATH='/genuss-radeln'; npm run build; npm run preview` → <http://localhost:4173/genuss-radeln/>
+`$env:BASE_PATH='/genussradeln'; npm run build; npm run preview` → <http://localhost:4173/genussradeln/>
+
+Online: <https://janshort4all.github.io/genussradeln/> · Repository: <https://github.com/janshort4all/genussradeln>
 
 Veröffentlichen: Push auf `main` → GitHub Action `.github/workflows/deploy.yml` baut und stellt auf GitHub Pages.
 

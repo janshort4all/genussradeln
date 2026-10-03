@@ -10,7 +10,7 @@
 		{
 			"name": "preview-pages",
 			"runtimeExecutable": "cmd",
-			"runtimeArgs": ["/c", "set BASE_PATH=/genuss-radeln&& npm run preview -- --port 4173 --strictPort"],
+			"runtimeArgs": ["/c", "set BASE_PATH=/genussradeln&& npm run preview -- --port 4173 --strictPort"],
 			"port": 4173
 		}
 	]
