@@ -3,8 +3,11 @@
  * Werden ab M2 durch berechnete Vorschläge ersetzt.
  */
 
+import type { SceneKind } from '$lib/components/illustrations/TourScene.svelte';
+
 export type StopKind = 'cafe' | 'biergarten' | 'toilette' | 'aussicht' | 'bank' | 'laden';
 export type BatteryLevel = 'locker' | 'knapp' | 'voll-laden';
+export type LandscapeTag = 'wasser' | 'wald' | 'gruen' | 'aussicht';
 
 export interface Stop {
 	km: number;
@@ -20,6 +23,8 @@ export interface SampleTour {
 	climb: 'flach' | 'leicht hügelig' | 'hügelig';
 	highlight: string;
 	battery: BatteryLevel;
+	scene: SceneKind;
+	tags: LandscapeTag[];
 	stops: Stop[];
 }
 
@@ -32,6 +37,8 @@ export const sampleTours: SampleTour[] = [
 		climb: 'flach',
 		highlight: 'Lange Strecken direkt am Rhein, fast ohne Autos.',
 		battery: 'locker',
+		scene: 'river',
+		tags: ['wasser', 'aussicht'],
 		stops: [
 			{ km: 9, name: 'Aussicht auf den Rhein', kind: 'aussicht' },
 			{ km: 16, name: 'Café am Deich', kind: 'cafe' },
@@ -47,6 +54,8 @@ export const sampleTours: SampleTour[] = [
 		climb: 'leicht hügelig',
 		highlight: 'Fünf Seen am Stück und ein Biergarten am Wasser.',
 		battery: 'locker',
+		scene: 'lake',
+		tags: ['wasser', 'gruen'],
 		stops: [
 			{ km: 6, name: 'Bank am Wolfssee', kind: 'bank' },
 			{ km: 13, name: 'Biergarten am See', kind: 'biergarten' },
@@ -61,6 +70,8 @@ export const sampleTours: SampleTour[] = [
 		climb: 'hügelig',
 		highlight: 'Schattige Waldwege – angenehm an heißen Tagen.',
 		battery: 'knapp',
+		scene: 'forest',
+		tags: ['wald', 'aussicht'],
 		stops: [
 			{ km: 11, name: 'Aussichtsturm', kind: 'aussicht' },
 			{ km: 19, name: 'Waldcafé', kind: 'cafe' }
@@ -94,4 +105,11 @@ export const stopLabel: Record<StopKind, string> = {
 	aussicht: 'Aussicht',
 	bank: 'Bank',
 	laden: 'Ladepunkt'
+};
+
+export const tagLabel: Record<LandscapeTag, string> = {
+	wasser: 'Am Wasser',
+	wald: 'Viel Wald',
+	gruen: 'Viel Grün',
+	aussicht: 'Mit Aussicht'
 };

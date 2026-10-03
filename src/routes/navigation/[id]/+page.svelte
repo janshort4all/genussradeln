@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import Flag from '@lucide/svelte/icons/flag';
+	import Pause from '@lucide/svelte/icons/pause';
+	import Play from '@lucide/svelte/icons/play';
 	import Button from '$lib/components/Button.svelte';
+	import { stopIcons } from '$lib/components/icons';
 
 	let { data } = $props();
 	const tour = $derived(data.tour);
@@ -50,18 +54,22 @@
 			<dd>ca. 15:40</dd>
 		</div>
 		{#if nextStop}
+			{@const StopIcon = stopIcons[nextStop.kind].icon}
 			<div class="wide">
 				<dt>Nächster Stopp</dt>
-				<dd>{nextStop.name} in 6 km</dd>
+				<dd class="next-stop">
+					<StopIcon size={26} strokeWidth={2.25} aria-hidden="true" />
+					{nextStop.name} in 6 km
+				</dd>
 			</div>
 		{/if}
 	</dl>
 
 	<div class="actions">
-		<Button variant="primary" dark onclick={() => (paused = !paused)}>
+		<Button variant="primary" dark icon={paused ? Play : Pause} onclick={() => (paused = !paused)}>
 			{paused ? 'Weiterfahren' : 'Pause'}
 		</Button>
-		<Button dark href={resolve('/tour/[id]', { id: tour.id })}>Beenden</Button>
+		<Button dark icon={Flag} href={resolve('/tour/[id]', { id: tour.id })}>Beenden</Button>
 	</div>
 </div>
 
@@ -146,6 +154,17 @@
 		font-size: 1.5rem;
 		font-weight: 700;
 		line-height: 1.25;
+	}
+
+	.next-stop {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.next-stop :global(svg) {
+		flex: none;
+		color: var(--color-nav-orange);
 	}
 
 	.actions {

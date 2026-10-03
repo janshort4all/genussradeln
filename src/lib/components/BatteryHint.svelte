@@ -26,12 +26,16 @@
 		align-items: center;
 		gap: 0.5rem;
 		margin: 0;
+		padding: 0.375rem 0.875rem 0.375rem 0.625rem;
+		border-radius: 999px;
+		background: var(--color-green-light);
 		font-weight: 700;
 		color: var(--color-green);
 	}
 
 	.battery-hint.knapp,
 	.battery-hint.voll-laden {
-		color: var(--color-orange);
+		background: #f9e3d8;
+		color: #a3330a;
 	}
 </style>

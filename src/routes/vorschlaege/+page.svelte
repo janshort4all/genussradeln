@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import TourCard from '$lib/components/TourCard.svelte';
@@ -23,7 +24,7 @@
 	{/each}
 </ol>
 
-<Button variant="secondary">Andere Vorschläge zeigen</Button>
+<Button variant="secondary" icon={RefreshCw}>Andere Vorschläge zeigen</Button>
 
 <style>
 	.tours {

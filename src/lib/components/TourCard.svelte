@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Clock from '@lucide/svelte/icons/clock';
+	import Mountain from '@lucide/svelte/icons/mountain';
+	import Route from '@lucide/svelte/icons/route';
 	import BatteryHint from './BatteryHint.svelte';
+	import LandscapeChip from './LandscapeChip.svelte';
+	import TourScene from './illustrations/TourScene.svelte';
 	import { formatDuration, type SampleTour } from '$lib/tour/sample';
 
 	/** Tourkarte auf dem Vorschläge-Screen. Die ganze Karte ist ein Link zum Tourdetail. */
@@ -8,19 +14,29 @@
 </script>
 
 <article class="tour-card">
-	<div class="map-placeholder mini-map" aria-hidden="true">Karte folgt</div>
+	<div class="scene">
+		<TourScene kind={tour.scene} />
+		<span class="position">Vorschlag {position}</span>
+	</div>
 	<div class="body">
-		<p class="position muted">Vorschlag {position}</p>
 		<h2>
 			<a href={resolve('/tour/[id]', { id: tour.id })}>{tour.name}</a>
 		</h2>
+		<ul class="tags" aria-label="Landschaft">
+			{#each tour.tags as tag (tag)}
+				<li><LandscapeChip {tag} /></li>
+			{/each}
+		</ul>
 		<ul class="facts">
-			<li>{tour.km} km</li>
-			<li>{formatDuration(tour.minutes)}</li>
-			<li>Steigung: {tour.climb}</li>
+			<li><Route size={22} aria-hidden="true" /> {tour.km} km</li>
+			<li><Clock size={22} aria-hidden="true" /> {formatDuration(tour.minutes)}</li>
+			<li><Mountain size={22} aria-hidden="true" /> Steigung: {tour.climb}</li>
 		</ul>
 		<p class="highlight">{tour.highlight}</p>
-		<BatteryHint level={tour.battery} />
+		<div class="footer">
+			<BatteryHint level={tour.battery} />
+			<span class="more" aria-hidden="true">Ansehen <ChevronRight size={22} strokeWidth={2.5} /></span>
+		</div>
 	</div>
 </article>
 
@@ -29,8 +45,10 @@
 		position: relative;
 		background: var(--color-surface);
 		border: 2px solid var(--color-border);
-		border-radius: var(--radius);
+		border-radius: 1rem;
 		overflow: hidden;
+		box-shadow: 0 2px 10px rgb(27 31 26 / 0.07);
+		transition: border-color 0.15s;
 	}
 
 	.tour-card:hover {
@@ -43,23 +61,30 @@
 		outline-offset: 3px;
 	}
 
-	.mini-map {
+	.scene {
+		position: relative;
 		height: 8.5rem;
-		border: 0;
-		border-radius: 0;
-	}
-
-	.body {
-		padding: 1rem 1.125rem 1.25rem;
 	}
 
 	.position {
-		margin: 0 0 0.25rem;
+		position: absolute;
+		top: 0.75rem;
+		left: 0.75rem;
+		padding: 0.125rem 0.75rem;
+		border-radius: 999px;
+		background: var(--color-surface);
+		color: var(--color-text);
 		font-size: var(--text-small);
+		font-weight: 700;
+		box-shadow: 0 1px 4px rgb(27 31 26 / 0.15);
+	}
+
+	.body {
+		padding: 1rem 1.125rem 1.125rem;
 	}
 
 	h2 {
-		margin-bottom: 0.5rem;
+		margin-bottom: 0.625rem;
 	}
 
 	h2 a {
@@ -78,17 +103,50 @@
 		outline: none;
 	}
 
+	.tags,
 	.facts {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.25rem 1.25rem;
 		margin: 0 0 0.75rem;
 		padding: 0;
 		list-style: none;
+	}
+
+	.tags {
+		gap: 0.5rem;
+	}
+
+	.facts {
+		gap: 0.375rem 1.25rem;
 		font-weight: 700;
 	}
 
+	.facts li {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+
+	.facts :global(svg) {
+		color: var(--color-green);
+	}
+
 	.highlight {
-		margin-bottom: 0.75rem;
+		margin-bottom: 0.875rem;
+	}
+
+	.footer {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.more {
+		display: inline-flex;
+		align-items: center;
+		color: var(--color-green);
+		font-weight: 700;
 	}
 </style>

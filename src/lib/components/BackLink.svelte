@@ -1,4 +1,6 @@
 <script lang="ts">
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+
 	/** Sichtbarer Zurück-Weg oben auf jedem Screen. */
 	interface Props {
 		href: string;
@@ -10,16 +12,7 @@
 </script>
 
 <a {href} class="back-link" class:dark>
-	<svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24">
-		<path
-			d="M15 5 L8 12 L15 19"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2.5"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-		/>
-	</svg>
+	<ChevronLeft size={26} strokeWidth={2.5} aria-hidden="true" />
 	<span>{label}</span>
 </a>
 

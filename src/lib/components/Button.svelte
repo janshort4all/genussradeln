@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { LucideIcon } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 
@@ -11,6 +12,8 @@
 		variant?: 'primary' | 'secondary';
 		href?: string;
 		dark?: boolean;
+		/** Symbol links vom Text */
+		icon?: LucideIcon;
 		children: Snippet;
 	}
 
@@ -18,19 +21,27 @@
 		variant = 'secondary',
 		href,
 		dark = false,
+		icon: Icon,
 		type = 'button',
 		children,
 		...rest
 	}: Props = $props();
 </script>
 
+{#snippet content()}
+	{#if Icon}
+		<Icon size={24} strokeWidth={2.25} aria-hidden="true" />
+	{/if}
+	<span>{@render children()}</span>
+{/snippet}
+
 {#if href}
 	<a {href} class="button {variant}" class:dark>
-		{@render children()}
+		{@render content()}
 	</a>
 {:else}
 	<button {type} class="button {variant}" class:dark {...rest}>
-		{@render children()}
+		{@render content()}
 	</button>
 {/if}
 
@@ -54,9 +65,14 @@
 		cursor: pointer;
 	}
 
+	.button :global(svg) {
+		flex: none;
+	}
+
 	.primary {
 		background: var(--color-orange);
 		color: #ffffff;
+		box-shadow: 0 3px 0 var(--color-orange-dark);
 	}
 
 	.primary:hover {
@@ -76,6 +92,7 @@
 	.primary.dark {
 		background: var(--color-nav-orange);
 		color: #000000;
+		box-shadow: none;
 	}
 
 	.secondary.dark {
