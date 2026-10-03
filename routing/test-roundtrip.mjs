@@ -10,7 +10,9 @@
  *   node routing/test-roundtrip.mjs --km 20 --gemuetlich  Steigungen zusätzlich meiden
  *   node routing/test-roundtrip.mjs --start 51.4596,6.6228 --vergleich   Start Moers, zusätzlich Profil „bike“
  */
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
+// dieselbe „gemütlich“-Regel wie in der App (Node 24 lädt TypeScript direkt)
+import { GEMUETLICH_MODEL } from '../src/lib/routing/custom-models.ts';
 
 const GRAPHHOPPER = process.env.GRAPHHOPPER_URL ?? 'http://localhost:8989';
 const args = parseArgs(process.argv.slice(2));
@@ -19,9 +21,7 @@ const [lat, lon] = (args.start ?? '51.4386,6.7623').split(',').map(Number); // D
 const variants = Number(args.anzahl ?? 6);
 const profiles = args.vergleich ? ['genuss', 'bike'] : ['genuss'];
 
-const gemuetlich = args.gemuetlich
-	? JSON.parse(stripComments(await readFile(new URL('./custom_models/gemuetlich.json', import.meta.url), 'utf8')))
-	: undefined;
+const gemuetlich = args.gemuetlich ? GEMUETLICH_MODEL : undefined;
 
 const MAJOR_ROADS = new Set(['trunk', 'primary', 'secondary']);
 const QUIET_WAYS = new Set(['cycleway', 'track', 'living_street', 'path']);
@@ -206,10 +206,6 @@ function parseArgs(list) {
 		out[key] = next && !next.startsWith('--') ? (i++, next) : true;
 	}
 	return out;
-}
-
-function stripComments(text) {
-	return text.replace(/^\s*\/\/.*$/gm, '');
 }
 
 function haversine([lon1, lat1], [lon2, lat2]) {

@@ -66,7 +66,7 @@ Abschnitte auf großen Straßen rot markiert. Beenden mit Strg+C.
 | --- | --- |
 | `config.yml` | GraphHopper-Einstellungen (Profile, gespeicherte Straßenmerkmale, Höhendaten) |
 | `custom_models/genuss.json` | Profil „genuss“: Radnetze und ruhige Wege bevorzugen, große Straßen und schlechten Belag meiden |
-| `custom_models/gemuetlich.json` | Zusatz für „gemütlich“ (Steigungen meiden) – die App schickt ihn pro Anfrage mit |
+| `src/lib/routing/custom-models.ts` | Zusatz für „gemütlich“ (Steigungen meiden) – die App schickt ihn pro Anfrage mit; das Testskript nutzt dieselbe Datei |
 | `setup.ps1`, `start.ps1` | Einrichten und Starten unter Windows |
 | `test-roundtrip.mjs` | Rundtour-Test mit Auswertung und GPX-Export |
 | `docker-compose.yml` | Betrieb auf dem Server (ab M9) |

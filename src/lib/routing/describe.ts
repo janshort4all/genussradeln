@@ -1,5 +1,50 @@
 /** Wege in Worten beschreiben – keine Prozentzahlen, keine Fachbegriffe */
+import { bearing, type LngLat } from '$lib/geo/geo';
 import type { RouteStats } from '$lib/scoring/score';
+
+const SIDE_WORDS = ['nördlich', 'östlich', 'südlich', 'westlich'] as const;
+export type SideWord = (typeof SIDE_WORDS)[number];
+const SIDE_ADJECTIVES: Record<SideWord, string> = {
+	nördlich: 'Nördliche',
+	östlich: 'Östliche',
+	südlich: 'Südliche',
+	westlich: 'Westliche'
+};
+
+/** Ab dieser mittleren Abweichung von der Luftlinie (Meter) liegt ein Weg „auf einer Seite“ */
+const SIDE_MIN_OFFSET_M = 250;
+
+/**
+ * Auf welcher Seite der Luftlinie Start→Ziel verläuft ein Weg überwiegend?
+ * Ergebnis als Himmelsrichtung, z. B. „nördlich“ – oder undefined, wenn er etwa mittig liegt.
+ */
+export function sideOf(line: LngLat[], start: LngLat, end: LngLat): SideWord | undefined {
+	const kx = 111_320 * Math.cos((start[1] * Math.PI) / 180);
+	const ky = 110_540;
+	const ax = (end[0] - start[0]) * kx;
+	const ay = (end[1] - start[1]) * ky;
+	const len = Math.hypot(ax, ay);
+	if (len === 0 || line.length === 0) return undefined;
+	let sum = 0;
+	for (const p of line) {
+		const px = (p[0] - start[0]) * kx;
+		const py = (p[1] - start[1]) * ky;
+		sum += (ax * py - ay * px) / len; // > 0: links der Fahrtrichtung
+	}
+	const offset = sum / line.length;
+	if (Math.abs(offset) < SIDE_MIN_OFFSET_M) return undefined;
+	const sideBearing = (bearing(start, end) + (offset > 0 ? -90 : 90) + 360) % 360;
+	return SIDE_WORDS[Math.round(sideBearing / 90) % 4];
+}
+
+/** „Nördliche Strecke“ bzw. bei Hin- und Rückweg „Hin nördlich, zurück südlich“ */
+export function sideTitle(outbound?: SideWord, inbound?: SideWord, withReturn = false): string | undefined {
+	if (!withReturn) return outbound ? `${SIDE_ADJECTIVES[outbound]} Strecke` : undefined;
+	if (outbound && inbound) return `Hin ${outbound}, zurück ${inbound}`;
+	if (outbound) return `Hinweg ${outbound}`;
+	if (inbound) return `Rückweg ${inbound}`;
+	return undefined;
+}
 
 /** Anteil in Worten */
 export function amountWord(share: number): string | undefined {
@@ -45,6 +90,15 @@ export function highlightSentence(s: RouteStats): string {
 	else if (s.major > 0.15) sentence += ', aber ein Stück an größeren Straßen';
 	sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
 	return `${sentence}.`;
+}
+
+/** Titel nach einer Straße: „Über die Uerdinger Straße“, „Über den Rheindeich“, „Über „Am Bruch““ */
+export function viaStreetTitle(street: string): string {
+	const lower = street.toLowerCase();
+	if (/^(am|an|auf|im|in|zum|zur|unter|hinter|vor)\b/.test(lower)) return `Über „${street}“`;
+	if (/(straße|strasse|allee|gasse|promenade|chaussee)$/.test(lower)) return `Über die ${street}`;
+	if (/(weg|ring|deich|damm|pfad|platz|steig|graben|wall|kanal)$/.test(lower)) return `Über den ${street}`;
+	return `Über ${street}`;
 }
 
 /** „2,1 km länger als der direkte Weg“ */

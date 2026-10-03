@@ -1,6 +1,7 @@
 // Profil „genuss“ – schöne, ruhige Radstrecken für E-Bike-Fahrer.
 // Basis: offizielles GraphHopper-Fahrradprofil (bike.json, Version 11.1), ergänzt um Vorlieben für Genuss-Radeln.
-// „gemütlich“ (Steigungen meiden) schickt die App pro Anfrage als zusätzliches custom_model mit.
+// „gemütlich“ (Steigungen meiden) schickt die App pro Anfrage als zusätzliches custom_model mit
+// (src/lib/routing/custom-models.ts).
 // Benötigte graph.encoded_values: siehe ../config.yml
 {
   "distance_influence": 50,

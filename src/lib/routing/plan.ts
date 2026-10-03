@@ -6,7 +6,7 @@
  * 3. Nachbewertung (score.ts), Mehrweg begrenzen, die besten untereinander verschiedenen Wege auswählen
  * 4. Bei „auf anderem Weg zurück“: Rückweg ebenso planen und Paare mit wenig Überschneidung bilden
  */
-import { distance, distanceToLine, resample, type LngLat } from '$lib/geo/geo';
+import { distance, distanceToLine, resample, segmentLengths, type LngLat } from '$lib/geo/geo';
 import type { Landscape } from '$lib/scoring/landscape';
 import { WATER } from '$lib/scoring/landscape';
 import { mutualOverlap, overlapShare } from '$lib/scoring/overlap';
@@ -21,7 +21,7 @@ import {
 	VIA_SEARCH
 } from '$lib/scoring/weights';
 import { newTourId, type PlannedTour, type TourRequest, type Waypoint } from '$lib/tour/model';
-import { highlightSentence, titleOptions } from './describe';
+import { highlightSentence, sideOf, sideTitle, titleOptions, viaStreetTitle } from './describe';
 import { NoRouteError, route as routeGraphHopper, type RoutePath } from './graphhopper';
 
 export interface PlanDeps {
@@ -175,22 +175,64 @@ async function planDirection(
 	return { candidates, directDistance };
 }
 
-/** Die besten Einträge wählen, die sich untereinander deutlich unterscheiden */
-function pickDiverse<T>(items: T[], lineOf: (item: T) => LngLat[], max: number): T[] {
-	const picked: T[] = [];
-	for (const item of items) {
-		if (picked.length >= max) break;
-		const line = lineOf(item);
-		if (picked.some((p) => mutualOverlap(line, lineOf(p)) > DIVERSITY_MAX_OVERLAP)) continue;
-		picked.push(item);
-	}
-	return picked;
-}
-
 interface Combination {
 	legs: LegCandidate[];
 	score: number;
-	line: LngLat[];
+}
+
+/** Hin- bzw. Rückweg zweier Vorschläge verlaufen weitgehend gleich */
+function sameLeg(a: Combination, b: Combination, i: number): boolean {
+	return a.legs[i] === b.legs[i] || mutualOverlap(a.legs[i].line, b.legs[i].line) > DIVERSITY_MAX_OVERLAP;
+}
+
+/**
+ * Die besten Vorschläge wählen, die sich deutlich unterscheiden:
+ * 1. Durchgang streng – jeder Abschnitt (Hinweg und ggf. Rückweg) muss anders sein.
+ * 2. Durchgang zum Auffüllen – es reicht, wenn sich ein Abschnitt unterscheidet (z. B. anderer Rückweg).
+ */
+function pickDiverse(items: Combination[], max: number): Combination[] {
+	const picked: Combination[] = [];
+	const strict = (item: Combination, p: Combination) => item.legs.some((_, i) => sameLeg(item, p, i));
+	const lenient = (item: Combination, p: Combination) => item.legs.every((_, i) => sameLeg(item, p, i));
+	for (const similar of [strict, lenient]) {
+		for (const item of items) {
+			if (picked.length >= max) break;
+			if (picked.includes(item) || picked.some((p) => similar(item, p))) continue;
+			picked.push(item);
+		}
+	}
+	// Reihenfolge nach Bewertung (der zweite Durchgang hängt hinten an)
+	return picked.sort((a, b) => b.score - a.score);
+}
+
+/** Titel für einen Vorschlag, der sich nur in einer Richtung von einem besseren unterscheidet */
+function relationTitle(combo: Combination, better: Combination[]): string | undefined {
+	if (combo.legs.length < 2) return undefined;
+	if (better.some((b) => sameLeg(combo, b, 0))) return 'Gleicher Hinweg, anderer Rückweg';
+	if (better.some((b) => sameLeg(combo, b, 1))) return 'Anderer Hinweg, gleicher Rückweg';
+	return undefined;
+}
+
+/** Meter je Straßenname (für unterscheidende Titel) */
+function streetLengths(combo: Combination): Map<string, number> {
+	const out = new Map<string, number>();
+	for (const leg of combo.legs) {
+		const lengths = segmentLengths(leg.line);
+		for (const [from, to, name] of leg.path.details.street_name ?? []) {
+			if (!name) continue;
+			let sum = 0;
+			for (let i = from; i < to; i++) sum += lengths[i] ?? 0;
+			out.set(name, (out.get(name) ?? 0) + sum);
+		}
+	}
+	return out;
+}
+
+/** Längste Straße dieses Vorschlags, die die anderen kaum benutzen (mind. 300 m) */
+function distinctiveStreet(own: Map<string, number>, others: Map<string, number>[]): string | undefined {
+	return [...own.entries()]
+		.filter(([name, length]) => length >= 300 && others.every((o) => (o.get(name) ?? 0) < length * 0.3))
+		.sort((a, b) => b[1] - a[1])[0]?.[0];
 }
 
 /** Hauptfunktion: Vorschläge für eine Zieltour */
@@ -213,24 +255,41 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 				const score =
 					(out.score * out.path.distance + back.score * back.path.distance) / total -
 					SCORE.returnOverlap * shared;
-				combinations.push({ legs: [out, back], score, line: [...out.line, ...back.line] });
+				combinations.push({ legs: [out, back], score });
 			}
 		}
 		combinations.sort((a, b) => b.score - a.score);
 	} else {
-		combinations = outbound.candidates.map((c) => ({ legs: [c], score: c.score, line: c.line }));
+		combinations = outbound.candidates.map((c) => ({ legs: [c], score: c.score }));
 	}
 
-	const chosen = pickDiverse(combinations, (c) => c.line, MAX_SUGGESTIONS);
+	const chosen = pickDiverse(combinations, MAX_SUGGESTIONS);
 	if (!chosen.length) throw new NoRouteError('Kein passender Weg gefunden');
 
 	const shortest = Math.min(...chosen.map((c) => c.legs.reduce((s, l) => s + l.path.distance, 0)));
+	const streets = chosen.map(streetLengths);
 	const usedTitles = new Set<string>();
 
 	return chosen.map((combo, index) => {
 		const stats = combineStats(combo.legs.map((l) => l.stats));
 		const total = stats.distance;
-		const title = titleOptions(stats).find((t) => !usedTitles.has(t)) ?? `Variante ${index + 1}`;
+		// Titel in dieser Reihenfolge, der erste noch freie gewinnt:
+		// Landschaft → unterscheidende Straße → Himmelsrichtung → Verhältnis zu besseren Vorschlägen → allgemein
+		const street = distinctiveStreet(streets[index], streets.filter((_, i) => i !== index));
+		const side = sideTitle(
+			sideOf(combo.legs[0].line, start, end),
+			combo.legs[1] && sideOf(combo.legs[1].line, start, end),
+			combo.legs.length > 1
+		);
+		const landscapeTitles = titleOptions(stats);
+		const candidates = [
+			...landscapeTitles.slice(0, -1),
+			street && viaStreetTitle(street),
+			side,
+			relationTitle(combo, chosen.slice(0, index)),
+			...landscapeTitles.slice(-1)
+		].filter((t): t is string => !!t);
+		const title = candidates.find((t) => !usedTitles.has(t)) ?? `Weitere Möglichkeit ${index + 1}`;
 		usedTitles.add(title);
 
 		let label: string | undefined;

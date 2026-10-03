@@ -84,10 +84,20 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
 - **Ziel = Art von Ort** („ein Biergarten“): passende POIs aus `pois.geojson` suchen, deren Entfernung
   zur gewünschten Länge passt (nur Hinweg: ≈ volle Länge; mit Rückweg: ≈ halbe Länge), pro Kandidat
   Route mit Profil `genuss` berechnen, ggf. über Zwischenpunkte verlängern, dann wie oben nachbewerten.
-- **Ziel = bestimmter Ort:** Hinweg direkt mit `genuss`; ist die Wunschlänge größer, Umweg über schöne
-  Zwischenpunkte (Wasser/Wald) einbauen.
-- **Rückweg auf anderem Weg:** zweite Route über einen seitlich versetzten Zwischenpunkt; die
-  Nachbewertung bestraft Überlappung mit dem Hinweg.
+- **Ziel = bestimmter Ort (umgesetzt in M2, `src/lib/routing/plan.ts`):**
+  1. Direkter `genuss`-Weg + GraphHopper-Alternativen (`alternative_route`).
+  2. Je nach „Wie viel Umweg für mehr Schönheit?“ (`DETOUR` in `weights.ts`: direkt / etwas schöner / am schönsten)
+     zusätzliche Wege über schöne Zwischenpunkte: Rasterpunkte mit viel Wasser/Wald/Grün in der Umgebung
+     (Summenfeld über `landscape.png`), innerhalb der Umweg-Ellipse um Start/Ziel, nicht direkt am kürzesten Weg.
+  3. Nachbewertung (`score.ts`), Mehrweg-Grenze, Abzug je Mehrweg; Auswahl der besten, untereinander
+     verschiedenen Wege (`DIVERSITY_MAX_OVERLAP`).
+- **Rückweg auf anderem Weg:** Rückweg genauso planen, Paare aus Hin- und Rückweg bilden; Abzug für
+  Überlappung mit dem Hinweg (`SCORE.returnOverlap`).
+- **Landschaftskarte:** `npm run data:landscape` (Overpass, Regierungsbezirk Düsseldorf) → `static/data/landscape.png`
+  (Graustufen 0/85/170/255 = nichts/Grün/Wald/Wasser, ca. 100 m Zellen) + `landscape.json` (Ausdehnung).
+- **Ortssuche:** Photon (`src/lib/geocode/photon.ts`), begrenzt auf die Region, Haltestellen und nahe Doppelte gefiltert.
+- **Karte:** `src/lib/map/RouteMap.svelte` (MapLibre 6, nur ESM; Worker per `?worker&url` + `setWorkerUrl`,
+  `worker.format: 'es'` in `vite.config.ts`), Stil OpenFreeMap „liberty“.
 
 ### Tour anpassen (F6)
 
@@ -240,7 +250,7 @@ Veröffentlichen: Push auf `main` → GitHub Action `.github/workflows/deploy.ym
   als SPA-Ersatzseite, die auch im Offline-Speicher liegt.
 - Beispieltouren für die leeren Screens: `src/lib/tour/sample.ts` (ab M2 durch echte Touren ersetzen).
 - **GraphHopper 11.1** lokal per Java (`routing/start.ps1`); `round_trip` und Anfrage-`custom_model` brauchen
-  `"ch.disable": true`. Ein Anfrage-`custom_model` wird an das Profil `genuss` angehängt (z. B. `gemuetlich.json`).
+  `"ch.disable": true`. Ein Anfrage-`custom_model` wird an das Profil `genuss` angehängt (z. B. „gemütlich“ in `src/lib/routing/custom-models.ts`).
   Fehlendes Tempolimit ist `max_speed = Infinity` → Bedingungen immer nach oben begrenzen.
   Erkenntnisse für M2/M3 (Längen zu kurz, Höhenmeter verrauscht) stehen in `routing/README.md`.
 - PowerShell-Skripte (`*.ps1`) als UTF-8 **mit BOM** speichern, sonst zeigt Windows PowerShell 5.1 Umlaute falsch.

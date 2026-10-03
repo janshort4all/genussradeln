@@ -3,7 +3,14 @@ import { distance, offset, type LngLat } from '$lib/geo/geo';
 import { NONE, WATER } from '$lib/scoring/landscape';
 import { makeLandscape, makePath } from '$lib/scoring/test-helpers';
 import type { TourRequest } from '$lib/tour/model';
-import { extraDistanceText, highlightSentence, titleOptions } from './describe';
+import {
+	extraDistanceText,
+	highlightSentence,
+	sideOf,
+	sideTitle,
+	titleOptions,
+	viaStreetTitle
+} from './describe';
 import { RoutingUnavailableError, type RouteOptions } from './graphhopper';
 import { findScenicVias, planTours } from './plan';
 
@@ -65,6 +72,8 @@ describe('planTours', () => {
 
 	it('plant bei „auf anderem Weg zurück“ Hin- und Rückweg', async () => {
 		const tours = await planTours(request({ returnMode: 'other-way' }), { route: fakeRoute, landscape });
+		// gleicher Hinweg mit anderem Rückweg zählt als eigener Vorschlag
+		expect(tours.length).toBeGreaterThan(1);
 		expect(tours[0].legs).toHaveLength(2);
 		const kinds = tours[0].waypoints.map((w) => w.kind);
 		expect(kinds[0]).toBe('start');
@@ -92,6 +101,25 @@ describe('describe', () => {
 		const text = highlightSentence({ ...base, water: 0.5, forest: 0.3 });
 		expect(text).toBe('Zur Hälfte am Wasser und ein gutes Stück durch den Wald, kaum große Straßen.');
 		expect(text).not.toMatch(/%/);
+	});
+
+	it('benennt Wege nach einer Straße mit passendem Artikel', () => {
+		expect(viaStreetTitle('Uerdinger Straße')).toBe('Über die Uerdinger Straße');
+		expect(viaStreetTitle('Rheindeich')).toBe('Über den Rheindeich');
+		expect(viaStreetTitle('Am Bruch')).toBe('Über „Am Bruch“');
+		expect(viaStreetTitle('Kurkölner Straße')).toBe('Über die Kurkölner Straße');
+	});
+
+	it('beschreibt die Lage eines Wegs als Himmelsrichtung', () => {
+		// Start → Ziel nach Osten; ein Bogen nach Norden liegt „nördlich“
+		const north = offset(offset(start, 90, 3000), 0, 1500);
+		const south = offset(offset(start, 90, 3000), 180, 1500);
+		expect(sideOf([start, north, end], start, end)).toBe('nördlich');
+		expect(sideOf([start, south, end], start, end)).toBe('südlich');
+		expect(sideOf([start, end], start, end)).toBeUndefined();
+		expect(sideTitle('nördlich')).toBe('Nördliche Strecke');
+		expect(sideTitle('östlich')).toBe('Östliche Strecke');
+		expect(sideTitle('nördlich', 'südlich', true)).toBe('Hin nördlich, zurück südlich');
 	});
 
 	it('nennt den Mehrweg', () => {
