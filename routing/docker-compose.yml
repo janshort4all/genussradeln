@@ -1,0 +1,23 @@
+# GraphHopper für den Server (Meilenstein M9). Lokal am PC wird start.ps1 benutzt, Docker ist dort nicht nötig.
+#
+# Vorbereitung auf dem Server: Ordner routing/ hochladen und dort einmal die Daten laden
+# (wie setup.ps1: GraphHopper-JAR und OSM-Auszug nach data/), dann:  docker compose up -d
+#
+# Hinweis: Die App läuft über https (GitHub Pages) und darf deshalb nur https-Adressen abfragen.
+# Vor GraphHopper gehört auf dem Server ein Reverse-Proxy mit Zertifikat (z. B. Caddy) – Einrichtung in M9.
+# Ungetestet bis M9 (u. a. die bind_host-Überschreibung per -Ddw.…).
+
+services:
+  graphhopper:
+    image: eclipse-temurin:21-jre
+    working_dir: /routing
+    volumes:
+      - ./:/routing
+    command: >
+      java -Xms1g -Xmx6g
+      -Ddw.server.application_connectors[0].bind_host=0.0.0.0
+      -jar data/graphhopper-web-11.1.jar server config.yml
+    ports:
+      # nur lokal auf dem Server erreichbar; nach außen geht es über den Reverse-Proxy
+      - '127.0.0.1:8989:8989'
+    restart: unless-stopped

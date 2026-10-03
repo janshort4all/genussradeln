@@ -175,7 +175,8 @@ Jeder Meilenstein endet mit etwas, das man auf dem Handy ausprobieren kann.
 
 - **M0 Grundgerüst:** SvelteKit-PWA, Schriften, Farben, Basis-Komponenten, leere Screens mit Navigation
   zwischen ihnen, Deploy auf GitHub Pages.
-- **M1 Routing lokal:** GraphHopper per Docker mit Regionsauszug, Profil `genuss`, Rundtour-Abfrage funktioniert.
+- **M1 Routing lokal:** GraphHopper lokal (Java; Docker erst für den Server) mit Regionsauszug, Profil `genuss`,
+  Rundtour-Abfrage funktioniert. ✔ erledigt
 - **M2 Vorschläge (F1, F2, F4):** Wunsch-Screen (Dauer oder km) → Rundtour-Kandidaten → Nachbewertung → drei Tourkarten.
 - **M3 Tourdetail (F8, F9):** Karte, Kennzahlen in Worten, Höhenprofil, Stopps nach Kilometer.
 - **M4 Zieltouren & Freitext (F3, F5):** Ziel als Ortsart oder bestimmter Ort, Rückweg anders; Worterkennung mit Tests.
@@ -205,8 +206,14 @@ npm run dev          # App lokal unter http://localhost:5173
 npm run check        # TypeScript- und Svelte-Prüfung
 npm run build        # statischer Build nach build/
 npm run preview      # fertigen Build lokal ansehen
-npm run icons        # App-Symbole aus static/icon.svg neu erzeugen
+npm run icons        # Logo und App-Symbole aus assets/logo-original.png neu erzeugen
+
+npm run routing:setup   # einmalig: GraphHopper + OSM-Auszug nach routing/data/ laden (Java 17+ nötig)
+npm run routing:start   # GraphHopper unter http://localhost:8989 (Testkarte: /maps/), Strg+C beendet
+npm run routing:test    # Rundtour-Test mit Auswertung, GPX nach routing/test-output/
 ```
+
+Details zum Routing: `routing/README.md`.
 
 GitHub-Pages-Build lokal nachstellen (App unter Unterpfad, wie online):
 `$env:BASE_PATH='/genussradeln'; npm run build; npm run preview` → <http://localhost:4173/genussradeln/>
@@ -215,9 +222,7 @@ Online: <https://janshort4all.github.io/genussradeln/> · Repository: <https://g
 
 Veröffentlichen: Push auf `main` → GitHub Action `.github/workflows/deploy.yml` baut und stellt auf GitHub Pages.
 
-GraphHopper lokal (ab M1): `cd routing && docker compose up`
-
-## Technische Hinweise (Stand M0)
+## Technische Hinweise
 
 - **SvelteKit 2** (nicht 3): `@vite-pwa/sveltekit` unterstützt Kit 3 noch nicht (Peer-Dependency `^2`).
   Vor einem Upgrade prüfen, ob das PWA-Plugin nachgezogen hat.
@@ -226,3 +231,8 @@ GraphHopper lokal (ab M1): `cd routing && docker compose up`
 - Seiten werden vorgerendert; unbekannte Pfade (z. B. geteilte `/tour/<id>`-Links) laufen über `404.html`
   als SPA-Ersatzseite, die auch im Offline-Speicher liegt.
 - Beispieltouren für die leeren Screens: `src/lib/tour/sample.ts` (ab M2 durch echte Touren ersetzen).
+- **GraphHopper 11.1** lokal per Java (`routing/start.ps1`); `round_trip` und Anfrage-`custom_model` brauchen
+  `"ch.disable": true`. Ein Anfrage-`custom_model` wird an das Profil `genuss` angehängt (z. B. `gemuetlich.json`).
+  Fehlendes Tempolimit ist `max_speed = Infinity` → Bedingungen immer nach oben begrenzen.
+  Erkenntnisse für M2/M3 (Längen zu kurz, Höhenmeter verrauscht) stehen in `routing/README.md`.
+- PowerShell-Skripte (`*.ps1`) als UTF-8 **mit BOM** speichern, sonst zeigt Windows PowerShell 5.1 Umlaute falsch.

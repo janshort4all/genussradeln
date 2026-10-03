@@ -18,6 +18,10 @@ Thumbs.db
 !.env.example
 !.env.test
 
+# Routing: GraphHopper, Kartenauszug, aufbereitete Daten, Höhendaten, Testausgaben (groß, jederzeit neu ladbar)
+routing/data/
+routing/test-output/
+
 # PWA-Entwicklungsdateien
 dev-dist
 

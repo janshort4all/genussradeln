@@ -10,7 +10,10 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"icons": "node scripts/make-logo.mjs"
+		"icons": "node scripts/make-logo.mjs",
+		"routing:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File routing/setup.ps1",
+		"routing:start": "powershell -NoProfile -ExecutionPolicy Bypass -File routing/start.ps1",
+		"routing:test": "node routing/test-roundtrip.mjs"
 	},
 	"devDependencies": {
 		"@lucide/svelte": "^1.51.0",

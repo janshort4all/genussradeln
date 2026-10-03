@@ -1,0 +1,70 @@
+# GraphHopper-Konfiguration für Genuss-Radeln (GraphHopper 11.1)
+# Vorlage: https://github.com/graphhopper/graphhopper/blob/11.1/config-example.yml
+# Pfade sind relativ zum Ordner routing/ (dort wird GraphHopper gestartet).
+
+graphhopper:
+  # OSM-Auszug Regierungsbezirk Düsseldorf (Geofabrik), wird von setup.ps1 geladen
+  datareader.file: data/duesseldorf-regbez-latest.osm.pbf
+  graph.location: data/graph-cache
+  datareader.preferred_language: de
+
+  custom_models.directory: custom_models
+
+  profiles:
+    # Hauptprofil der App
+    - name: genuss
+      custom_model_files: [genuss.json]
+    # Normales GraphHopper-Fahrradprofil – nur zum Vergleich beim Testen
+    - name: bike
+      custom_model_files: [bike.json, bike_elevation.json]
+
+  # Rundtouren und Anfragen mit eigenem custom_model brauchen den flexiblen Modus → keine CH-Vorbereitung
+  profiles_ch: []
+  profiles_lm: []
+
+  # Straßenmerkmale, die beim Import gespeichert werden (für Profile, Nachbewertung und F7 „Schönere Strecke“)
+  graph.encoded_values: bike_priority, bike_access, roundabout, bike_average_speed, bike_road_access, foot_road_access, average_slope, max_slope, mtb_rating, hike_rating, country, road_class, road_environment, surface, smoothness, track_type, bike_network, max_speed, get_off_bike
+
+  # Höhendaten für „Steigung: flach / hügelig“ und Höhenprofil
+  graph.elevation.provider: cgiar
+  graph.elevation.cache_dir: data/elevation
+  graph.elevation.dataaccess: RAM_STORE
+  graph.elevation.interpolate: bilinear
+  graph.elevation.edge_smoothing: moving_average
+  graph.elevation.edge_smoothing.moving_average.window_size: 150
+  graph.elevation.long_edge_sampling_distance: 60
+  graph.elevation.way_point_max_distance: 10
+
+  prepare.min_network_size: 200
+  prepare.subnetworks.threads: 1
+
+  routing.snap_preventions_default: tunnel, bridge, ferry
+  routing.non_ch.max_waypoint_distance: 200000
+  # Schutz vor sehr langen Berechnungen im flexiblen Modus
+  routing.max_visited_nodes: 4000000
+  routing.timeout_ms: 30000
+
+  # Autobahnen und Kraftfahrstraßen sind fürs Rad ohnehin tabu → gar nicht erst importieren
+  import.osm.ignored_highways: motorway,trunk
+
+  graph.dataaccess.default_type: RAM_STORE
+
+server:
+  application_connectors:
+    - type: http
+      port: 8989
+      # lokal: nur vom eigenen PC erreichbar
+      bind_host: localhost
+      max_request_header_size: 50k
+  request_log:
+    appenders: []
+  admin_connectors:
+    - type: http
+      port: 8990
+      bind_host: localhost
+
+logging:
+  appenders:
+    - type: console
+      time_zone: Europe/Berlin
+      log_format: "%d{HH:mm:ss} %-5level %logger{20} - %msg%n"

@@ -1,0 +1,49 @@
+// Profil „genuss“ – schöne, ruhige Radstrecken für E-Bike-Fahrer.
+// Basis: offizielles GraphHopper-Fahrradprofil (bike.json, Version 11.1), ergänzt um Vorlieben für Genuss-Radeln.
+// „gemütlich“ (Steigungen meiden) schickt die App pro Anfrage als zusätzliches custom_model mit.
+// Benötigte graph.encoded_values: siehe ../config.yml
+{
+  "distance_influence": 50,
+  "priority": [
+    // --- aus bike.json übernommen: Zugang und Grundeignung für Räder ---
+    { "if": "true", "multiply_by": "bike_priority" },
+    { "if": "bike_road_access == PRIVATE || bike_road_access == DESTINATION", "multiply_by": "0.1" },
+    { "if": "mtb_rating > 1", "multiply_by": "0" },
+    { "if": "hike_rating > 1", "multiply_by": "0" },
+    { "if": "country == DEU && road_class == BRIDLEWAY && bike_road_access != YES", "multiply_by": "0" },
+    { "if": "!bike_access && (!backward_bike_access || roundabout)", "multiply_by": "0" },
+    { "else_if": "!bike_access && backward_bike_access", "multiply_by": "0.2" },
+
+    // --- Genuss: ausgeschilderte Radnetze (z. B. Knotenpunktnetz NRW) bevorzugen ---
+    { "if": "bike_network != MISSING", "multiply_by": "1.5" },
+
+    // --- Genuss: große Straßen meiden (Radwege daneben stecken schon in bike_priority) ---
+    { "if": "road_class == TRUNK || road_class == PRIMARY", "multiply_by": "0.3" },
+    { "else_if": "road_class == SECONDARY", "multiply_by": "0.5" },
+    { "else_if": "road_class == TERTIARY", "multiply_by": "0.8" },
+    // schneller Autoverkehr (fehlendes Tempolimit ist „unendlich“ und zählt hier nicht)
+    { "if": "max_speed > 60 && max_speed <= 150", "multiply_by": "0.7" },
+
+    // --- Genuss: ruhige Wege bevorzugen ---
+    { "if": "road_class == CYCLEWAY || road_class == TRACK || road_class == LIVING_STREET", "multiply_by": "1.2" },
+
+    // --- Genuss: schlechten Belag meiden (E-Bike, Komfort) ---
+    { "if": "surface == SAND || surface == GRASS || surface == DIRT || surface == GROUND", "multiply_by": "0.4" },
+    { "else_if": "surface == COBBLESTONE || surface == GRAVEL", "multiply_by": "0.6" },
+    { "if": "smoothness == BAD", "multiply_by": "0.6" },
+    { "else_if": "smoothness == VERY_BAD || smoothness == HORRIBLE || smoothness == VERY_HORRIBLE || smoothness == IMPASSABLE", "multiply_by": "0.2" },
+    { "if": "track_type == GRADE4 || track_type == GRADE5", "multiply_by": "0.3" },
+    { "else_if": "track_type == GRADE3", "multiply_by": "0.7" }
+  ],
+  "speed": [
+    // --- aus bike.json und bike_elevation.json übernommen ---
+    { "if": "true", "limit_to": "bike_average_speed" },
+    { "if": "!bike_access && backward_bike_access", "limit_to": "6" },
+    { "if": "bike_road_access == PRIVATE || bike_road_access == DESTINATION", "limit_to": "6" },
+    { "if": "average_slope >= 15", "limit_to": "3" },
+    { "else_if": "average_slope >= 12", "limit_to": "6" },
+    { "else_if": "average_slope >= 8", "multiply_by": "0.80" },
+    { "else_if": "average_slope >= 4", "multiply_by": "0.90" },
+    { "else_if": "average_slope <= -4", "multiply_by": "1.10" }
+  ]
+}
