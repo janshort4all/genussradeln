@@ -51,6 +51,15 @@ node routing/test-roundtrip.mjs --start 51.4596,6.6228 --vergleich
 Die Tabelle zeigt je Tour Länge, Höhenmeter und Anteile (Radnetz, ruhige Wege, große Straßen,
 schlechter Belag). Jede Tour liegt als GPX-Datei in `routing/test-output/`.
 
+**Touren auf der Karte ansehen:**
+
+```
+npm run routing:karte
+```
+
+Öffnet <http://localhost:8100> im Browser: alle Touren des letzten Tests auf einer Karte, einzeln ein-/ausblendbar,
+Abschnitte auf großen Straßen rot markiert. Beenden mit Strg+C.
+
 ## Dateien
 
 | Datei | Zweck |

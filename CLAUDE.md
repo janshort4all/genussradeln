@@ -211,6 +211,7 @@ npm run icons        # Logo und App-Symbole aus assets/logo-original.png neu erz
 npm run routing:setup   # einmalig: GraphHopper + OSM-Auszug nach routing/data/ laden (Java 17+ nötig)
 npm run routing:start   # GraphHopper unter http://localhost:8989 (Testkarte: /maps/), Strg+C beendet
 npm run routing:test    # Rundtour-Test mit Auswertung, GPX nach routing/test-output/
+npm run routing:karte   # Touren des letzten Tests auf einer Karte (http://localhost:8100)
 ```
 
 Details zum Routing: `routing/README.md`.

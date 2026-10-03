@@ -13,7 +13,8 @@
 		"icons": "node scripts/make-logo.mjs",
 		"routing:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File routing/setup.ps1",
 		"routing:start": "powershell -NoProfile -ExecutionPolicy Bypass -File routing/start.ps1",
-		"routing:test": "node routing/test-roundtrip.mjs"
+		"routing:test": "node routing/test-roundtrip.mjs",
+		"routing:karte": "node routing/show-map.mjs --oeffnen"
 	},
 	"devDependencies": {
 		"@lucide/svelte": "^1.51.0",

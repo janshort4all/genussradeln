@@ -12,6 +12,12 @@
 			"runtimeExecutable": "cmd",
 			"runtimeArgs": ["/c", "set BASE_PATH=/genussradeln&& npm run preview -- --port 4173 --strictPort"],
 			"port": 4173
+		},
+		{
+			"name": "routing-karte",
+			"runtimeExecutable": "node",
+			"runtimeArgs": ["routing/show-map.mjs"],
+			"port": 8100
 		}
 	]
 }
