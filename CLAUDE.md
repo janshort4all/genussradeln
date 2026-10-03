@@ -177,12 +177,19 @@ Jeder Meilenstein endet mit etwas, das man auf dem Handy ausprobieren kann.
   zwischen ihnen, Deploy auf GitHub Pages.
 - **M1 Routing lokal:** GraphHopper lokal (Java; Docker erst für den Server) mit Regionsauszug, Profil `genuss`,
   Rundtour-Abfrage funktioniert. ✔ erledigt
-- **M2 Vorschläge (F1, F2, F4):** Wunsch-Screen (Dauer oder km) → Rundtour-Kandidaten → Nachbewertung → drei Tourkarten.
+> **Schwerpunkt (Entscheidung 03.10.2026):** Die meisten Menschen wissen, wohin sie wollen. Kern der App ist daher
+> „Ziel eingeben → die App baut den schönsten Weg dorthin“. Rundtouren sind die Nebensache.
+> Reihenfolge deshalb umgestellt; alle 16 Funktionen bleiben. Testen bis M9 am PC (Routing lokal).
+
+- **M2 Zieltour (F1, F3 bestimmter Ort, F4 für Ziele):** Start (Standort/Adresse) + Ziel suchen (Photon),
+  „Wie viel Umweg für mehr Schönheit?“ (direkt / etwas schöner / am schönsten), 2–3 Wegvarianten mit `genuss`,
+  Nachbewertung, Darstellung auf echter Karte (MapLibre); Rückweg „nur hin“ / „auf anderem Weg zurück“.
 - **M3 Tourdetail (F8, F9):** Karte, Kennzahlen in Worten, Höhenprofil, Stopps nach Kilometer.
-- **M4 Zieltouren & Freitext (F3, F5):** Ziel als Ortsart oder bestimmter Ort, Rückweg anders; Worterkennung mit Tests.
-- **M5 Anpassen & Selbst planen (F6, F16):** Wegpunkt-Modell, kürzer/länger, Stopp hinzufügen, Abschnitt meiden,
-  Rückgängig; Punkte setzen und Strecke ziehen (PC).
-- **M5b Schönere Strecke (F7):** Schwachstellen finden, Umfahrungen berechnen, grüne Variante anzeigen, Übernehmen/Nein danke.
+- **M4 Anpassen & Selbst planen (F6, F16):** Wegpunkt-Modell, Zwischenziele, kürzer/länger, Stopp hinzufügen,
+  Abschnitt meiden, Rückgängig; Punkte setzen und Strecke ziehen (PC).
+- **M4b Schönere Strecke (F7):** Schwachstellen finden, Umfahrungen berechnen, grüne Variante anzeigen, Übernehmen/Nein danke.
+- **M5 Rundtouren & Freitext (F2, F4 Rundtour, F3 Ortsart, F5):** Rundtour-Vorschläge nach Dauer/km, Ziel als Ortsart
+  („ein Biergarten“), Worterkennung mit Tests.
 - **M6 Navigation (F10):** Positionsverfolgung, Abbiegeanzeige, Sprachansagen, Off-Route-Hinweis, Wake Lock, dunkle Ansicht.
 - **M7 Offline & Export (F11, F12):** Tour inkl. Kartenkacheln vorab cachen, GPX-Export.
 - **M8 Merken, Teilen, Akku (F13, F14, F15):** IndexedDB, Teilen-Link ohne Konto; Akkugröße (z. B. 400/500/625/750 Wh)
