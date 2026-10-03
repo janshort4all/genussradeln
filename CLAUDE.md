@@ -193,7 +193,7 @@ Jeder Meilenstein endet mit etwas, das man auf dem Handy ausprobieren kann.
 
 - **M2 Zieltour (F1, F3 bestimmter Ort, F4 für Ziele):** Start (Standort/Adresse) + Ziel suchen (Photon),
   „Wie viel Umweg für mehr Schönheit?“ (direkt / etwas schöner / am schönsten), 2–3 Wegvarianten mit `genuss`,
-  Nachbewertung, Darstellung auf echter Karte (MapLibre); Rückweg „nur hin“ / „auf anderem Weg zurück“.
+  Nachbewertung, Darstellung auf echter Karte (MapLibre); Rückweg „nur hin“ / „auf anderem Weg zurück“. ✔ erledigt
 - **M3 Tourdetail (F8, F9):** Karte, Kennzahlen in Worten, Höhenprofil, Stopps nach Kilometer.
 - **M4 Anpassen & Selbst planen (F6, F16):** Wegpunkt-Modell, Zwischenziele, kürzer/länger, Stopp hinzufügen,
   Abschnitt meiden, Rückgängig; Punkte setzen und Strecke ziehen (PC).
@@ -221,6 +221,8 @@ Jeder Meilenstein endet mit etwas, das man auf dem Handy ausprobieren kann.
 npm install          # Abhängigkeiten installieren (einmalig bzw. nach Änderungen an package.json)
 npm run dev          # App lokal unter http://localhost:5173
 npm run check        # TypeScript- und Svelte-Prüfung
+npm test             # Unit-Tests (Vitest, Dateien *.test.ts in src/)
+npm run data:landscape  # Landschaftskarte (Wasser/Wald/Grün) aus OSM neu erzeugen → static/data/ (dauert, Overpass)
 npm run build        # statischer Build nach build/
 npm run preview      # fertigen Build lokal ansehen
 npm run icons        # Logo und App-Symbole aus assets/logo-original.png neu erzeugen

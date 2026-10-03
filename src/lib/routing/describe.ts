@@ -79,12 +79,16 @@ export function titleOptions(s: RouteStats): string[] {
 	return titles;
 }
 
-/** Ein Satz zum Besonderen, z. B. „Ein gutes Stück am Wasser und ab und zu durch den Wald.“ */
-export function highlightSentence(s: RouteStats): string {
+/**
+ * Ein Satz zum Besonderen, z. B. „Ein gutes Stück am Wasser und ab und zu durch den Wald.“
+ * Ist `title` ein Landschafts-Titel (z. B. „Durch den Wald“), steht diese Landschaft vorne.
+ */
+export function highlightSentence(s: RouteStats, title?: string): string {
+	const ranked = features(s);
+	const named = ranked.findIndex((f) => f.title === title);
+	if (named > 0) ranked.unshift(...ranked.splice(named, 1));
 	// features() liefert nur Anteile ≥ 15 %, amountWord() hat dafür immer ein Wort
-	const parts = features(s)
-		.slice(0, 2)
-		.map((f) => `${amountWord(f.share)} ${f.phrase}`);
+	const parts = ranked.slice(0, 2).map((f) => `${amountWord(f.share)} ${f.phrase}`);
 	let sentence = parts.length ? parts.join(' und ') : 'Ein ruhiger Weg ohne viele Besonderheiten';
 	if (s.major < 0.03) sentence += ', kaum große Straßen';
 	else if (s.major > 0.15) sentence += ', aber ein Stück an größeren Straßen';

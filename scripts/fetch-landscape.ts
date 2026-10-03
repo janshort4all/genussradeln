@@ -126,7 +126,21 @@ async function loadTile(tx: number, ty: number): Promise<OsmElement[]> {
 	const tileH = (BOUNDS.north - BOUNDS.south) / TILES_Y;
 	const s = BOUNDS.south + ty * tileH;
 	const w = BOUNDS.west + tx * tileW;
-	const bbox = `${s},${w},${s + tileH},${w + tileW}`;
+	// Kachel in 2 × 2 Stücke teilen – kleinere Anfragen werden von ausgelasteten Servern eher beantwortet
+	const elements: OsmElement[] = [];
+	for (let sy = 0; sy < 2; sy++) {
+		for (let sx = 0; sx < 2; sx++) {
+			const south = s + (sy * tileH) / 2;
+			const west = w + (sx * tileW) / 2;
+			const bbox = `${south},${west},${south + tileH / 2},${west + tileW / 2}`;
+			elements.push(...(await queryOverpass(bbox, `${tx},${ty}/${sx}${sy}`)));
+		}
+	}
+	await writeFile(cacheFile, JSON.stringify({ elements }));
+	return elements;
+}
+
+async function queryOverpass(bbox: string, label: string): Promise<OsmElement[]> {
 	const query = `[out:json][timeout:300];
 (
   nwr["natural"~"^(water|wood|grassland|heath|wetland)$"](${bbox});
@@ -136,8 +150,9 @@ async function loadTile(tx: number, ty: number): Promise<OsmElement[]> {
 );
 out geom;`;
 
-	for (let attempt = 0; attempt < 9; attempt++) {
-		const server = SERVERS[attempt % SERVERS.length];
+	for (let attempt = 0; attempt < 15; attempt++) {
+		// Hauptserver bevorzugen, Ausweichserver nur jeder dritte Versuch
+		const server = attempt % 3 === 2 ? SERVERS[1 + ((attempt / 3) | 0) % 2] : SERVERS[0];
 		try {
 			const response = await fetch(server, {
 				method: 'POST',
@@ -146,20 +161,18 @@ out geom;`;
 					'User-Agent': 'Genuss-Radeln/0.1 (Testprojekt, einmaliger Export)'
 				},
 				body: 'data=' + encodeURIComponent(query),
-				signal: AbortSignal.timeout(330_000)
+				signal: AbortSignal.timeout(200_000)
 			});
 			if (!response.ok) throw new Error(`HTTP ${response.status}`);
-			const text = await response.text();
-			const json = JSON.parse(text);
+			const json = await response.json();
 			if (json.remark?.includes('error')) throw new Error(json.remark);
-			await writeFile(cacheFile, text);
 			return json.elements;
 		} catch (error) {
-			console.log(`  Kachel ${tx},${ty}: ${server} fehlgeschlagen (${(error as Error).message}), neuer Versuch …`);
+			console.log(`  Stück ${label}: ${server} fehlgeschlagen (${(error as Error).message}), neuer Versuch …`);
 			await new Promise((resolve) => setTimeout(resolve, 5000 * (attempt + 1)));
 		}
 	}
-	throw new Error(`Kachel ${tx},${ty} konnte nicht geladen werden.`);
+	throw new Error(`Stück ${label} konnte nicht geladen werden.`);
 }
 
 function toPoints(geometry: { lat: number; lon: number }[] | undefined): Point[] {
@@ -238,7 +251,10 @@ function fillEvenOdd(rings: Point[][], value: number) {
 	}
 }
 
-/** Flüsse und Kanäle als Linie mit einer Zelle Puffer (falls die Wasserfläche fehlt) */
+/**
+ * Flüsse und Kanäle als Linie (falls die Wasserfläche fehlt), eine Zelle breit.
+ * Die Nähe-Prüfung beim Bewerten (SURROUNDINGS_RADIUS_CELLS) sorgt für den Uferbereich.
+ */
 function rasterizeLine(element: OsmElement, value: number) {
 	const lines =
 		element.type === 'way'
@@ -254,7 +270,7 @@ function rasterizeLine(element: OsmElement, value: number) {
 				const y = y1 + ((y2 - y1) * s) / steps;
 				const row = Math.floor((BOUNDS.north - y) / CELL_LAT);
 				const col = Math.floor((x - BOUNDS.west) / CELL_LON);
-				for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) setCell(row + dr, col + dc, value);
+				setCell(row, col, value);
 			}
 		}
 	}

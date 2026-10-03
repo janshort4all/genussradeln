@@ -79,6 +79,11 @@ export const VIA_SEARCH = {
 	minSpacingM: 1500,
 	/** Mindestabstand zu Start und Ziel (Anteil der Luftlinie) */
 	minFromEndsRatio: 0.15,
+	/**
+	 * Zwischenpunkte nur „zwischen“ Start und Ziel: Lage entlang der Luftlinie als Anteil (0 = Start, 1 = Ziel).
+	 * Verhindert Wege, die erst über das Ziel hinaus (oder hinter den Start) fahren und dann zurückkommen.
+	 */
+	alongRange: [0.15, 0.85] as [number, number],
 	/** Mindestabstand zum direkten Weg (sonst bringt der Umweg nichts) */
 	minFromDirectM: 400,
 	/** Umweg-Schätzung: Straßenweg ≈ Luftlinie × Faktor */

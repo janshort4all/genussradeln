@@ -96,12 +96,21 @@ export function findScenicVias(
 	const c0 = Math.max(0, landscape.colOf(west));
 	const c1 = Math.min(landscape.meta.width - 1, landscape.colOf(east));
 
+	// Lage entlang der Luftlinie (lokal flach gerechnet): 0 = Start, 1 = Ziel
+	const kx = Math.cos((start[1] * Math.PI) / 180);
+	const ax = (end[0] - start[0]) * kx;
+	const ay = end[1] - start[1];
+	const axisLen2 = ax * ax + ay * ay;
+	const [minAlong, maxAlong] = VIA_SEARCH.alongRange;
+
 	const found: { point: LngLat; beauty: number }[] = [];
 	for (let row = r0; row <= r1; row += step) {
 		for (let col = c0; col <= c1; col += step) {
 			// Zwischenpunkt auf festem Boden, nicht mitten im See
 			if (landscape.cell(row, col) === WATER) continue;
 			const point = landscape.cellCenter(row, col);
+			const along = ((point[0] - start[0]) * kx * ax + (point[1] - start[1]) * ay) / axisLen2;
+			if (along < minAlong || along > maxAlong) continue;
 			const dStart = distance(start, point);
 			const dEnd = distance(point, end);
 			if (dStart + dEnd > maxSum) continue;
@@ -309,7 +318,7 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 			id: newTourId(),
 			title,
 			label,
-			highlight: highlightSentence(stats),
+			highlight: highlightSentence(stats, title),
 			request,
 			waypoints,
 			legs: combo.legs.map((l) => ({ coordinates: l.path.coordinates, distance: l.path.distance })),

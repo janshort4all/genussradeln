@@ -73,9 +73,9 @@
 				});
 				instance.addControl(new maplibre.NavigationControl({ showCompass: false }), 'top-right');
 				instance.on('error', (event) => console.warn('Karte:', event.error?.message));
-				instance.on('load', () => {
-					loaded = true;
-				});
+				// Wege zeichnen, sobald der Kartenstil da ist – nicht erst, wenn alle Kacheln geladen sind
+				instance.once('style.load', () => (loaded = true));
+				instance.once('load', () => (loaded = true));
 				for (const marker of markers) {
 					const element = document.createElement('div');
 					element.className = `map-marker ${marker.kind}`;

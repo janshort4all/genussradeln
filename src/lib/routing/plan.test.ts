@@ -53,6 +53,16 @@ describe('findScenicVias', () => {
 		}
 	});
 
+	it('legt Zwischenpunkte nie hinter das Ziel oder vor den Start', () => {
+		// See östlich hinter dem Ziel (Ziel liegt in Spalte ≈ 124)
+		const behind = makeLandscape((row, col) => (row >= 70 && row <= 85 && col > 128 && col < 150 ? WATER : NONE));
+		const vias = findScenicVias(behind, start, end, 12_000, [start, end], 5);
+		for (const via of vias) {
+			expect(distance(via, end)).toBeLessThan(distance(start, end));
+			expect(distance(via, start)).toBeLessThan(distance(start, end));
+		}
+	});
+
 	it('sucht keine Zwischenpunkte, wenn kein Umweg erlaubt ist', () => {
 		expect(findScenicVias(landscape, start, end, 6000, [start, end], 5)).toEqual([]);
 	});
@@ -101,6 +111,10 @@ describe('describe', () => {
 		const text = highlightSentence({ ...base, water: 0.5, forest: 0.3 });
 		expect(text).toBe('Zur Hälfte am Wasser und ein gutes Stück durch den Wald, kaum große Straßen.');
 		expect(text).not.toMatch(/%/);
+		// der Titel-gebende Teil steht vorne
+		expect(highlightSentence({ ...base, water: 0.5, forest: 0.3 }, 'Durch den Wald')).toBe(
+			'Ein gutes Stück durch den Wald und zur Hälfte am Wasser, kaum große Straßen.'
+		);
 	});
 
 	it('benennt Wege nach einer Straße mit passendem Artikel', () => {
