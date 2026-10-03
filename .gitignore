@@ -21,6 +21,9 @@ Thumbs.db
 # Routing: GraphHopper, Kartenauszug, aufbereitete Daten, Höhendaten, Testausgaben (groß, jederzeit neu ladbar)
 routing/data/
 routing/test-output/
+# Zwischenspeicher der Datenskripte (Overpass-Antworten)
+scripts/.cache/
+scripts/*.log
 
 # PWA-Entwicklungsdateien
 dev-dist

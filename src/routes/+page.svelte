@@ -1,127 +1,132 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { asset, resolve } from '$app/paths';
-	import Binoculars from '@lucide/svelte/icons/binoculars';
-	import Clock3 from '@lucide/svelte/icons/clock-3';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import Feather from '@lucide/svelte/icons/feather';
-	import Flag from '@lucide/svelte/icons/flag';
 	import LocateFixed from '@lucide/svelte/icons/locate-fixed';
 	import MapPin from '@lucide/svelte/icons/map-pin';
-	import Mic from '@lucide/svelte/icons/mic';
 	import Repeat from '@lucide/svelte/icons/repeat';
-	import Route from '@lucide/svelte/icons/route';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import Sprout from '@lucide/svelte/icons/sprout';
-	import Sun from '@lucide/svelte/icons/sun';
-	import Timer from '@lucide/svelte/icons/timer';
-	import Trees from '@lucide/svelte/icons/trees';
 	import TrendingUp from '@lucide/svelte/icons/trending-up';
-	import WavesHorizontal from '@lucide/svelte/icons/waves-horizontal';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import Button from '$lib/components/Button.svelte';
 	import ChoiceGroup from '$lib/components/ChoiceGroup.svelte';
+	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
+	import { distance } from '$lib/geo/geo';
+	import { currentPosition, PositionError } from '$lib/geo/position';
+	import { inRegion } from '$lib/geocode/photon';
+	import type { Effort } from '$lib/routing/graphhopper';
+	import type { DetourLevel } from '$lib/scoring/weights';
+	import type { Place, ReturnMode } from '$lib/tour/model';
+	import { session } from '$lib/tour/session.svelte';
 
-	// Tourwunsch (F1, F2, F3, F5) – wird ab M2 an die Tourberechnung übergeben
-	let start = $state('here');
-	let address = $state('');
-	let tourType = $state('round');
-	let destination = $state('');
-	let returnWay = $state('other-way');
-	let measure = $state<'duration' | 'distance'>('duration');
-	let duration = $state('2h');
-	let distance = $state('30');
-	let effort = $state('easy');
-	let landscape = $state<string[]>(['green']);
-	let freeText = $state('');
+	// Zieltour-Wunsch (F1, F3). Vorbelegt mit dem letzten Wunsch, falls man zurückkommt.
+	const last = session.request;
+	let destination: Place | undefined = $state(last?.destination);
+	let startMode: 'here' | 'address' = $state(last && last.start.name !== 'Ihr Standort' ? 'address' : 'here');
+	let startPlace: Place | undefined = $state(last && last.start.name !== 'Ihr Standort' ? last.start : undefined);
+	let detour: DetourLevel = $state(last?.detour ?? 'nicer');
+	let returnMode: ReturnMode = $state(last?.returnMode ?? 'one-way');
+	let effort: Effort = $state(last?.effort ?? 'easy');
 
-	function submit(event: SubmitEvent) {
+	let busy = $state(false);
+	let problem = $state('');
+
+	async function submit(event: SubmitEvent) {
 		event.preventDefault();
+		problem = '';
+		if (!destination) {
+			problem = 'Bitte suchen Sie zuerst Ihr Ziel und tippen Sie es in der Liste an.';
+			return;
+		}
+		let start: Place;
+		if (startMode === 'address') {
+			if (!startPlace) {
+				problem = 'Bitte suchen Sie Ihren Startpunkt und tippen Sie ihn in der Liste an.';
+				return;
+			}
+			start = startPlace;
+		} else {
+			busy = true;
+			try {
+				start = { name: 'Ihr Standort', lngLat: await currentPosition() };
+			} catch (error) {
+				problem = error instanceof PositionError ? error.message : 'Ihr Standort ließ sich nicht bestimmen.';
+				startMode = 'address';
+				return;
+			} finally {
+				busy = false;
+			}
+			if (!inRegion(start.lngLat)) {
+				problem =
+					'Sie sind gerade außerhalb der Testregion (Niederrhein / Düsseldorf). Bitte geben Sie einen Startpunkt in der Region ein.';
+				startMode = 'address';
+				return;
+			}
+		}
+		if (distance(start.lngLat, destination.lngLat) < 300) {
+			problem = 'Start und Ziel liegen sehr nah beieinander. Bitte wählen Sie ein anderes Ziel.';
+			return;
+		}
+		session.setRequest({ start, destination, detour, effort, returnMode });
 		goto(resolve('/vorschlaege'));
 	}
 </script>
 
 <svelte:head>
-	<title>Genuss-Radeln – Tour finden</title>
+	<title>Genuss-Radeln – Wohin möchten Sie?</title>
 </svelte:head>
 
 <header class="intro">
 	<img class="logo" src={asset('/logo.webp')} alt="Genuss-Radeln" width="640" height="640" />
-	<h1>Worauf haben Sie heute Lust?</h1>
-	<p class="lead">Sagen Sie uns Ihren Wunsch – wir schlagen Ihnen drei schöne Touren vor.</p>
+	<h1>Wohin möchten Sie?</h1>
+	<p class="lead">Wir bauen Ihnen den schönsten Weg dorthin.</p>
 </header>
 
-<form onsubmit={submit}>
+<form onsubmit={submit} novalidate>
+	<PlaceSearch
+		label="Ihr Ziel"
+		placeholder="z. B. Burg Linn oder eine Adresse"
+		hint="Ort, Ausflugsziel oder Adresse eingeben und dann in der Liste antippen."
+		bind:value={destination}
+		near={startPlace?.lngLat}
+		prominent
+	/>
+
 	<ChoiceGroup
 		legend="Wo starten Sie?"
 		name="start"
-		bind:value={start}
+		bind:value={startMode}
 		choices={[
 			{ value: 'here', label: 'Hier, wo ich bin', icon: LocateFixed },
 			{ value: 'address', label: 'An einer Adresse', icon: MapPin }
 		]}
 	/>
-	{#if start === 'address'}
-		<label class="field">
-			<span class="field-label">Adresse oder Ort</span>
-			<input type="text" bind:value={address} placeholder="z. B. Duisburg-Baerl" autocomplete="street-address" />
-		</label>
+	{#if startMode === 'address'}
+		<PlaceSearch label="Startpunkt" placeholder="z. B. Ihre Straße und Hausnummer" bind:value={startPlace} />
 	{/if}
 
 	<ChoiceGroup
-		legend="Was für eine Tour?"
-		name="tour-type"
-		bind:value={tourType}
+		legend="Wie viel Umweg für mehr Schönheit?"
+		name="detour"
+		bind:value={detour}
 		choices={[
-			{ value: 'round', label: 'Rundtour', icon: Repeat },
-			{ value: 'destination', label: 'Zu einem Ziel', icon: Flag }
+			{ value: 'direct', label: 'Direkt', icon: ArrowRight },
+			{ value: 'nicer', label: 'Etwas schöner', icon: Sprout },
+			{ value: 'nicest', label: 'Am schönsten', icon: Sparkles }
 		]}
 	/>
-	{#if tourType === 'destination'}
-		<label class="field">
-			<span class="field-label">Wohin möchten Sie?</span>
-			<input type="text" bind:value={destination} placeholder="z. B. ein Biergarten" />
-			<span class="field-hint">Eine Art von Ort („ein Café“) oder ein bestimmter Ort („Biergarten am See“).</span>
-		</label>
-		<ChoiceGroup
-			legend="Und zurück?"
-			name="return-way"
-			bind:value={returnWay}
-			choices={[
-				{ value: 'other-way', label: 'Auf anderem Weg zurück' },
-				{ value: 'one-way', label: 'Nur hin' }
-			]}
-		/>
-	{/if}
 
-	{#if measure === 'duration'}
-		<ChoiceGroup
-			legend="Wie lange möchten Sie fahren?"
-			name="duration"
-			bind:value={duration}
-			choices={[
-				{ value: '1h', label: '1 Std.', icon: Timer },
-				{ value: '2h', label: '2 Std.', icon: Clock3 },
-				{ value: 'half-day', label: 'Halber Tag', icon: Sun }
-			]}
-		/>
-	{:else}
-		<ChoiceGroup
-			legend="Wie weit möchten Sie fahren?"
-			name="distance"
-			bind:value={distance}
-			choices={[
-				{ value: '15', label: '15 km', icon: Route },
-				{ value: '30', label: '30 km', icon: Route },
-				{ value: '50', label: '50 km', icon: Route }
-			]}
-		/>
-	{/if}
-	<button
-		type="button"
-		class="switch-measure"
-		onclick={() => (measure = measure === 'duration' ? 'distance' : 'duration')}
-	>
-		{measure === 'duration' ? 'Lieber in Kilometern angeben' : 'Lieber als Dauer angeben'}
-	</button>
+	<ChoiceGroup
+		legend="Und zurück?"
+		name="return"
+		bind:value={returnMode}
+		choices={[
+			{ value: 'one-way', label: 'Nur hin', icon: ArrowRight },
+			{ value: 'other-way', label: 'Auf anderem Weg zurück', icon: Undo2 }
+		]}
+	/>
 
 	<ChoiceGroup
 		legend="Wie anstrengend?"
@@ -133,30 +138,20 @@
 		]}
 	/>
 
-	<ChoiceGroup
-		legend="Was möchten Sie sehen? (mehrere möglich)"
-		name="landscape"
-		multiple
-		bind:value={landscape}
-		choices={[
-			{ value: 'green', label: 'Grün', icon: Sprout },
-			{ value: 'water', label: 'Wasser', icon: WavesHorizontal },
-			{ value: 'forest', label: 'Wald', icon: Trees },
-			{ value: 'view', label: 'Aussicht', icon: Binoculars }
-		]}
-	/>
+	<p class="problem" role="alert">{problem}</p>
 
-	<label class="field free-text">
-		<span class="field-label">Oder sagen Sie es in eigenen Worten</span>
-		<textarea rows="2" bind:value={freeText} placeholder="z. B. 20 km durchs Grüne zum Biergarten"></textarea>
-		<span class="field-hint mic-hint">
-			<Mic size={20} aria-hidden="true" />
-			Tipp: Tippen Sie auf das Mikrofon Ihrer Tastatur und sprechen Sie einfach.
-		</span>
-	</label>
-
-	<Button variant="primary" type="submit" icon={Sparkles}>Touren vorschlagen</Button>
+	<Button variant="primary" type="submit" icon={Sparkles} disabled={busy}>
+		{busy ? 'Standort wird bestimmt …' : 'Schönsten Weg finden'}
+	</Button>
 </form>
+
+<aside class="round-trip">
+	<p>Kein bestimmtes Ziel?</p>
+	<a href={resolve('/runde')}>
+		<Repeat size={22} aria-hidden="true" />
+		Einfach eine schöne Runde drehen
+	</a>
+</aside>
 
 <style>
 	.intro {
@@ -166,7 +161,7 @@
 	/* Logo-Hintergrund ist dieselbe Creme-Farbe wie die Seite → wirkt randlos */
 	.logo {
 		display: block;
-		width: min(15rem, 70%);
+		width: min(13rem, 60%);
 		height: auto;
 		margin: 0 auto 0.5rem;
 	}
@@ -176,37 +171,34 @@
 		margin: 0;
 	}
 
-	/* Freitext als eigener, leicht hervorgehobener Bereich */
-	.free-text {
-		padding: 1rem;
+	.problem {
+		margin: 0 0 1rem;
+		color: var(--color-orange-dark);
+		font-weight: 700;
+	}
+
+	.problem:empty {
+		display: none;
+	}
+
+	.round-trip {
+		margin-top: 2rem;
+		padding: 1rem 1.125rem;
 		border-radius: var(--radius);
 		background: var(--color-green-light);
 	}
 
-	.mic-hint {
-		display: flex;
-		align-items: flex-start;
-		gap: 0.375rem;
+	.round-trip p {
+		margin: 0 0 0.25rem;
+		color: var(--color-text-muted);
 	}
 
-	.mic-hint :global(svg) {
-		flex: none;
-		margin-top: 0.15em;
-		color: var(--color-olive);
-	}
-
-	.switch-measure {
+	.round-trip a {
 		display: inline-flex;
 		align-items: center;
+		gap: 0.5rem;
 		min-height: var(--tap);
-		margin: -1rem 0 1.25rem;
-		padding: 0.5rem 0;
-		border: 0;
-		background: none;
 		color: var(--color-green);
 		font-weight: 700;
-		text-decoration: underline;
-		text-underline-offset: 0.15em;
-		cursor: pointer;
 	}
 </style>

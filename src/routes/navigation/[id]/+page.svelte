@@ -9,6 +9,10 @@
 	let { data } = $props();
 	const tour = $derived(data.tour);
 	const nextStop = $derived(tour.stops[0]);
+	// Ankunft, wenn man jetzt losfährt (echte Berechnung unterwegs kommt mit M6)
+	const arrival = $derived(
+		new Date(Date.now() + tour.minutes * 60_000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+	);
 
 	let paused = $state(false);
 </script>
@@ -47,11 +51,11 @@
 	<dl class="status">
 		<div>
 			<dt>Noch</dt>
-			<dd>18 km</dd>
+			<dd>{tour.km.toLocaleString('de-DE')} km</dd>
 		</div>
 		<div>
 			<dt>Ankunft</dt>
-			<dd>ca. 15:40</dd>
+			<dd>ca. {arrival}</dd>
 		</div>
 		{#if nextStop}
 			{@const StopIcon = stopIcons[nextStop.kind].icon}

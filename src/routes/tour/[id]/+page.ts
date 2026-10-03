@@ -1,12 +1,18 @@
 import { error } from '@sveltejs/kit';
-import { findSampleTour, sampleTours } from '$lib/tour/sample';
-import type { EntryGenerator, PageLoad } from './$types';
+import { findSampleTour } from '$lib/tour/sample';
+import { session } from '$lib/tour/session.svelte';
+import { fromPlanned, fromSample } from '$lib/tour/view';
+import type { PageLoad } from './$types';
 
-// M0: nur die Beispieltouren. Ab M2 kommen berechnete Touren aus dem Gerätespeicher bzw. dem Link.
-export const entries: EntryGenerator = () => sampleTours.map((tour) => ({ id: tour.id }));
+// Berechnete Touren liegen nur auf dem Gerät (sessionStorage) → Seite nur im Browser aufbauen.
+// Unbekannte Adressen liefert GitHub Pages über 404.html aus (SPA-Ersatzseite).
+export const ssr = false;
+export const prerender = false;
 
 export const load: PageLoad = ({ params }) => {
-	const tour = findSampleTour(params.id);
-	if (!tour) error(404, 'Diese Tour gibt es nicht.');
-	return { tour };
+	const planned = session.findTour(params.id);
+	if (planned) return { tour: fromPlanned(planned) };
+	const sample = findSampleTour(params.id);
+	if (sample) return { tour: fromSample(sample) };
+	error(404, 'Diese Tour ist nicht mehr da.');
 };

@@ -1,6 +1,6 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 // Gleiche Logik wie paths.base in svelte.config.js (GitHub Pages: /<repo-name>)
 const basePath = process.argv.includes('dev') ? '' : (process.env.BASE_PATH ?? '');
@@ -38,6 +38,7 @@ export default defineConfig({
 			workbox: {
 				globPatterns: [
 					'client/**/*.{js,css,ico,png,svg,webp,woff,woff2,webmanifest}',
+					'client/data/*.json',
 					'prerendered/**/*.{html,json}'
 				]
 			},
@@ -48,5 +49,12 @@ export default defineConfig({
 				spa: true
 			}
 		})
-	]
+	],
+	// MapLibre startet seinen Worker als Modul ({ type: 'module' })
+	worker: {
+		format: 'es'
+	},
+	test: {
+		include: ['src/**/*.test.ts']
+	}
 });

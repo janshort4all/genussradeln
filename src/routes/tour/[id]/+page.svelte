@@ -13,6 +13,8 @@
 	import LandscapeChip from '$lib/components/LandscapeChip.svelte';
 	import TourScene from '$lib/components/illustrations/TourScene.svelte';
 	import { stopIcons } from '$lib/components/icons';
+	import RouteMap from '$lib/map/RouteMap.svelte';
+	import { routeColor } from '$lib/map/colors';
 	import { formatDuration, stopLabel } from '$lib/tour/sample';
 
 	let { data } = $props();
@@ -22,28 +24,48 @@
 </script>
 
 <svelte:head>
-	<title>Genuss-Radeln – {tour.name}</title>
+	<title>Genuss-Radeln – {tour.title}</title>
 </svelte:head>
 
-<BackLink href={resolve('/vorschlaege')} label="Zurück zu den Vorschlägen" />
+{#if tour.backHref === 'vorschlaege'}
+	<BackLink href={resolve('/vorschlaege')} label="Zurück zu den Wegen" />
+{:else}
+	<BackLink href={resolve('/runde/vorschlaege')} label="Zurück zu den Beispielen" />
+{/if}
 
-<div class="map" role="img" aria-label="Karte der Tour (folgt in einem späteren Schritt)">
-	<TourScene kind={tour.scene} />
-	<span class="map-note"><MapIcon size={20} aria-hidden="true" /> Karte folgt bald</span>
-</div>
+{#if tour.map.kind === 'route'}
+	<div class="map route">
+		<RouteMap
+			label="Karte mit dem Weg: {tour.subtitle}"
+			routes={[{ id: tour.id, coordinates: tour.map.coordinates, color: routeColor(0) }]}
+			markers={[
+				{ lngLat: tour.map.start, kind: 'start' },
+				{ lngLat: tour.map.destination, kind: 'destination' }
+			]}
+		/>
+	</div>
+{:else}
+	<div class="map" role="img" aria-label="Beispielbild (die echte Karte gibt es bei berechneten Wegen)">
+		<TourScene kind={tour.map.scene} />
+		<span class="map-note"><MapIcon size={20} aria-hidden="true" /> Beispieltour</span>
+	</div>
+{/if}
 
-<h1>{tour.name}</h1>
+<h1>{tour.title}</h1>
+{#if tour.subtitle}<p class="subtitle muted">{tour.subtitle}</p>{/if}
 
-<ul class="tags" aria-label="Landschaft">
-	{#each tour.tags as tag (tag)}
-		<li><LandscapeChip {tag} /></li>
-	{/each}
-</ul>
+{#if tour.tags.length}
+	<ul class="tags" aria-label="Landschaft">
+		{#each tour.tags as tag (tag)}
+			<li><LandscapeChip {tag} /></li>
+		{/each}
+	</ul>
+{/if}
 
 <dl class="facts">
 	<div>
 		<dt><Route size={20} aria-hidden="true" /> Länge</dt>
-		<dd>{tour.km} km</dd>
+		<dd>{tour.km.toLocaleString('de-DE')} km</dd>
 	</div>
 	<div>
 		<dt><Clock size={20} aria-hidden="true" /> Dauer</dt>
@@ -55,10 +77,16 @@
 	</div>
 </dl>
 
-<BatteryHint level={tour.battery} />
+{#if tour.highlight}<p class="highlight">{tour.highlight}</p>{/if}
+{#if tour.extra}<p class="muted">{tour.extra}</p>{/if}
+
+{#if tour.battery}<BatteryHint level={tour.battery} />{/if}
 
 <section class="stops">
 	<h2>Unterwegs erwartet Sie</h2>
+	{#if !tour.stops.length}
+		<p class="muted">Cafés, Bänke, Toiletten und andere Stopps entlang des Wegs zeigen wir hier in Kürze an.</p>
+	{/if}
 	<ol>
 		{#each tour.stops as stop (stop.km)}
 			{@const style = stopIcons[stop.kind]}
@@ -100,6 +128,22 @@
 		border-radius: 1rem;
 		overflow: hidden;
 		border: 1px solid var(--color-border);
+	}
+
+	/* echte Karte: höher, eigener Rahmen kommt von RouteMap */
+	.map.route {
+		height: 17rem;
+		border: 0;
+		overflow: visible;
+	}
+
+	.subtitle {
+		margin: -0.25rem 0 0.75rem;
+	}
+
+	.highlight {
+		margin: 0 0 0.25rem;
+		font-weight: 700;
 	}
 
 	.map-note {
