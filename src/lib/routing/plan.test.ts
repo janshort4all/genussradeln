@@ -12,7 +12,7 @@ import {
 	viaStreetTitle
 } from './describe';
 import { RoutingUnavailableError, type RouteOptions } from './graphhopper';
-import { findScenicVias, planTours } from './plan';
+import { findScenicVias, planTours, sideVias } from './plan';
 
 const start: LngLat = [6.6, 51.33];
 const end: LngLat = offset(start, 90, 6000); // 6 km nach Osten
@@ -78,6 +78,32 @@ describe('planTours', () => {
 		// gemütlich: 15 km/h
 		const km = tours[0].stats.distance / 1000;
 		expect(tours[0].minutes).toBe(Math.round((km / 15) * 60));
+	});
+
+	it('bietet bei „am schönsten“ zusätzlich einen fast direkten Weg an', async () => {
+		// direkter Weg an der Hauptstraße, Umwege über Radwege und am See – die schönen sind alle deutlich länger
+		const route = (points: LngLat[], options: RouteOptions) => {
+			const via = points.length === 3 ? points[1] : undefined;
+			const nearLine = via && Math.abs(via[1] - start[1]) < 0.012; // knapp neben der Luftlinie
+			const paths = [makePath(points, { roadClass: via ? (nearLine ? 'track' : 'cycleway') : 'primary' })];
+			if (options.alternatives) paths.push(makePath([points[0], offset(points[0], 135, 4000), points[1]], { roadClass: 'cycleway' }));
+			return Promise.resolve(paths);
+		};
+		const tours = await planTours(request({ detour: 'nicest' }), { route, landscape });
+		const directKm = 6;
+		const compactTour = tours.find((t) => t.stats.distance / 1000 <= directKm * 1.15 + 1);
+		expect(compactTour).toBeDefined();
+		expect(compactTour!.stats.major).toBe(0); // nicht die Hauptstraße
+	});
+
+	it('legt Zwischenpunkte für „Fast direkt“ knapp neben die Luftlinie', () => {
+		const vias = sideVias(start, end);
+		expect(vias).toHaveLength(4);
+		for (const via of vias) {
+			const offLine = distance(via, [via[0], start[1]]);
+			expect(offLine).toBeGreaterThan(600);
+			expect(offLine).toBeLessThan(800);
+		}
 	});
 
 	it('plant bei „auf anderem Weg zurück“ Hin- und Rückweg', async () => {

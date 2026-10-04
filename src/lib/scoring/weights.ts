@@ -90,6 +90,23 @@ export const VIA_SEARCH = {
 	roadFactor: 1.25
 } as const;
 
+/**
+ * „Fast direkt“: Bei „etwas schöner“ / „am schönsten“ kommt zusätzlich der schönste Weg dazu, der kaum länger
+ * ist als der kürzeste – für alle, die zügig, aber nicht an Hauptstraßen oder durchs Industriegebiet fahren wollen.
+ */
+export const COMPACT = {
+	/** höchstens so viel länger als der direkte genuss-Weg (Anteil) … */
+	maxExtraRatio: 0.15,
+	/** … mindestens aber so viele km Spielraum */
+	minExtraKm: 1,
+	/**
+	 * Zusätzliche Kandidaten knapp neben der Luftlinie: Zwischenpunkte bei diesen Anteilen der Strecke,
+	 * seitlich um diesen Anteil der Luftlinie versetzt (links und rechts).
+	 */
+	sideViaAlong: [0.35, 0.65],
+	sideViaOffsetRatio: 0.12
+} as const;
+
 /** Vorschläge dürfen sich höchstens so stark überdecken (Anteil gemeinsamer Strecke) */
 export const DIVERSITY_MAX_OVERLAP = 0.6;
 

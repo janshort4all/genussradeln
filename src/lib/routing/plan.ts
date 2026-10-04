@@ -6,13 +6,14 @@
  * 3. Nachbewertung (score.ts), Mehrweg begrenzen, die besten untereinander verschiedenen Wege auswählen
  * 4. Bei „auf anderem Weg zurück“: Rückweg ebenso planen und Paare mit wenig Überschneidung bilden
  */
-import { distance, distanceToLine, resample, segmentLengths, type LngLat } from '$lib/geo/geo';
+import { bearing, distance, distanceToLine, offset, resample, segmentLengths, type LngLat } from '$lib/geo/geo';
 import type { Landscape } from '$lib/scoring/landscape';
 import { WATER } from '$lib/scoring/landscape';
 import { mutualOverlap, overlapShare } from '$lib/scoring/overlap';
 import { analyzeRoute, beautyScore, combineStats, lineOf, type RouteStats } from '$lib/scoring/score';
 import {
 	BEAUTY_CLASS_WEIGHTS,
+	COMPACT,
 	DETOUR,
 	DIVERSITY_MAX_OVERLAP,
 	MAX_SUGGESTIONS,
@@ -36,14 +37,42 @@ interface LegCandidate {
 	line: LngLat[];
 	stats: RouteStats;
 	vias: LngLat[];
+	/** reine Schönheitspunkte (ohne Umweg-Abzug) */
+	beauty: number;
+	/** Weg über einen Punkt knapp neben der Luftlinie – nur für „Fast direkt“ gedacht */
+	side: boolean;
 	/** Bewertung inkl. Abzug für Umweg */
 	score: number;
+}
+
+/**
+ * Zwischenpunkte knapp links und rechts der Luftlinie – liefern Wege, die kaum länger sind als der direkte,
+ * aber z. B. südlich statt durchs Industriegebiet führen.
+ */
+export function sideVias(start: LngLat, end: LngLat): LngLat[] {
+	const beeline = distance(start, end);
+	const course = bearing(start, end);
+	const out: LngLat[] = [];
+	for (const along of COMPACT.sideViaAlong) {
+		const onLine: LngLat = [start[0] + (end[0] - start[0]) * along, start[1] + (end[1] - start[1]) * along];
+		for (const side of [-90, 90]) out.push(offset(onLine, course + side, beeline * COMPACT.sideViaOffsetRatio));
+	}
+	return out;
 }
 
 interface DirectionResult {
 	candidates: LegCandidate[];
 	/** Länge des direkten genuss-Wegs */
 	directDistance: number;
+	/** schönster Weg, der kaum länger ist als der direkte (für „Fast direkt“) */
+	compact?: LegCandidate;
+	/** alle Kandidaten inkl. der knapp neben der Luftlinie (für „Fast direkt“) */
+	pool: LegCandidate[];
+}
+
+/** Bewertung für „Fast direkt“: Schönheit mit dem strengen Umweg-Abzug von „direkt“ */
+function compactScore(c: LegCandidate, directDistance: number): number {
+	return c.beauty - DETOUR.direct.detourPenalty * Math.max(0, c.path.distance / directDistance - 1);
 }
 
 /** Anfragen gleichzeitig, aber nicht alle auf einmal (GraphHopper schonen) */
@@ -150,38 +179,54 @@ async function planDirection(
 	const directDistance = direct[0].distance;
 	const maxLength = directDistance * (1 + level.maxExtraRatio) + level.minExtraKm * 1000;
 
-	const paths: { path: RoutePath; vias: LngLat[] }[] = direct.map((path) => ({ path, vias: [] }));
+	// side = Weg knapp neben der Luftlinie: nur Kandidat für „Fast direkt“, nicht für die schönsten Vorschläge
+	type Found = { path: RoutePath; vias: LngLat[]; side: boolean };
+	const paths: Found[] = direct.map((path) => ({ path, vias: [], side: false }));
 
-	if (deps.landscape && level.scenicVias > 0) {
-		const vias = findScenicVias(deps.landscape, from, to, maxLength, lineOf(direct[0]), level.scenicVias);
-		const viaPaths = await mapLimited(vias, 4, async (via) => {
-			try {
-				const [path] = await deps.route([from, via, to], options);
-				return path ? { path, vias: [via] } : undefined;
-			} catch (error) {
-				if (error instanceof NoRouteError) return undefined; // Zwischenpunkt nicht erreichbar → weglassen
-				throw error;
-			}
-		});
-		for (const p of viaPaths) if (p) paths.push(p);
-	}
+	// Zwischenpunkte: schöne Orte (je nach Umweg-Wunsch) + knapp neben der Luftlinie (für „Fast direkt“)
+	const vias = [
+		...(deps.landscape && level.scenicVias > 0
+			? findScenicVias(deps.landscape, from, to, maxLength, lineOf(direct[0]), level.scenicVias)
+			: []
+		).map((point) => ({ point, side: false })),
+		...sideVias(from, to).map((point) => ({ point, side: true }))
+	];
+	const viaPaths = await mapLimited(vias, 4, async ({ point, side }): Promise<Found | undefined> => {
+		try {
+			const [path] = await deps.route([from, point, to], options);
+			return path ? { path, vias: [point], side } : undefined;
+		} catch (error) {
+			if (error instanceof NoRouteError) return undefined; // Zwischenpunkt nicht erreichbar → weglassen
+			throw error;
+		}
+	});
+	for (const p of viaPaths) if (p) paths.push(p);
 
-	const candidates = paths
+	const all = paths
 		.filter(({ path }) => path.distance <= maxLength)
-		.map(({ path, vias }) => {
+		.map(({ path, vias, side }) => {
 			const stats = analyzeRoute(path, deps.landscape);
+			const beauty = beautyScore(stats);
 			const extraRatio = Math.max(0, path.distance / directDistance - 1);
 			return {
 				path,
 				line: lineOf(path),
 				stats,
 				vias,
-				score: beautyScore(stats) - level.detourPenalty * extraRatio
+				beauty,
+				side,
+				score: beauty - level.detourPenalty * extraRatio
 			};
 		})
 		.sort((a, b) => b.score - a.score);
+	const candidates = all.filter((c) => !c.side);
 
-	return { candidates, directDistance };
+	const compactLimit = directDistance * (1 + COMPACT.maxExtraRatio) + COMPACT.minExtraKm * 1000;
+	const compact = all
+		.filter((c) => c.path.distance <= compactLimit)
+		.sort((a, b) => compactScore(b, directDistance) - compactScore(a, directDistance))[0];
+
+	return { candidates, directDistance, compact, pool: all };
 }
 
 interface Combination {
@@ -199,6 +244,11 @@ function sameLeg(a: Combination, b: Combination, i: number): boolean {
  * 1. Durchgang streng – jeder Abschnitt (Hinweg und ggf. Rückweg) muss anders sein.
  * 2. Durchgang zum Auffüllen – es reicht, wenn sich ein Abschnitt unterscheidet (z. B. anderer Rückweg).
  */
+/** Zwei Vorschläge sind praktisch derselbe Weg (Hin- und ggf. Rückweg weitgehend gleich) */
+function sameTour(a: Combination, b: Combination): boolean {
+	return a.legs.every((_, i) => sameLeg(a, b, i));
+}
+
 function pickDiverse(items: Combination[], max: number): Combination[] {
 	const picked: Combination[] = [];
 	const strict = (item: Combination, p: Combination) => item.legs.some((_, i) => sameLeg(item, p, i));
@@ -252,10 +302,22 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 	const outbound = await planDirection(start, end, request, deps);
 	let combinations: Combination[];
 	let directTotal = outbound.directDistance;
+	/** „Fast direkt“ (nur bei „etwas schöner“ / „am schönsten“) */
+	let compact: Combination | undefined;
 
 	if (request.returnMode === 'other-way') {
 		const inbound = await planDirection(end, start, request, deps);
 		directTotal += inbound.directDistance;
+		if (outbound.compact && inbound.compact) {
+			// Rückweg „Fast direkt“: kaum länger, möglichst nicht derselbe Weg wie hin
+			const out = outbound.compact;
+			const limit = inbound.directDistance * (1 + COMPACT.maxExtraRatio) + COMPACT.minExtraKm * 1000;
+			const back = inbound.pool
+				.filter((c) => c.path.distance <= limit)
+				.map((c) => ({ c, s: compactScore(c, inbound.directDistance) - SCORE.returnOverlap * overlapShare(c.line, out.line) }))
+				.sort((a, b) => b.s - a.s)[0]?.c;
+			if (back) compact = { legs: [out, back], score: 0 };
+		}
 		combinations = [];
 		for (const out of outbound.candidates.slice(0, 6)) {
 			for (const back of inbound.candidates.slice(0, 6)) {
@@ -270,10 +332,18 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 		combinations.sort((a, b) => b.score - a.score);
 	} else {
 		combinations = outbound.candidates.map((c) => ({ legs: [c], score: c.score }));
+		if (outbound.compact) compact = { legs: [outbound.compact], score: 0 };
 	}
 
 	const chosen = pickDiverse(combinations, MAX_SUGGESTIONS);
 	if (!chosen.length) throw new NoRouteError('Kein passender Weg gefunden');
+
+	// Bei „etwas schöner“ / „am schönsten“: zusätzlich „Fast direkt“ – falls nicht schon dabei
+	let compactIndex = -1;
+	if (request.detour !== 'direct' && compact && !chosen.some((c) => sameTour(compact!, c))) {
+		chosen.push(compact);
+		compactIndex = chosen.length - 1;
+	}
 
 	const shortest = Math.min(...chosen.map((c) => c.legs.reduce((s, l) => s + l.path.distance, 0)));
 	const streets = chosen.map(streetLengths);
@@ -303,7 +373,8 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 
 		let label: string | undefined;
 		if (index === 0) label = 'Am schönsten';
-		else if (total === shortest) label = 'Am kürzesten';
+		else if (index === compactIndex) label = 'Fast direkt';
+		else if (total === shortest && compactIndex < 0) label = 'Am kürzesten';
 
 		const waypoints: Waypoint[] = [{ lngLat: start, kind: 'start', name: request.start.name }];
 		const [out, back] = combo.legs;
