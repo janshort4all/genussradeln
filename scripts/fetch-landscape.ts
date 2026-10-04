@@ -1,10 +1,11 @@
 /**
  * Erzeugt die Landschaftskarte für die Nachbewertung der Wege:
- * Wasser, Wald und Grünflächen des Regierungsbezirks Düsseldorf aus OpenStreetMap (Overpass),
+ * Wasser, Wald, Grünflächen und Felder des Regierungsbezirks Düsseldorf aus OpenStreetMap (Overpass),
  * gerastert auf ca. 100 × 100 m.
  *
  * Ausgabe:
- *   static/data/landscape.png    Graustufen-Bild, ein Pixel je Zelle (0 = nichts, 85 = Grün, 170 = Wald, 255 = Wasser)
+ *   static/data/landscape.png    Graustufen-Bild, ein Pixel je Zelle: Klasse × 51
+ *                                (0 = nichts, 51 = Felder, 102 = Grün, 153 = Wald, 204 = Wasser)
  *   static/data/landscape.json   Ausdehnung und Zellgröße
  *
  * Aufruf: npm run data:landscape   (Overpass-Antworten werden in scripts/.cache/ zwischengespeichert)
@@ -22,10 +23,13 @@ const CELL_LAT = 0.0009; // ≈ 100 m
 const WIDTH = Math.ceil((BOUNDS.east - BOUNDS.west) / CELL_LON);
 const HEIGHT = Math.ceil((BOUNDS.north - BOUNDS.south) / CELL_LAT);
 
-// Klassen (höhere Zahl gewinnt bei Überlappung)
-const GREEN = 1;
-const FOREST = 2;
-const WATER = 3;
+// Klassen (höhere Zahl gewinnt bei Überlappung) – wie in src/lib/scoring/landscape.ts
+const FIELDS = 1;
+const GREEN = 2;
+const FOREST = 3;
+const WATER = 4;
+/** Graustufen-Abstand zwischen den Klassen im PNG */
+const STEP = 51;
 
 const grid = new Uint8Array(WIDTH * HEIGHT);
 const done = new Set<string>();
@@ -40,31 +44,43 @@ await loadRegionTiles({
   nwr["landuse"~"^(forest|meadow|orchard)$"](${bbox});
   nwr["leisure"~"^(park|nature_reserve)$"](${bbox});`,
 	output: 'out geom;',
-	onTile: (elements, tx, ty) => {
-		let count = 0;
-		for (const element of elements) {
-			const key = `${element.type}/${element.id}`;
-			if (done.has(key)) continue;
-			done.add(key);
-			const cls = classify(element.tags ?? {});
-			if (!cls) continue;
-			if (cls.line) rasterizeLine(element, cls.value);
-			else rasterizeArea(element, cls.value);
-			count++;
-		}
-		console.log(`Kachel ${tx},${ty}: ${elements.length} Objekte, ${count} neu gerastert`);
-	}
+	onTile: rasterizeTile
 });
 
-const counts = [0, 0, 0, 0];
+// Felder (Äcker) in eigenem Zwischenspeicher – so muss der Rest nicht neu geladen werden
+await loadRegionTiles({
+	cacheName: 'fields',
+	tiles: [4, 4],
+	body: (bbox) => `  way["landuse"="farmland"](${bbox});
+  relation["landuse"="farmland"](${bbox});`,
+	output: 'out geom;',
+	onTile: rasterizeTile
+});
+
+function rasterizeTile(elements: OsmElement[], tx: number, ty: number) {
+	let count = 0;
+	for (const element of elements) {
+		const key = `${element.type}/${element.id}`;
+		if (done.has(key)) continue;
+		done.add(key);
+		const cls = classify(element.tags ?? {});
+		if (!cls) continue;
+		if (cls.line) rasterizeLine(element, cls.value);
+		else rasterizeArea(element, cls.value);
+		count++;
+	}
+	console.log(`Kachel ${tx},${ty}: ${elements.length} Objekte, ${count} neu gerastert`);
+}
+
+const counts = [0, 0, 0, 0, 0];
 for (const v of grid) counts[v]++;
 const total = grid.length;
 console.log(
-	`Anteile: Grün ${pct(counts[GREEN] / total)}, Wald ${pct(counts[FOREST] / total)}, Wasser ${pct(counts[WATER] / total)}`
+	`Anteile: Felder ${pct(counts[FIELDS] / total)}, Grün ${pct(counts[GREEN] / total)}, Wald ${pct(counts[FOREST] / total)}, Wasser ${pct(counts[WATER] / total)}`
 );
 
 await mkdir(new URL('../static/data/', import.meta.url), { recursive: true });
-const pixels = Buffer.from(grid.map((v) => v * 85));
+const pixels = Buffer.from(grid.map((v) => v * STEP));
 await sharp(pixels, { raw: { width: WIDTH, height: HEIGHT, channels: 1 } })
 	.png({ compressionLevel: 9 })
 	.toFile(fileURLToPath(new URL('../static/data/landscape.png', import.meta.url)));
@@ -77,7 +93,8 @@ await writeFile(
 		cellLat: CELL_LAT,
 		width: WIDTH,
 		height: HEIGHT,
-		classes: { 0: 'none', 1: 'green', 2: 'forest', 3: 'water' },
+		classes: { 0: 'none', 1: 'fields', 2: 'green', 3: 'forest', 4: 'water' },
+		step: STEP,
 		source: '© OpenStreetMap-Mitwirkende (ODbL)',
 		created: new Date().toISOString().slice(0, 10)
 	}) + '\n'
@@ -100,6 +117,7 @@ function classify(tags: Record<string, string>): { value: number; line?: boolean
 		tags.natural === 'wetland'
 	)
 		return { value: GREEN };
+	if (tags.landuse === 'farmland') return { value: FIELDS };
 	return undefined;
 }
 

@@ -55,6 +55,7 @@ export function tagsFromStats(s: RouteStats): LandscapeTag[] {
 	if (s.water >= 0.2) tags.push('wasser');
 	if (s.forest >= 0.2) tags.push('wald');
 	if (s.green >= 0.2) tags.push('gruen');
+	if (s.fields >= 0.25) tags.push('felder');
 	return tags;
 }
 

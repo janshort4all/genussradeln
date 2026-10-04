@@ -8,7 +8,7 @@ import { STOP_LABELS, type StopKind } from '$lib/stops/kinds';
 
 export type { StopKind };
 export type BatteryLevel = 'locker' | 'knapp' | 'voll-laden';
-export type LandscapeTag = 'wasser' | 'wald' | 'gruen' | 'aussicht';
+export type LandscapeTag = 'wasser' | 'wald' | 'gruen' | 'felder' | 'aussicht';
 
 export interface Stop {
 	km: number;
@@ -105,5 +105,6 @@ export const tagLabel: Record<LandscapeTag, string> = {
 	wasser: 'Am Wasser',
 	wald: 'Viel Wald',
 	gruen: 'Viel Grün',
+	felder: 'Durch Felder',
 	aussicht: 'Mit Aussicht'
 };

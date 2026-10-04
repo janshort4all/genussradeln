@@ -66,6 +66,7 @@ function features(s: RouteStats): Feature[] {
 		{ share: s.water, title: 'Am Wasser entlang', phrase: 'am Wasser' },
 		{ share: s.forest, title: 'Durch den Wald', phrase: 'durch den Wald' },
 		{ share: s.green, title: 'Durchs Grüne', phrase: 'durchs Grüne' },
+		{ share: s.fields, title: 'Durch die Felder', phrase: 'durch die Felder' },
 		{ share: s.quiet, title: 'Auf ruhigen Radwegen', phrase: 'auf ruhigen Radwegen' }
 	]
 		.filter((f) => f.share >= 0.15)

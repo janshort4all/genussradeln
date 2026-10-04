@@ -15,6 +15,7 @@ import Sprout from '@lucide/svelte/icons/sprout';
 import Toilet from '@lucide/svelte/icons/toilet';
 import Trees from '@lucide/svelte/icons/trees';
 import WavesHorizontal from '@lucide/svelte/icons/waves-horizontal';
+import Wheat from '@lucide/svelte/icons/wheat';
 import type { LandscapeTag, StopKind } from '$lib/tour/sample';
 
 interface IconStyle {
@@ -45,5 +46,6 @@ export const landscapeIcons: Record<LandscapeTag, IconStyle> = {
 	wasser: { icon: WavesHorizontal, ...water },
 	wald: { icon: Trees, ...green },
 	gruen: { icon: Sprout, ...green },
+	felder: { icon: Wheat, ...khaki },
 	aussicht: { icon: Binoculars, ...khaki }
 };

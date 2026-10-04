@@ -1,13 +1,16 @@
 /**
- * Landschaftskarte (Wasser / Wald / Grün) als Raster mit ca. 100 m Zellen.
+ * Landschaftskarte (Wasser / Wald / Grün / Felder) als Raster mit ca. 100 m Zellen.
  * Erzeugt von scripts/fetch-landscape.ts → static/data/landscape.png + landscape.json.
  */
 import type { LngLat } from '$lib/geo/geo';
 
 export const NONE = 0;
-export const GREEN = 1;
-export const FOREST = 2;
-export const WATER = 3;
+export const FIELDS = 1;
+export const GREEN = 2;
+export const FOREST = 3;
+export const WATER = 4;
+
+const CLASS_BY_NAME: Record<string, number> = { none: NONE, fields: FIELDS, green: GREEN, forest: FOREST, water: WATER };
 
 export interface LandscapeMeta {
 	west: number;
@@ -16,6 +19,10 @@ export interface LandscapeMeta {
 	cellLat: number;
 	width: number;
 	height: number;
+	/** Klasse je Graustufen-Index, z. B. { 0: 'none', 1: 'fields', … } */
+	classes?: Record<string, string>;
+	/** Graustufen-Abstand zwischen den Klassen (ältere Karten: 85) */
+	step?: number;
 }
 
 /** Was in der Nähe eines Punkts liegt */
@@ -23,6 +30,7 @@ export interface Surroundings {
 	water: boolean;
 	forest: boolean;
 	green: boolean;
+	fields: boolean;
 }
 
 export class Landscape {
@@ -77,13 +85,14 @@ export class Landscape {
 	surroundings([lon, lat]: LngLat, radius = 1): Surroundings {
 		const row = this.rowOf(lat);
 		const col = this.colOf(lon);
-		const out = { water: false, forest: false, green: false };
+		const out = { water: false, forest: false, green: false, fields: false };
 		for (let dr = -radius; dr <= radius; dr++) {
 			for (let dc = -radius; dc <= radius; dc++) {
 				const v = this.cell(row + dr, col + dc);
 				if (v === WATER) out.water = true;
 				else if (v === FOREST) out.forest = true;
 				else if (v === GREEN) out.green = true;
+				else if (v === FIELDS) out.fields = true;
 			}
 		}
 		return out;
@@ -91,9 +100,9 @@ export class Landscape {
 
 	/**
 	 * Schönheit der Umgebung (0..1): gewichteter Anteil schöner Zellen im Quadrat ±`radius` Zellen.
-	 * Gewichte je Klasse (Grün, Wald, Wasser) siehe weights.ts.
+	 * Gewichte je Klasse (Felder, Grün, Wald, Wasser) siehe weights.ts.
 	 */
-	beautyAround(row: number, col: number, radius: number, classWeights: [number, number, number]): number {
+	beautyAround(row: number, col: number, radius: number, classWeights: [number, number, number, number]): number {
 		const sum = this.ensureBeautySum(classWeights);
 		const w = this.meta.width;
 		const r0 = Math.max(0, row - radius);
@@ -106,10 +115,10 @@ export class Landscape {
 		return total / ((r1 - r0 + 1) * (c1 - c0 + 1));
 	}
 
-	private ensureBeautySum([green, forest, water]: [number, number, number]): Float64Array {
+	private ensureBeautySum([fields, green, forest, water]: [number, number, number, number]): Float64Array {
 		if (this.beautySum) return this.beautySum;
 		const { width, height } = this.meta;
-		const weightOf = [0, green, forest, water];
+		const weightOf = [0, fields, green, forest, water];
 		const sum = new Float64Array(width * height);
 		for (let r = 0; r < height; r++) {
 			let rowSum = 0;
@@ -140,8 +149,14 @@ export function loadLandscape(metaUrl: string, imageUrl: string): Promise<Landsc
 		context.drawImage(bitmap, 0, 0);
 		const rgba = context.getImageData(0, 0, bitmap.width, bitmap.height).data;
 		const cells = new Uint8Array(bitmap.width * bitmap.height);
-		// Graustufen 0 / 85 / 170 / 255 → Klassen 0..3
-		for (let i = 0; i < cells.length; i++) cells[i] = Math.round(rgba[i * 4] / 85);
+		// Graustufe → Index → Klasse über die Namen in landscape.json (ältere Karten: 0/85/170/255 ohne Felder)
+		const step = meta.step ?? 85;
+		const names = meta.classes ?? { 0: 'none', 1: 'green', 2: 'forest', 3: 'water' };
+		const classOf = Object.entries(names).reduce<number[]>((acc, [index, name]) => {
+			acc[Number(index)] = CLASS_BY_NAME[name] ?? NONE;
+			return acc;
+		}, []);
+		for (let i = 0; i < cells.length; i++) cells[i] = classOf[Math.round(rgba[i * 4] / step)] ?? NONE;
 		return new Landscape(meta, cells);
 	})();
 	loading.catch(() => (loading = undefined));

@@ -126,10 +126,11 @@ describe('planTours', () => {
 });
 
 describe('describe', () => {
-	const base = { distance: 10000, water: 0, forest: 0, green: 0, nature: 0, network: 0, quiet: 0, major: 0, badSurface: 0, climb: 'flach' as const };
+	const base = { distance: 10000, water: 0, forest: 0, green: 0, fields: 0, nature: 0, network: 0, quiet: 0, major: 0, badSurface: 0, climb: 'flach' as const };
 
 	it('benennt Wege nach ihrer Landschaft', () => {
 		expect(titleOptions({ ...base, water: 0.5, forest: 0.2 })[0]).toBe('Am Wasser entlang');
+		expect(titleOptions({ ...base, fields: 0.6, green: 0.2 })[0]).toBe('Durch die Felder');
 		expect(titleOptions(base)[0]).toBe('Ruhige Nebenstrecke');
 	});
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { offset, type LngLat } from '$lib/geo/geo';
-import { FOREST, NONE, WATER } from './landscape';
+import { FIELDS, FOREST, NONE, WATER } from './landscape';
 import { mutualOverlap, overlapShare } from './overlap';
 import { analyzeRoute, beautyScore, combineStats, detailShare } from './score';
 import { makeLandscape, makePath } from './test-helpers';
@@ -28,6 +28,17 @@ describe('analyzeRoute', () => {
 		expect(stats.water).toBeGreaterThan(0.9);
 		expect(stats.forest).toBe(0);
 		expect(stats.nature).toBeGreaterThan(0.9);
+	});
+
+	it('erkennt Felder und wertet sie schwächer als Wasser', () => {
+		const fieldsAround = makeLandscape((row) => (row >= 50 && row <= 60 ? FIELDS : NONE));
+		const waterAround = makeLandscape((row) => (row >= 50 && row <= 60 ? WATER : NONE));
+		const onFields = analyzeRoute(makePath(east(2000)), fieldsAround);
+		const onWater = analyzeRoute(makePath(east(2000)), waterAround);
+		expect(onFields.fields).toBeGreaterThan(0.9);
+		expect(onFields.nature).toBeGreaterThan(0.9);
+		expect(beautyScore(onWater)).toBeGreaterThan(beautyScore(onFields));
+		expect(beautyScore(onFields)).toBeGreaterThan(beautyScore(analyzeRoute(makePath(east(2000)))));
 	});
 
 	it('wertet große Straßen und schlechten Belag ab', () => {

@@ -14,7 +14,9 @@ export interface RouteStats {
 	water: number;
 	forest: number;
 	green: number;
-	/** Anteil mit Wasser, Wald oder Grün in der Nähe */
+	/** Anteil an Feldern / offener Landschaft */
+	fields: number;
+	/** Anteil mit Wasser, Wald, Grün oder Feldern in der Nähe */
 	nature: number;
 	network: number;
 	quiet: number;
@@ -57,6 +59,7 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape): RouteStats
 	let water = 0;
 	let forest = 0;
 	let green = 0;
+	let fields = 0;
 	let nature = 0;
 	const samples = resample(line, SAMPLE_STEP_M);
 	if (landscape && samples.length) {
@@ -65,11 +68,13 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape): RouteStats
 			if (s.water) water++;
 			if (s.forest) forest++;
 			if (s.green) green++;
-			if (s.water || s.forest || s.green) nature++;
+			if (s.fields) fields++;
+			if (s.water || s.forest || s.green || s.fields) nature++;
 		}
 		water /= samples.length;
 		forest /= samples.length;
 		green /= samples.length;
+		fields /= samples.length;
 		nature /= samples.length;
 	}
 
@@ -78,6 +83,7 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape): RouteStats
 		water,
 		forest,
 		green,
+		fields,
 		nature,
 		network: detailShare(d.bike_network, lengths, total, (v) => !!v && v !== 'missing'),
 		quiet: detailShare(d.road_class, lengths, total, (v) => QUIET_WAYS.has(v)),
@@ -96,6 +102,7 @@ export function beautyScore(s: RouteStats): number {
 		SCORE.water * s.water +
 		SCORE.forest * s.forest +
 		SCORE.green * s.green +
+		SCORE.fields * s.fields +
 		SCORE.network * s.network +
 		SCORE.quiet * s.quiet -
 		SCORE.major * s.major -
@@ -114,6 +121,7 @@ export function combineStats(parts: RouteStats[]): RouteStats {
 		water: avg('water'),
 		forest: avg('forest'),
 		green: avg('green'),
+		fields: avg('fields'),
 		nature: avg('nature'),
 		network: avg('network'),
 		quiet: avg('quiet'),
