@@ -152,7 +152,7 @@
 		<div class="wide">
 		<div class="map" bind:this={mapBox}>
 			<RouteMap
-				label="Karte mit {tours.length} Wegen von {request.start.name} nach {request.destination.name}"
+				label="Karte mit dem Weg „{(tours.find((t) => t.id === selectedId) ?? tours[0])?.title}“ von {request.start.name} nach {request.destination.name}"
 				routes={tours.map((t, i) => ({ id: t.id, coordinates: tourLine(t), color: routeColor(i) }))}
 				markers={[
 					{ lngLat: request.start.lngLat, kind: 'start' },

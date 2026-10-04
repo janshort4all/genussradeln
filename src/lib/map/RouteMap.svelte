@@ -60,8 +60,6 @@
 	// rechts Platz für die Zoom-Knöpfe, unten für den Quellenhinweis
 	const PADDING = { top: 40, bottom: 50, left: 40, right: 80 };
 	const LINE_WIDTH = 5;
-	/** Abstand der Linienmitten, wenn Wege nebeneinander liegen (Pixel) */
-	const ROUTE_GAP = 6;
 	const ARROW_SPACING = 160;
 
 	/**
@@ -183,16 +181,6 @@
 		};
 	});
 
-	/**
-	 * Mehrere Wege liegen nebeneinander statt übereinander (wie Linien auf einem Bahnplan):
-	 * Wo sie dieselbe Straße nehmen, sieht man trotzdem jede Farbe. Der Versatz gilt in Fahrtrichtung,
-	 * daher liegen auch Hin- und Rückweg auf derselben Straße nebeneinander.
-	 */
-	function offsetOf(index: number): number {
-		const centered = index - (routes.length - 1) / 2;
-		return routes.length > 1 ? centered * ROUTE_GAP : ROUTE_GAP / 2;
-	}
-
 	// Wege eintragen bzw. aktualisieren, sobald Karte und Stil geladen sind
 	$effect(() => {
 		if (!map || !loaded) return;
@@ -219,29 +207,29 @@
 				});
 			}
 			// erst alle hellen Ränder, dann alle Linien, dann die Pfeile – so verdeckt kein Rand eine Nachbarlinie
-			routes.forEach((r, i) =>
+			routes.forEach((r) =>
 				m.addLayer({
 					id: `route-${r.id}-casing`,
 					type: 'line',
 					source: `route-${r.id}`,
 					layout: { 'line-join': 'round', 'line-cap': 'round' },
-					paint: { 'line-color': '#FDFBF5', 'line-width': LINE_WIDTH + 4, 'line-offset': offsetOf(i) }
+					paint: { 'line-color': '#FDFBF5', 'line-width': LINE_WIDTH + 4 }
 				})
 			);
-			routes.forEach((r, i) => {
+			routes.forEach((r) => {
 				m.addLayer({
 					id: `route-${r.id}`,
 					type: 'line',
 					source: `route-${r.id}`,
 					layout: { 'line-join': 'round', 'line-cap': 'round' },
-					paint: { 'line-color': r.color, 'line-width': LINE_WIDTH, 'line-offset': offsetOf(i) }
+					paint: { 'line-color': r.color, 'line-width': LINE_WIDTH }
 				});
 				m.on('click', `route-${r.id}`, () => onselect?.(r.id));
 				m.on('mouseenter', `route-${r.id}`, () => (m.getCanvas().style.cursor = 'pointer'));
 				m.on('mouseleave', `route-${r.id}`, () => (m.getCanvas().style.cursor = ''));
 			});
-			// Fahrtrichtung: Pfeile auf der Linie, mit ihr versetzt
-			routes.forEach((r, i) =>
+			// Fahrtrichtung: Pfeile auf der Linie
+			routes.forEach((r) =>
 				m.addLayer({
 					id: `route-${r.id}-arrows`,
 					type: 'symbol',
@@ -250,7 +238,6 @@
 						'symbol-placement': 'line',
 						'symbol-spacing': ARROW_SPACING,
 						'icon-image': arrowName(r.color),
-						'icon-offset': [0, offsetOf(i)],
 						'icon-rotation-alignment': 'map',
 						'icon-allow-overlap': true,
 						'icon-ignore-placement': true
@@ -261,14 +248,14 @@
 			fitRoutes(m);
 		}
 
-		// Ein Weg ist immer hervorgehoben (ohne Auswahl der erste): kräftig und mit Pfeilen,
-		// die anderen blass und ohne Pfeile – sonst wird die Karte bei vier Wegen unlesbar
+		// Es ist immer nur ein Weg zu sehen (ohne Auswahl der erste), mit Pfeilen in Fahrtrichtung;
+		// die anderen ausgeblendet – mehrere Wege übereinander sind auf der Karte nicht auseinanderzuhalten
 		const active = routes.some((r) => r.id === selectedId) ? selectedId : routes[0]?.id;
 		for (const r of routes) {
 			const on = r.id === active;
-			m.setPaintProperty(`route-${r.id}`, 'line-opacity', on ? 1 : 0.4);
-			m.setPaintProperty(`route-${r.id}-casing`, 'line-opacity', on ? 1 : 0.3);
-			m.setLayoutProperty(`route-${r.id}-arrows`, 'visibility', on ? 'visible' : 'none');
+			for (const layer of [`route-${r.id}`, `route-${r.id}-casing`, `route-${r.id}-arrows`]) {
+				m.setLayoutProperty(layer, 'visibility', on ? 'visible' : 'none');
+			}
 		}
 		if (active && m.getLayer(`route-${active}`)) {
 			m.moveLayer(`route-${active}`);
