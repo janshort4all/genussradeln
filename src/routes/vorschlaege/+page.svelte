@@ -97,6 +97,7 @@
 			<Button icon={RefreshCw} onclick={compute}>Noch einmal versuchen</Button>
 		</div>
 	{:else}
+		<div class="wide">
 		<div class="map">
 			<RouteMap
 				label="Karte mit {tours.length} Wegen von {request.start.name} nach {request.destination.name}"
@@ -117,6 +118,7 @@
 				</li>
 			{/each}
 		</ol>
+		</div>
 	{/if}
 {/if}
 
@@ -128,6 +130,23 @@
 	.map {
 		height: 18rem;
 		margin-bottom: 1.25rem;
+	}
+
+	/* PC: Karte groß links und beim Scrollen stehend, Vorschläge rechts (Lastenheft B9) */
+	@media (min-width: 64rem) {
+		.wide {
+			display: grid;
+			grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+			gap: 2rem;
+			align-items: start;
+		}
+
+		.map {
+			position: sticky;
+			top: 1rem;
+			height: calc(100vh - var(--bottom-bar-height) - 3rem);
+			margin-bottom: 0;
+		}
 	}
 
 	.tours {

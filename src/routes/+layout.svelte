@@ -44,4 +44,12 @@
 		margin: 0 auto;
 		padding: 0.5rem 1rem calc(var(--bottom-bar-height) + 2.5rem + env(safe-area-inset-bottom));
 	}
+
+	/* Seiten mit Karte dürfen am PC breiter sein (Karte links, Angaben rechts) */
+	@media (min-width: 64rem) {
+		.page:has(:global(.wide)) {
+			max-width: 80rem;
+			padding-inline: 2rem;
+		}
+	}
 </style>

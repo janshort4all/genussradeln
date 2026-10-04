@@ -25,6 +25,10 @@
 	// MapLibre rechnet Kartendaten in einem Worker; Vite baut ihn als eigenes Modul (siehe vite.config.ts → worker)
 	import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 	import { onMount } from 'svelte';
+	import { pushState } from '$app/navigation';
+	import { page } from '$app/state';
+	import Maximize2 from '@lucide/svelte/icons/maximize-2';
+	import X from '@lucide/svelte/icons/x';
 	import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
 	import { stopIcons } from '$lib/components/icons';
 	import { boundsOf } from '$lib/geo/geo';
@@ -61,6 +65,40 @@
 	let loaded = $state(false);
 	let failed = $state(false);
 	let shownRouteIds: string[] = [];
+
+	// „Große Karte“: füllt den Bildschirm. Läuft über den Browser-Verlauf, damit die Zurück-Taste sie schließt.
+	const mapId = $props.id();
+	const expanded = $derived(page.state.mapOpen === mapId);
+
+	function openLarge() {
+		pushState('', { mapOpen: mapId });
+	}
+
+	function closeLarge() {
+		if (expanded) history.back();
+	}
+
+	function fitRoutes(m: MapLibreMap) {
+		const b = boundsOf(routes.map((r) => r.coordinates));
+		if (Number.isFinite(b.west)) m.fitBounds([b.west, b.south, b.east, b.north], { padding: PADDING, duration: 0 });
+	}
+
+	$effect(() => {
+		const large = expanded;
+		if (!map) return;
+		const m = map;
+		// große Karte: mit einem Finger verschieben; kleine Karte: zwei Finger, damit die Seite scrollbar bleibt
+		if (large) m.cooperativeGestures.disable();
+		else m.cooperativeGestures.enable();
+		document.body.style.overflow = large ? 'hidden' : '';
+		requestAnimationFrame(() => {
+			m.resize();
+			if (!focusStopId) fitRoutes(m);
+		});
+		return () => {
+			document.body.style.overflow = '';
+		};
+	});
 
 	onMount(() => {
 		let destroyed = false;
@@ -147,8 +185,7 @@
 				m.on('mouseleave', `route-${r.id}`, () => (m.getCanvas().style.cursor = ''));
 			}
 			shownRouteIds = ids;
-			const b = boundsOf(routes.map((r) => r.coordinates));
-			if (Number.isFinite(b.west)) m.fitBounds([b.west, b.south, b.east, b.north], { padding: PADDING, duration: 0 });
+			fitRoutes(m);
 		}
 
 		// Ausgewählten Weg hervorheben und nach oben legen
@@ -189,10 +226,20 @@
 	});
 </script>
 
-<div class="route-map" role="img" aria-label={label}>
-	<div class="canvas" bind:this={container}></div>
+<svelte:window onkeydown={(e) => e.key === 'Escape' && closeLarge()} />
+
+<div class="route-map" class:expanded>
+	<div class="canvas" bind:this={container} role="img" aria-label={label}></div>
 	{#if failed}
 		<p class="fallback">Die Karte kann auf diesem Gerät leider nicht angezeigt werden. Alle Angaben finden Sie unten.</p>
+	{:else if expanded}
+		<button type="button" class="map-button close" onclick={closeLarge}>
+			<X size={24} strokeWidth={2.5} aria-hidden="true" /> Karte schließen
+		</button>
+	{:else}
+		<button type="button" class="map-button open" onclick={openLarge}>
+			<Maximize2 size={22} strokeWidth={2.5} aria-hidden="true" /> Große Karte
+		</button>
 	{/if}
 	<!-- Vorlagen für die Stopp-Symbole; MapLibre hängt sie in die Karte um -->
 	<div class="stop-pool" aria-hidden="true">
@@ -226,6 +273,41 @@
 	.canvas {
 		position: absolute;
 		inset: 0;
+	}
+
+	/* große Karte: ganzer Bildschirm, über allem (auch über der unteren Leiste) */
+	.route-map.expanded {
+		position: fixed;
+		inset: 0;
+		z-index: 50;
+		border-radius: 0;
+		border: 0;
+	}
+
+	.map-button {
+		position: absolute;
+		top: 0.625rem;
+		left: 0.625rem;
+		z-index: 2;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		min-height: var(--tap);
+		padding: 0.5rem 0.875rem;
+		border: 2px solid var(--color-green);
+		border-radius: var(--radius);
+		background: var(--color-surface);
+		color: var(--color-green);
+		font-weight: 700;
+		box-shadow: 0 1px 4px rgb(36 53 57 / 0.25);
+		cursor: pointer;
+	}
+
+	.map-button.close {
+		top: max(0.75rem, env(safe-area-inset-top));
+		background: var(--color-green);
+		color: var(--color-surface);
+		font-size: var(--text-large);
 	}
 
 	.fallback {

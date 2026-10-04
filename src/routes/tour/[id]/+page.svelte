@@ -80,6 +80,8 @@
 	<BackLink href={resolve('/runde/vorschlaege')} label="Zurück zu den Beispielen" />
 {/if}
 
+<div class="wide">
+<div class="map-column">
 {#if tour.map.kind === 'route'}
 	<div class="map route" bind:this={mapBox}>
 		<RouteMap
@@ -99,7 +101,9 @@
 		<span class="map-note"><MapIcon size={20} aria-hidden="true" /> Beispieltour</span>
 	</div>
 {/if}
+</div>
 
+<div class="info-column">
 <h1>{tour.title}</h1>
 {#if tour.subtitle}<p class="subtitle muted">{tour.subtitle}</p>{/if}
 
@@ -194,8 +198,31 @@
 	</Button>
 	<p class="notice" role="status">{notice}</p>
 </div>
+</div>
+</div>
 
 <style>
+	/* PC: Karte groß links und beim Scrollen stehend, Angaben rechts (Lastenheft B9) */
+	@media (min-width: 64rem) {
+		.wide {
+			display: grid;
+			grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+			gap: 2rem;
+			align-items: start;
+		}
+
+		.map-column {
+			position: sticky;
+			top: 1rem;
+		}
+
+		.map-column .map,
+		.map-column .map.route {
+			height: calc(100vh - var(--bottom-bar-height) - 3rem);
+			margin-top: 0;
+		}
+	}
+
 	.map {
 		position: relative;
 		height: 11rem;

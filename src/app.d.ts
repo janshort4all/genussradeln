@@ -8,7 +8,10 @@ declare global {
 		// interface Error {}
 		// interface Locals {}
 		// interface PageData {}
-		// interface PageState {}
+		/** Große Karte geöffnet (ID der Karte) – über den Verlauf, damit „Zurück“ sie wieder schließt */
+		interface PageState {
+			mapOpen?: string;
+		}
 		// interface Platform {}
 	}
 }
