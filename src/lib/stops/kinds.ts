@@ -30,7 +30,13 @@ export const FLAG = {
 	/** Bank mit Lehne */
 	backrest: 16,
 	/** überdacht */
-	covered: 32
+	covered: 32,
+	/** höchstens ca. 60 m bis zu einer echten Wasserfläche (See, Teich, großer Fluss – kein Bach/Graben) */
+	waterside: 64,
+	/** höchstens ca. 60 m bis zum Wald */
+	forestside: 128,
+	/** höchstens ca. 60 m bis zu Park, Wiese oder Naturschutzgebiet */
+	greenside: 256
 } as const;
 
 export function hasFlag(flags: number, flag: number): boolean {

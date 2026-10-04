@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { offset, type LngLat } from '$lib/geo/geo';
-import { NONE, WATER } from '$lib/scoring/landscape';
-import { makeLandscape } from '$lib/scoring/test-helpers';
-import { stopsAlongRoute } from './along';
+import { highlightStops, stopsAlongRoute, toiletSentence } from './along';
 import { FLAG, STOP_KINDS, type StopKind } from './kinds';
 import { parsePois, PoiIndex, type Poi } from './pois';
 
@@ -56,16 +54,39 @@ describe('stopsAlongRoute', () => {
 	});
 
 	it('bevorzugt Cafés mit Terrasse am Wasser und nennt die Gründe', () => {
-		// Wasser direkt nördlich des Wegs bei km 2 (Spalte ≈ 85, Zeile ≈ 54)
-		const landscape = makeLandscape((row, col) => (row >= 52 && row <= 54 && col >= 80 && col <= 90 ? WATER : NONE));
+		// „am Wasser“ kommt aus der Stopp-Datei (genaue Lage, von scripts/fetch-pois.ts bestimmt)
 		const index = new PoiIndex([
 			poi('cafe', 1.2, 30, 0, 'Café Straße'),
-			poi('cafe', 1.8, 80, FLAG.outdoor, 'Café am Wasser')
+			poi('cafe', 1.8, 80, FLAG.outdoor | FLAG.waterside, 'Café am Wasser')
 		]);
-		const stops = stopsAlongRoute(route, index, landscape);
+		const stops = stopsAlongRoute(route, index);
 		// beide liegen im selben 2-km-Abschnitt → nur das bessere bleibt
 		expect(stops).toHaveLength(1);
 		expect(stops[0].name).toBe('Café am Wasser');
 		expect(stops[0].reasons).toEqual(['mit Plätzen draußen', 'am Wasser']);
+	});
+});
+
+describe('highlightStops und toiletSentence', () => {
+	const stop = (kind: StopKind, km: number, score = 1) => ({ kind, km, score });
+
+	it('zeigt höchstens drei Orte zum Einkehren oder Schauen, keine Bänke', () => {
+		const stops = [
+			stop('bank', 1, 9),
+			stop('cafe', 2, 3),
+			stop('biergarten', 5, 5),
+			stop('eis', 8, 1),
+			stop('aussicht', 12, 4),
+			stop('toilette', 3, 9)
+		];
+		expect(highlightStops(stops).map((s) => s.kind)).toEqual(['cafe', 'biergarten', 'aussicht']);
+	});
+
+	it('fasst Toiletten in einem Satz zusammen', () => {
+		expect(toiletSentence([stop('toilette', 3.4), stop('cafe', 5), stop('toilette', 23.8)])).toBe(
+			'Toiletten gibt es nach 3 und nach 24 km.'
+		);
+		expect(toiletSentence([stop('toilette', 7.2)])).toBe('Eine Toilette gibt es nach 7 km.');
+		expect(toiletSentence([stop('cafe', 5)])).toBeUndefined();
 	});
 });

@@ -1,11 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import Clock from '@lucide/svelte/icons/clock';
-	import Mountain from '@lucide/svelte/icons/mountain';
-	import Route from '@lucide/svelte/icons/route';
-	import Sprout from '@lucide/svelte/icons/sprout';
-	import { extraDistanceText, natureWord } from '$lib/routing/describe';
+	import { extraDistanceText } from '$lib/routing/describe';
 	import type { PlannedTour } from '$lib/tour/model';
 	import { formatDuration } from '$lib/tour/sample';
 
@@ -32,12 +28,7 @@
 	<h2>
 		<a href={resolve('/tour/[id]', { id: tour.id })}>{tour.title}</a>
 	</h2>
-	<ul class="facts">
-		<li><Route size={22} aria-hidden="true" /> {km} km</li>
-		<li><Clock size={22} aria-hidden="true" /> ca. {formatDuration(tour.minutes)}</li>
-		<li><Mountain size={22} aria-hidden="true" /> Steigung: {tour.stats.climb}</li>
-		<li><Sprout size={22} aria-hidden="true" /> {natureWord(tour.stats.nature)}</li>
-	</ul>
+	<p class="facts">{km} km · ca. {formatDuration(tour.minutes)} · {tour.stats.climb}</p>
 	<p class="highlight">{tour.highlight}</p>
 	<div class="footer">
 		<span class="muted">{extraDistanceText(tour.extraDistance)}</span>
@@ -50,16 +41,13 @@
 		position: relative;
 		padding: 1rem 1.125rem 1.125rem;
 		background: var(--color-surface);
-		border: 2px solid var(--color-border);
-		border-left: 0.5rem solid var(--route-color);
+		border: 2px solid transparent;
 		border-radius: 1rem;
-		box-shadow: 0 2px 10px rgb(36 53 57 / 0.07);
 	}
 
 	.route-card:hover,
 	.route-card.selected {
-		border-color: var(--color-green);
-		border-left-color: var(--route-color);
+		border-color: var(--route-color);
 	}
 
 	.route-card:has(a:focus-visible) {
@@ -112,23 +100,8 @@
 	}
 
 	.facts {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.375rem 1.25rem;
-		margin: 0 0 0.75rem;
-		padding: 0;
-		list-style: none;
+		margin: 0 0 0.5rem;
 		font-weight: 700;
-	}
-
-	.facts li {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-	}
-
-	.facts :global(svg) {
-		color: var(--color-olive);
 	}
 
 	.highlight {

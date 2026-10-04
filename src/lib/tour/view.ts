@@ -1,7 +1,7 @@
 /** Einheitliche Ansicht für das Tourdetail – egal ob Beispieltour oder berechneter Weg */
 import type { LngLat } from '$lib/geo/geo';
 import type { SceneKind } from '$lib/components/illustrations/TourScene.svelte';
-import { extraDistanceText, surfaceWord, trafficWord } from '$lib/routing/describe';
+import { caveatOf } from '$lib/routing/describe';
 import type { RouteStats } from '$lib/scoring/score';
 import type { StopKind } from '$lib/stops/kinds';
 import { elevationProfile, type ElevationProfile } from './elevation';
@@ -26,15 +26,11 @@ export interface TourView {
 	/** z. B. „Von Ihr Standort zu Burg Linn“ */
 	subtitle?: string;
 	highlight?: string;
-	/** z. B. „2,1 km länger als der direkte Weg“ */
-	extra?: string;
 	km: number;
 	minutes: number;
 	climb: string;
-	/** „fast überall glatt“ … (nur bei berechneten Wegen) */
-	surface?: string;
-	/** „fast nur Radwege, kaum Autos“ … (nur bei berechneten Wegen) */
-	traffic?: string;
+	/** Haken, den man vorher wissen sollte, z. B. ein längeres Stück Schotter (nur bei berechneten Wegen) */
+	caveat?: string;
 	tags: LandscapeTag[];
 	/** Beispieltouren: feste Stopps; berechnete Wege: werden im Tourdetail gesucht */
 	stops: ViewStop[];
@@ -86,12 +82,10 @@ export function fromPlanned(t: PlannedTour): TourView {
 				? `Von ${start.name} zu ${destination.name} und auf anderem Weg zurück`
 				: `Von ${start.name} zu ${destination.name}`,
 		highlight: t.highlight,
-		extra: extraDistanceText(t.extraDistance),
 		km: Math.round(t.stats.distance / 100) / 10,
 		minutes: t.minutes,
 		climb: t.stats.climb,
-		surface: surfaceWord(t.stats),
-		traffic: trafficWord(t.stats),
+		caveat: caveatOf(t.stats),
 		tags: tagsFromStats(t.stats),
 		stops: [],
 		backHref: 'vorschlaege',

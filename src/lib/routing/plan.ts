@@ -24,12 +24,16 @@ import {
 	VIA_SEARCH
 } from '$lib/scoring/weights';
 import { newTourId, type PlannedTour, type TourRequest, type Waypoint } from '$lib/tour/model';
-import { highlightSentence, honestTitles, sideOf, sideTitle, viaStreetTitle, withSide } from './describe';
+import { highlightSentence, honestTitles, sideOf, sideTitle, viaStreetTitle, withSide, type NamedPhrase } from './describe';
+import type { NameData } from '$lib/naming/names';
+import { distinctPlaces, highlightOf, landmarkPhrase, landmarkTitle, routeNames, viaPlaces, type RouteNames } from '$lib/naming/title';
 import { NoRouteError, route as routeGraphHopper, type RoutePath } from './graphhopper';
 
 export interface PlanDeps {
 	route: typeof routeGraphHopper;
 	landscape?: Landscape;
+	/** Orts- und Gewässernamen für verständliche Titel („Am Rhein entlang über Meerbusch“) */
+	names?: NameData;
 	signal?: AbortSignal;
 }
 
@@ -306,6 +310,12 @@ function distinctiveStreet(own: Map<string, number>, others: Map<string, number>
 		.sort((a, b) => b[1] - a[1])[0]?.[0];
 }
 
+/** Benannter Höhepunkt → Teil des Beschreibungssatzes („am Rhein“, „durch den Stadtwald“) */
+function namedPhrase(l: { name: string; kind: 'river' | 'lake' | 'forest' | 'park' }): NamedPhrase {
+	const feature = l.kind === 'river' || l.kind === 'lake' ? 'water' : l.kind === 'forest' ? 'forest' : 'green';
+	return { feature, phrase: landmarkPhrase(l) };
+}
+
 /** Hauptfunktion: Vorschläge für eine Zieltour */
 export async function planTours(request: TourRequest, deps: PlanDeps): Promise<PlannedTour[]> {
 	const start = request.start.lngLat;
@@ -359,6 +369,9 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 
 	const shortest = Math.min(...chosen.map((c) => c.legs.reduce((s, l) => s + l.path.distance, 0)));
 	const streets = chosen.map(streetLengths);
+	const named: (RouteNames | undefined)[] = chosen.map((c) =>
+		deps.names ? routeNames(c.legs.flatMap((l) => l.line), deps.names, deps.landscape) : undefined
+	);
 	const usedTitles = new Set<string>();
 
 	return chosen.map((combo, index) => {
@@ -376,7 +389,17 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 		// wird er mit der Himmelsrichtung ergänzt statt auf eine schwächere Landschaft auszuweichen
 		const honest = honestTitles(stats, TITLE_MIN_SHARE_OF_TOP);
 		const outboundSide = combo.legs.length === 1 ? sideOf(combo.legs[0].line, start, end) : undefined;
+		// 1. Wahl: benannter Höhepunkt und unterscheidende Orte („Am Rhein entlang über Meerbusch“)
+		const names = named[index];
+		const highlight = names && highlightOf(names);
+		const others = named.filter((n, i): n is RouteNames => i !== index && !!n);
+		const via = names && viaPlaces(distinctPlaces(names, others));
+		const lead = highlight ? landmarkTitle(highlight) : honest[0];
 		const candidates = [
+			lead && via && `${lead} ${via}`,
+			lead,
+			highlight && honest[0] && via && `${honest[0]} ${via}`,
+			via && via.charAt(0).toUpperCase() + via.slice(1),
 			honest[0],
 			honest[0] && outboundSide && withSide(honest[0], outboundSide),
 			street && viaStreetTitle(street),
@@ -406,7 +429,7 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 			id: newTourId(),
 			title,
 			label,
-			highlight: highlightSentence(stats, title),
+			highlight: highlightSentence(stats, title, highlight ? namedPhrase(highlight) : undefined),
 			request,
 			waypoints,
 			legs: combo.legs.map((l) => ({ coordinates: l.path.coordinates, distance: l.path.distance })),

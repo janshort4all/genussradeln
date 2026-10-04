@@ -3,7 +3,6 @@
  * Gewichte in STOP_SCORE (weights.ts).
  */
 import { distance, resample, type LngLat } from '$lib/geo/geo';
-import type { Landscape } from '$lib/scoring/landscape';
 import { STOP_LIMITS, STOP_RADIUS_M, STOP_SCORE } from '$lib/scoring/weights';
 import { FLAG, hasFlag, type StopKind } from './kinds';
 import type { Poi, PoiIndex } from './pois';
@@ -23,7 +22,7 @@ export interface RouteStop {
 const FOOD: StopKind[] = ['cafe', 'eis', 'biergarten'];
 const STEP_M = 25;
 
-function rate(poi: Poi, offRoute: number, landscape?: Landscape): { score: number; reasons: string[] } {
+function rate(poi: Poi, offRoute: number): { score: number; reasons: string[] } {
 	const reasons: string[] = [];
 	let score = STOP_SCORE.base[poi.kind];
 	const food = FOOD.includes(poi.kind);
@@ -32,19 +31,17 @@ function rate(poi: Poi, offRoute: number, landscape?: Landscape): { score: numbe
 		score += STOP_SCORE.outdoor;
 		if (poi.kind !== 'biergarten') reasons.push('mit Plätzen draußen');
 	}
-	if (landscape) {
-		// für Stopps nur echte Nähe: ein Café 400 m hinter Häusern ist nicht „am Wasser“
-		const around = landscape.surroundings(poi.lngLat, 1, null);
-		if (around.water) {
-			score += STOP_SCORE.water;
-			reasons.push('am Wasser');
-		} else if (around.forest) {
-			score += STOP_SCORE.greenOrForest;
-			reasons.push('am Wald');
-		} else if (around.green) {
-			score += STOP_SCORE.greenOrForest;
-			reasons.push('im Grünen');
-		}
+	// Lage genau aus den echten Ufer-/Waldrändern (scripts/fetch-pois.ts): höchstens ca. 60 m,
+	// Wasser nur als Fläche (See, Teich, großer Fluss) – kein Bach oder Graben
+	if (hasFlag(poi.flags, FLAG.waterside)) {
+		score += STOP_SCORE.water;
+		reasons.push('am Wasser');
+	} else if (hasFlag(poi.flags, FLAG.forestside)) {
+		score += STOP_SCORE.greenOrForest;
+		reasons.push('am Wald');
+	} else if (hasFlag(poi.flags, FLAG.greenside)) {
+		score += STOP_SCORE.greenOrForest;
+		reasons.push('im Grünen');
 	}
 	if (food && hasFlag(poi.flags, FLAG.website)) score += STOP_SCORE.wellMaintained;
 	if (food && hasFlag(poi.flags, FLAG.hours)) score += STOP_SCORE.wellMaintained;
@@ -76,7 +73,7 @@ function bestPerWindow(stops: RouteStop[], windowKm: number): RouteStop[] {
 	return [...best.values()];
 }
 
-export function stopsAlongRoute(line: LngLat[], index: PoiIndex, landscape?: Landscape): RouteStop[] {
+export function stopsAlongRoute(line: LngLat[], index: PoiIndex): RouteStop[] {
 	const samples = resample(line, STEP_M);
 	const maxRadius = Math.max(...Object.values(STOP_RADIUS_M));
 
@@ -99,7 +96,7 @@ export function stopsAlongRoute(line: LngLat[], index: PoiIndex, landscape?: Lan
 		lngLat: poi.lngLat,
 		kind: poi.kind,
 		name: poi.name,
-		...rate(poi, off, landscape)
+		...rate(poi, off)
 	}));
 
 	const ofKind = (...kinds: StopKind[]) => all.filter((s) => kinds.includes(s.kind));
@@ -114,4 +111,28 @@ export function stopsAlongRoute(line: LngLat[], index: PoiIndex, landscape?: Lan
 		...bestPerWindow(ofKind('bank'), STOP_LIMITS.benchWindowKm)
 	];
 	return chosen.sort((a, b) => a.km - b.km);
+}
+
+/** Stopps, für die man gern anhält (Einkehr und Aussicht) – Bänke, Rastplätze usw. sieht man unterwegs selbst */
+const WORTH_A_STOP: StopKind[] = [...FOOD, 'aussicht'];
+
+/**
+ * Die wenigen Stopps fürs Tourdetail: höchstens `max` Orte zum Einkehren oder Schauen, die besten zuerst
+ * ausgewählt, dann nach Kilometer sortiert.
+ */
+export function highlightStops<T extends { km: number; kind: StopKind; score?: number }>(stops: T[], max = 3): T[] {
+	return stops
+		.filter((s) => WORTH_A_STOP.includes(s.kind))
+		.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+		.slice(0, max)
+		.sort((a, b) => a.km - b.km);
+}
+
+/** „Toiletten gibt es nach 3 und nach 24 km.“ – oder nichts, wenn keine am Weg liegen */
+export function toiletSentence(stops: { km: number; kind: StopKind }[], max = 3): string | undefined {
+	const kms = stops.filter((s) => s.kind === 'toilette').slice(0, max).map((s) => Math.round(s.km));
+	const unique = [...new Set(kms)].map((km) => `nach ${km}`);
+	if (!unique.length) return undefined;
+	const list = unique.length > 1 ? `${unique.slice(0, -1).join(', ')} und ${unique.at(-1)}` : unique[0];
+	return unique.length > 1 ? `Toiletten gibt es ${list} km.` : `Eine Toilette gibt es ${list} km.`;
 }

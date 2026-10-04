@@ -11,6 +11,8 @@
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { FLAG, STOP_KINDS, type StopKind } from '../src/lib/stops/kinds.ts';
+import { readdir, readFile } from 'node:fs/promises';
+import { NearbyIndex } from './lib/nearby.ts';
 import { loadRegionTiles, type OsmElement } from './lib/overpass.ts';
 
 type Item = [number, number, number, number, string?];
@@ -39,6 +41,20 @@ await loadRegionTiles({
 });
 
 const all = [...items.values(), ...[...benches.values()].map((b) => b.item)];
+
+// Lage genau bestimmen (echte Ufer- und Waldränder statt 100-m-Raster) – aus den Daten der Landschaftskarte
+const NEAR_M = 60;
+const nearby = await buildNearbyIndex();
+let flagged = 0;
+for (const item of all) {
+	const point: [number, number] = [item[0] / 1e5, item[1] / 1e5];
+	const before = item[3];
+	if (nearby.distance(point, 'water', NEAR_M) <= NEAR_M) item[3] |= FLAG.waterside;
+	if (nearby.distance(point, 'forest', NEAR_M) <= NEAR_M) item[3] |= FLAG.forestside;
+	if (nearby.distance(point, 'green', NEAR_M) <= NEAR_M) item[3] |= FLAG.greenside;
+	if (item[3] !== before) flagged++;
+}
+console.log(`Lage bestimmt: ${flagged} Stopps am Wasser, am Wald oder im Grünen`);
 const counts = Object.fromEntries(STOP_KINDS.map((k, i) => [k, all.filter((it) => it[2] === i).length]));
 console.log('Anzahl je Art:', counts);
 
@@ -53,6 +69,46 @@ await writeFile(new URL('../static/data/pois.json', import.meta.url), json + '\n
 console.log(`Fertig: static/data/pois.json (${Math.round(json.length / 1024)} KB, ${all.length} Stopps)`);
 
 // ---------------------------------------------------------------------------
+
+/**
+ * Wasser nur als Fläche (See, Teich, Flussfläche) mit mindestens 300 m Umfang – Bäche, Gräben und Kanäle, die nur
+ * als Linie eingetragen sind, zählen nicht („am Wasser“ heißt: man sitzt mit Blick aufs Wasser).
+ */
+async function buildNearbyIndex(): Promise<NearbyIndex> {
+	const index = new NearbyIndex();
+	const dir = new URL('./.cache/landscape/', import.meta.url);
+	const seen = new Set<string>();
+	for (const file of await readdir(dir)) {
+		const { elements } = JSON.parse(await readFile(new URL(file, dir), 'utf8')) as { elements: OsmElement[] };
+		for (const e of elements) {
+			const key = `${e.type}/${e.id}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			const t = e.tags ?? {};
+			if (t.natural === 'water' || t.waterway === 'riverbank') {
+				if (perimeter(e) >= 300) index.add(e, 'water', true);
+			} else if (t.landuse === 'forest' || t.natural === 'wood') index.add(e, 'forest', true);
+			else if (t.leisure === 'park' || t.leisure === 'nature_reserve' || t.landuse === 'meadow' || t.natural === 'grassland' || t.natural === 'heath') {
+				index.add(e, 'green', true);
+			}
+		}
+	}
+	return index;
+}
+
+function perimeter(e: OsmElement): number {
+	const rings = e.type === 'way' ? [e.geometry ?? []] : (e.members ?? []).map((m) => m.geometry ?? []);
+	let sum = 0;
+	for (const ring of rings) {
+		for (let i = 1; i < ring.length; i++) {
+			const a = ring[i - 1];
+			const b = ring[i];
+			if (!a || !b) continue;
+			sum += Math.hypot((b.lon - a.lon) * 69_600, (b.lat - a.lat) * 110_540);
+		}
+	}
+	return sum;
+}
 
 function kindOf(t: Record<string, string>): StopKind | undefined {
 	if (t.access === 'private' || t.access === 'no') return undefined;

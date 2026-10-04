@@ -10,7 +10,8 @@
 	import { routeColor } from '$lib/map/colors';
 	import { NoRouteError, route, RoutingUnavailableError } from '$lib/routing/graphhopper';
 	import { planTours } from '$lib/routing/plan';
-	import { loadLandscape, type Landscape } from '$lib/scoring/landscape';
+	import { loadNames } from '$lib/naming/names';
+	import { loadLandscape } from '$lib/scoring/landscape';
 	import { tourLine } from '$lib/tour/model';
 	import { session } from '$lib/tour/session.svelte';
 
@@ -27,15 +28,19 @@
 	async function compute() {
 		if (!request) return;
 		status = 'loading';
-		let landscape: Landscape | undefined;
+		// Landschaftskarte und Namen (Gewässer, Wälder, Orte) – ohne sie geht es auch, nur weniger schön benannt
+		const [landscape, names] = await Promise.all([
+			loadLandscape(asset('/data/landscape.json'), asset('/data/landscape.png')).catch((error) => {
+				console.warn('Landschaftskarte nicht verfügbar:', error);
+				return undefined;
+			}),
+			loadNames(asset('/data/landmarks.json'), asset('/data/places.json')).catch((error) => {
+				console.warn('Namensdaten nicht verfügbar:', error);
+				return undefined;
+			})
+		]);
 		try {
-			landscape = await loadLandscape(asset('/data/landscape.json'), asset('/data/landscape.png'));
-		} catch (error) {
-			// ohne Landschaftskarte geht es auch – dann ohne Wasser/Wald-Bewertung
-			console.warn('Landschaftskarte nicht verfügbar:', error);
-		}
-		try {
-			const result = await planTours(request, { route, landscape });
+			const result = await planTours(request, { route, landscape, names });
 			session.setTours(request, result);
 			tours = result;
 			status = 'done';
@@ -113,7 +118,8 @@
 
 		<ol class="tours">
 			{#each tours as tour, index (tour.id)}
-				<li>
+				<!-- PC: Zeigen auf eine Karte hebt ihren Weg auf der Karte hervor -->
+				<li onmouseenter={() => (selectedId = tour.id)} onfocusin={() => (selectedId = tour.id)}>
 					<RouteCard {tour} color={routeColor(index)} selected={tour.id === selectedId} />
 				</li>
 			{/each}

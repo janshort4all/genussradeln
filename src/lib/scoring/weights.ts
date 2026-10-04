@@ -69,6 +69,20 @@ export const SURROUNDINGS_RADIUS_CELLS = 1;
  */
 export const BIG_WATER = { radiusCells: 4, minCells: 8 } as const;
 
+/** Titel aus Namen (naming/title.ts): „Am Rhein entlang über Meerbusch“ */
+export const NAMING = {
+	/** benanntes Gewässer zählt bis zu diesem Abstand (Flussmitte liegt weit hinter dem Ufer) */
+	waterRadiusM: 700,
+	/** Wald/Park bzw. ohne Landschaftskarte: Name zählt bis zu diesem Abstand */
+	nearRadiusM: 400,
+	/** ein Abschnitt gehört zum nächstgelegenen Ort in diesem Umkreis */
+	placeRadiusM: 2500,
+	/** Höhepunkt nur, wenn so viel vom Weg daran vorbeiführt */
+	minLandmarkShare: 0.15,
+	/** Ort im Titel nur, wenn so viel vom Weg dort verläuft */
+	minPlaceM: 1000
+} as const;
+
 /** Ein Weg wird nur nach einer Landschaft benannt, die mindestens diesen Anteil der stärksten erreicht */
 export const TITLE_MIN_SHARE_OF_TOP = 0.85;
 

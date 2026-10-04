@@ -63,11 +63,19 @@ interface Feature {
 	phrase: string;
 }
 
-function features(s: RouteStats): Feature[] {
+/** Benannter Höhepunkt für den Beschreibungssatz, z. B. { feature: 'water', phrase: 'am Rhein' } */
+export interface NamedPhrase {
+	feature: 'water' | 'forest' | 'green';
+	phrase: string;
+}
+
+function features(s: RouteStats, named?: NamedPhrase): Feature[] {
+	const phrase = (feature: NamedPhrase['feature'], fallback: string) =>
+		named?.feature === feature ? named.phrase : fallback;
 	return [
-		{ share: s.water, title: 'Am Wasser entlang', phrase: 'am Wasser' },
-		{ share: s.forest, title: 'Durch den Wald', phrase: 'durch den Wald' },
-		{ share: s.green, title: 'Durchs Grüne', phrase: 'durchs Grüne' },
+		{ share: s.water, title: 'Am Wasser entlang', phrase: phrase('water', 'am Wasser') },
+		{ share: s.forest, title: 'Durch den Wald', phrase: phrase('forest', 'durch den Wald') },
+		{ share: s.green, title: 'Durchs Grüne', phrase: phrase('green', 'durchs Grüne') },
 		{ share: s.fields, title: 'Durch die Felder', phrase: 'durch die Felder' },
 		{ share: s.quiet, title: QUIET_TITLE, phrase: 'auf ruhigen Radwegen' }
 	]
@@ -103,11 +111,11 @@ export function withSide(title: string, side: SideWord): string {
  * Ein Satz zum Besonderen, z. B. „Ein gutes Stück am Wasser und ab und zu durch den Wald.“
  * Ist `title` ein Landschafts-Titel (z. B. „Durch den Wald“), steht diese Landschaft vorne.
  */
-export function highlightSentence(s: RouteStats, title?: string): string {
-	const ranked = features(s);
-	// auch bei „Am Wasser entlang – östliche Strecke“ steht das Wasser vorne
-	const named = ranked.findIndex((f) => title?.startsWith(f.title));
-	if (named > 0) ranked.unshift(...ranked.splice(named, 1));
+export function highlightSentence(s: RouteStats, title?: string, named?: NamedPhrase): string {
+	const ranked = features(s, named);
+	// der Teil, nach dem der Weg heißt, steht vorne („Am Rhein entlang …“ → „… am Rhein …“)
+	const first = ranked.findIndex((f) => (named ? f.phrase === named.phrase : title?.startsWith(f.title)));
+	if (first > 0) ranked.unshift(...ranked.splice(first, 1));
 	// features() liefert nur Anteile ≥ 15 %, amountWord() hat dafür immer ein Wort
 	const parts = ranked.slice(0, 2).map((f) => `${amountWord(f.share)} ${f.phrase}`);
 	let sentence = parts.length ? parts.join(' und ') : 'Ein ruhiger Weg ohne viele Besonderheiten';
@@ -139,17 +147,11 @@ export function natureWord(share: number): string {
 	return 'wenig Grün';
 }
 
-/** Untergrund in Worten (E-Bike-Fahrer wollen wissen, ob es holpert) */
-export function surfaceWord(s: RouteStats): string {
-	if (s.badSurface < 0.03) return 'fast überall glatt';
-	if (s.badSurface < 0.1) return 'überwiegend glatt, kurze Stücke Schotter oder Pflaster';
-	return 'ein längeres Stück Schotter, Sand oder Pflaster';
-}
-
-/** Verkehr in Worten */
-export function trafficWord(s: RouteStats): string {
-	if (s.major < 0.03 && s.quiet >= 0.5) return 'fast nur Radwege, kaum Autos';
-	if (s.major < 0.03) return 'ruhige Wege, kaum große Straßen';
-	if (s.major < 0.1) return 'überwiegend ruhig, kurz an größeren Straßen';
-	return 'ein Stück an größeren Straßen';
+/**
+ * Haken, den man vor der Fahrt wissen sollte (E-Bike-Fahrer wollen wissen, ob es holpert) – sonst nichts.
+ * Große Straßen nennt schon der Beschreibungssatz (highlightSentence).
+ */
+export function caveatOf(s: RouteStats): string | undefined {
+	if (s.badSurface >= 0.1) return 'Achtung: ein längeres Stück Schotter, Sand oder Pflaster.';
+	return undefined;
 }

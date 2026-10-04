@@ -104,7 +104,9 @@ console.log('Fertig: static/data/landscape.png und landscape.json');
 // ---------------------------------------------------------------------------
 
 function classify(tags: Record<string, string>): { value: number; line?: boolean } | undefined {
-	if (tags.waterway === 'river' || tags.waterway === 'canal') return { value: WATER, line: true };
+	// Flüsse als Linie (falls die Fläche fehlt). Kanäle nur als Fläche: als Linie eingetragene Kanäle sind
+	// meist schmale Gräben (z. B. Nordkanal); große Kanäle haben ohnehin eine Wasserfläche.
+	if (tags.waterway === 'river') return { value: WATER, line: true };
 	if (tags.natural === 'water' || tags.waterway === 'riverbank') return { value: WATER };
 	if (tags.landuse === 'forest' || tags.natural === 'wood') return { value: FOREST };
 	if (
