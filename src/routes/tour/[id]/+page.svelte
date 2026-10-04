@@ -11,16 +11,63 @@
 	import BatteryHint from '$lib/components/BatteryHint.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import LandscapeChip from '$lib/components/LandscapeChip.svelte';
+	import Bike from '@lucide/svelte/icons/bike';
+	import Car from '@lucide/svelte/icons/car';
+	import { asset } from '$app/paths';
+	import ElevationProfile from '$lib/components/ElevationProfile.svelte';
+	import StopList from '$lib/components/StopList.svelte';
 	import TourScene from '$lib/components/illustrations/TourScene.svelte';
-	import { stopIcons } from '$lib/components/icons';
 	import RouteMap from '$lib/map/RouteMap.svelte';
 	import { routeColor } from '$lib/map/colors';
-	import { formatDuration, stopLabel } from '$lib/tour/sample';
+	import { loadLandscape } from '$lib/scoring/landscape';
+	import { stopsAlongRoute } from '$lib/stops/along';
+	import { loadPois } from '$lib/stops/pois';
+	import { formatDuration } from '$lib/tour/sample';
+	import type { ViewStop } from '$lib/tour/view';
 
 	let { data } = $props();
 	const tour = $derived(data.tour);
 
 	let notice = $state('');
+
+	// Stopps: Beispieltouren haben feste, berechnete Wege werden entlang der Strecke durchsucht
+	let foundStops: ViewStop[] | undefined = $state();
+	let stopsStatus: 'loading' | 'done' | 'error' = $state('loading');
+	let focusStopId: string | undefined = $state();
+	const stops = $derived(tour.map.kind === 'route' ? (foundStops ?? []) : tour.stops);
+	let mapBox: HTMLDivElement | undefined = $state();
+
+	/** Stopp auf der Karte zeigen – und zur Karte hochscrollen, damit man den Sprung sieht */
+	function showStop(id: string) {
+		focusStopId = id;
+		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		mapBox?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+	}
+
+	$effect(() => {
+		const map = tour.map;
+		if (map.kind !== 'route') {
+			stopsStatus = 'done';
+			return;
+		}
+		let cancelled = false;
+		stopsStatus = 'loading';
+		(async () => {
+			try {
+				const [index, landscape] = await Promise.all([
+					loadPois(asset('/data/pois.json')),
+					loadLandscape(asset('/data/landscape.json'), asset('/data/landscape.png')).catch(() => undefined)
+				]);
+				if (cancelled) return;
+				foundStops = stopsAlongRoute(map.coordinates, index, landscape);
+				stopsStatus = 'done';
+			} catch (error) {
+				console.warn('Stopps nicht verfügbar:', error);
+				if (!cancelled) stopsStatus = 'error';
+			}
+		})();
+		return () => (cancelled = true);
+	});
 </script>
 
 <svelte:head>
@@ -34,7 +81,7 @@
 {/if}
 
 {#if tour.map.kind === 'route'}
-	<div class="map route">
+	<div class="map route" bind:this={mapBox}>
 		<RouteMap
 			label="Karte mit dem Weg: {tour.subtitle}"
 			routes={[{ id: tour.id, coordinates: tour.map.coordinates, color: routeColor(0) }]}
@@ -42,6 +89,8 @@
 				{ lngLat: tour.map.start, kind: 'start' },
 				{ lngLat: tour.map.destination, kind: 'destination' }
 			]}
+			stops={stops.flatMap((s) => (s.lngLat ? [{ id: s.id, lngLat: s.lngLat, kind: s.kind }] : []))}
+			{focusStopId}
 		/>
 	</div>
 {:else}
@@ -77,31 +126,57 @@
 	</div>
 </dl>
 
+{#if tour.surface || tour.traffic}
+	<ul class="words">
+		{#if tour.surface}
+			<li><Bike size={22} aria-hidden="true" /> <span><strong>Untergrund:</strong> {tour.surface}</span></li>
+		{/if}
+		{#if tour.traffic}
+			<li><Car size={22} aria-hidden="true" /> <span><strong>Verkehr:</strong> {tour.traffic}</span></li>
+		{/if}
+	</ul>
+{/if}
+
 {#if tour.highlight}<p class="highlight">{tour.highlight}</p>{/if}
 {#if tour.extra}<p class="muted">{tour.extra}</p>{/if}
 
 {#if tour.battery}<BatteryHint level={tour.battery} />{/if}
 
+{#if tour.profile}
+	<section class="profile">
+		<h2>Höhenprofil</h2>
+		<ElevationProfile
+			profile={tour.profile}
+			climb={tour.climb}
+			destinationKm={tour.destinationKm}
+			destinationName={tour.destinationName}
+		/>
+	</section>
+{/if}
+
 <section class="stops">
 	<h2>Unterwegs erwartet Sie</h2>
-	{#if !tour.stops.length}
-		<p class="muted">Cafés, Bänke, Toiletten und andere Stopps entlang des Wegs zeigen wir hier in Kürze an.</p>
+	{#if stopsStatus === 'loading'}
+		<p class="muted" role="status">Stopps entlang des Wegs werden gesucht …</p>
+	{:else if stopsStatus === 'error'}
+		<p class="muted">Die Stopps konnten gerade nicht geladen werden.</p>
+	{:else if !stops.length}
+		<p class="muted">Direkt am Weg haben wir keine Cafés, Bänke oder Toiletten gefunden.</p>
+	{:else}
+		<StopList
+			{stops}
+			focusedId={focusStopId}
+			onfocus={showStop}
+			destination={tour.destinationKm !== undefined
+				? { km: tour.destinationKm, name: tour.destinationName ?? 'Ziel' }
+				: undefined}
+		/>
+		{#if tour.map.kind === 'route'}
+			<p class="muted hint">
+				Stopp antippen, um ihn auf der Karte zu sehen. Öffnungszeiten bitte vorher prüfen.
+			</p>
+		{/if}
 	{/if}
-	<ol>
-		{#each tour.stops as stop (stop.km)}
-			{@const style = stopIcons[stop.kind]}
-			<li>
-				<span class="km">km {stop.km}</span>
-				<span class="stop-icon" style:color={style.color} style:background={style.background}>
-					<style.icon size={24} strokeWidth={2.25} aria-hidden="true" />
-				</span>
-				<span>
-					<strong>{stop.name}</strong>
-					<span class="muted kind">{stopLabel[stop.kind]}</span>
-				</span>
-			</li>
-		{/each}
-	</ol>
 </section>
 
 <div class="actions">
@@ -206,40 +281,33 @@
 		white-space: nowrap;
 	}
 
-	.stops {
-		margin: 1.75rem 0;
-	}
-
-	.stops ol {
-		margin: 0;
+	.words {
+		display: grid;
+		gap: 0.5rem;
+		margin: 0 0 1rem;
 		padding: 0;
 		list-style: none;
 	}
 
-	.stops li {
-		display: grid;
-		grid-template-columns: 4rem 2.75rem 1fr;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.75rem 0;
-		border-bottom: 1px solid var(--color-border);
+	.words li {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
 	}
 
-	.km {
-		font-weight: 700;
-		color: var(--color-green);
+	.words :global(svg) {
+		flex: none;
+		margin-top: 0.15em;
+		color: var(--color-olive);
 	}
 
-	.stop-icon {
-		display: grid;
-		place-items: center;
-		width: 2.75rem;
-		height: 2.75rem;
-		border-radius: 50%;
+	.profile,
+	.stops {
+		margin: 1.75rem 0;
 	}
 
-	.kind {
-		display: block;
+	.hint {
+		margin: 0.75rem 0 0;
 		font-size: var(--text-small);
 	}
 

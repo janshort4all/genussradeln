@@ -53,7 +53,7 @@ Alle Werte als CSS-Variablen in `src/app.css`:
 | Karte | MapLibre GL JS, Kacheln von OpenFreeMap (Stil „liberty“ als Basis, eigener ruhiger Stil später) |
 | Routing | GraphHopper (Open Source, selbst gehostet), OSM-Auszug Regierungsbezirk Düsseldorf von Geofabrik |
 | Schönheit | GraphHopper-Custom-Model „genuss“ + Nachbewertung der Kandidaten im Client (siehe unten) |
-| Stopps (POIs) | Einmalig per Overpass-Skript aus OSM exportiert → `static/data/pois.geojson` |
+| Stopps (POIs) | Einmalig per Overpass-Skript aus OSM exportiert → `static/data/pois.json` (kompakt, siehe `scripts/fetch-pois.ts`) |
 | Speicherung | IndexedDB auf dem Gerät (z. B. `idb-keyval`), kein Backend |
 | Sprachansagen | Web Speech API (`speechSynthesis`, `lang="de-DE"`) + kurzer Signalton |
 | Hosting App | GitHub Pages oder Cloudflare Pages |
@@ -81,7 +81,7 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
 
 ### Touren mit Ziel (F3)
 
-- **Ziel = Art von Ort** („ein Biergarten“): passende POIs aus `pois.geojson` suchen, deren Entfernung
+- **Ziel = Art von Ort** („ein Biergarten“): passende POIs aus `pois.json` suchen, deren Entfernung
   zur gewünschten Länge passt (nur Hinweg: ≈ volle Länge; mit Rückweg: ≈ halbe Länge), pro Kandidat
   Route mit Profil `genuss` berechnen, ggf. über Zwischenpunkte verlängern, dann wie oben nachbewerten.
 - **Ziel = bestimmter Ort (umgesetzt in M2, `src/lib/routing/plan.ts`):**
@@ -153,8 +153,8 @@ genuss-radeln/
 │   ├── docker-compose.yml
 │   └── README.md               # Daten laden, starten, auf Server bringen
 ├── scripts/
-│   ├── fetch-pois.ts           # Overpass → static/data/pois.geojson
-│   └── fetch-landscape.ts      # Wasser/Wald → static/data/landscape.geojson
+│   ├── fetch-pois.ts           # Overpass → static/data/pois.json
+│   └── fetch-landscape.ts      # Wasser/Wald/Grün → static/data/landscape.png
 ├── src/
 │   ├── lib/
 │   │   ├── components/         # Button, ChoiceGroup, TourCard, BatteryHint, ElevationProfile …
@@ -176,7 +176,7 @@ genuss-radeln/
 │       ├── navigation/[id]/    # F10, F11
 │       ├── planen/             # F16 Selbst planen
 │       └── meine-touren/       # F14
-└── static/data/                # pois.geojson, landscape.geojson
+└── static/data/                # pois.json, landscape.png + landscape.json
 ```
 
 ## Meilensteine (in dieser Reihenfolge)
@@ -222,6 +222,7 @@ npm install          # Abhängigkeiten installieren (einmalig bzw. nach Änderun
 npm run dev          # App lokal unter http://localhost:5173
 npm run check        # TypeScript- und Svelte-Prüfung
 npm test             # Unit-Tests (Vitest, Dateien *.test.ts in src/)
+npm run data:pois       # Stopps (Cafés, Toiletten, Bänke …) aus OSM neu erzeugen → static/data/pois.json
 npm run data:landscape  # Landschaftskarte (Wasser/Wald/Grün) aus OSM neu erzeugen → static/data/ (dauert, Overpass)
 npm run build        # statischer Build nach build/
 npm run preview      # fertigen Build lokal ansehen

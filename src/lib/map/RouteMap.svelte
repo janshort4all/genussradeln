@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	import type { LngLat } from '$lib/geo/geo';
+	import type { StopKind } from '$lib/stops/kinds';
 
 	export interface MapRoute {
 		id: string;
@@ -11,6 +12,12 @@
 		lngLat: LngLat;
 		kind: 'start' | 'destination';
 	}
+
+	export interface MapStop {
+		id: string;
+		lngLat: LngLat;
+		kind: StopKind;
+	}
 </script>
 
 <script lang="ts">
@@ -18,7 +25,8 @@
 	// MapLibre rechnet Kartendaten in einem Worker; Vite baut ihn als eigenes Modul (siehe vite.config.ts → worker)
 	import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 	import { onMount } from 'svelte';
-	import type { Map as MapLibreMap } from 'maplibre-gl';
+	import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
+	import { stopIcons } from '$lib/components/icons';
 	import { boundsOf } from '$lib/geo/geo';
 
 	/**
@@ -30,11 +38,19 @@
 		markers?: MapMarker[];
 		selectedId?: string;
 		onselect?: (id: string) => void;
+		/** Stopps unterwegs als Symbole (nur Anzeige – bedient wird über die Liste) */
+		stops?: MapStop[];
+		/** Stopp, zu dem die Karte springen soll */
+		focusStopId?: string;
 		/** Beschreibung für Screenreader */
 		label: string;
 	}
 
-	let { routes, markers = [], selectedId, onselect, label }: Props = $props();
+	let { routes, markers = [], selectedId, onselect, stops = [], focusStopId, label }: Props = $props();
+
+	let createMarker: ((element: HTMLElement, lngLat: LngLat) => Marker) | undefined = $state();
+	const stopElements: Record<string, HTMLElement> = $state({});
+	const stopMarkers = new Map<string, Marker>();
 
 	const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 	// rechts Platz für die Zoom-Knöpfe, unten für den Quellenhinweis
@@ -82,6 +98,7 @@
 					element.setAttribute('aria-hidden', 'true');
 					new maplibre.Marker({ element }).setLngLat(marker.lngLat).addTo(instance);
 				}
+				createMarker = (element, lngLat) => new maplibre.Marker({ element }).setLngLat(lngLat).addTo(instance);
 				map = instance;
 			} catch (error) {
 				console.warn('Karte kann nicht angezeigt werden:', error);
@@ -146,6 +163,30 @@
 			m.moveLayer(`route-${selectedId}`);
 		}
 	});
+
+	// Stopp-Symbole: Svelte zeichnet die Elemente (unten), MapLibre setzt sie an ihre Stelle auf der Karte
+	$effect(() => {
+		if (!createMarker) return;
+		const wanted = new Set(stops.map((s) => s.id));
+		for (const [id, marker] of stopMarkers) {
+			if (!wanted.has(id)) {
+				marker.remove();
+				stopMarkers.delete(id);
+			}
+		}
+		for (const stop of stops) {
+			const element = stopElements[stop.id];
+			if (element && !stopMarkers.has(stop.id)) stopMarkers.set(stop.id, createMarker(element, stop.lngLat));
+		}
+	});
+
+	// Zum gewählten Stopp springen (ohne Animation, wenn der Nutzer weniger Bewegung wünscht)
+	$effect(() => {
+		const stop = stops.find((s) => s.id === focusStopId);
+		if (!map || !stop) return;
+		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		map.easeTo({ center: stop.lngLat, zoom: Math.max(map.getZoom(), 15), duration: reduce ? 0 : 600 });
+	});
 </script>
 
 <div class="route-map" role="img" aria-label={label}>
@@ -153,6 +194,21 @@
 	{#if failed}
 		<p class="fallback">Die Karte kann auf diesem Gerät leider nicht angezeigt werden. Alle Angaben finden Sie unten.</p>
 	{/if}
+	<!-- Vorlagen für die Stopp-Symbole; MapLibre hängt sie in die Karte um -->
+	<div class="stop-pool" aria-hidden="true">
+		{#each stops as stop (stop.id)}
+			{@const style = stopIcons[stop.kind]}
+			<div
+				bind:this={stopElements[stop.id]}
+				class="stop-marker"
+				class:focused={stop.id === focusStopId}
+				style:color={style.color}
+				style:background={style.background}
+			>
+				<style.icon size={18} strokeWidth={2.25} />
+			</div>
+		{/each}
+	</div>
 </div>
 
 <style>
@@ -200,6 +256,27 @@
 		width: 1.75rem;
 		height: 1.75rem;
 		background: var(--color-orange);
+	}
+
+	.stop-pool {
+		display: none;
+	}
+
+	.route-map :global(.stop-marker) {
+		display: grid;
+		place-items: center;
+		width: 1.875rem;
+		height: 1.875rem;
+		border-radius: 50%;
+		border: 2px solid var(--color-surface);
+		box-shadow: 0 1px 4px rgb(36 53 57 / 0.35);
+	}
+
+	.route-map :global(.stop-marker.focused) {
+		width: 2.5rem;
+		height: 2.5rem;
+		border-color: var(--color-green);
+		z-index: 2;
 	}
 
 	/* Bedienelemente der Karte groß genug für Finger */

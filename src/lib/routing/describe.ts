@@ -117,3 +117,18 @@ export function natureWord(share: number): string {
 	if (share >= 0.25) return 'etwas Grün und Wasser';
 	return 'wenig Grün';
 }
+
+/** Untergrund in Worten (E-Bike-Fahrer wollen wissen, ob es holpert) */
+export function surfaceWord(s: RouteStats): string {
+	if (s.badSurface < 0.03) return 'fast überall glatt';
+	if (s.badSurface < 0.1) return 'überwiegend glatt, kurze Stücke Schotter oder Pflaster';
+	return 'ein längeres Stück Schotter, Sand oder Pflaster';
+}
+
+/** Verkehr in Worten */
+export function trafficWord(s: RouteStats): string {
+	if (s.major < 0.03 && s.quiet >= 0.5) return 'fast nur Radwege, kaum Autos';
+	if (s.major < 0.03) return 'ruhige Wege, kaum große Straßen';
+	if (s.major < 0.1) return 'überwiegend ruhig, kurz an größeren Straßen';
+	return 'ein Stück an größeren Straßen';
+}
