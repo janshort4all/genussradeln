@@ -27,6 +27,17 @@ describe('toPlaces', () => {
 		expect(place.detail).toBe('Krefeld');
 	});
 
+	it('erkennt Städte und Dörfer (für „nach Kempen“), aber keine Adressen oder Gebäude', () => {
+		const [town, house, castle] = toPlaces([
+			feature({ name: 'Kempen', osm_key: 'place', osm_value: 'town', type: 'city' }),
+			feature({ street: 'Rheinstraße', housenumber: '12', city: 'Krefeld', osm_key: 'place', osm_value: 'house', type: 'house' }),
+			feature({ name: 'Burg Linn', osm_key: 'historic', osm_value: 'castle', type: 'house', city: 'Krefeld' }, [6.64, 51.34])
+		]);
+		expect(town.settlement).toBe(true);
+		expect(house.settlement).toBeUndefined();
+		expect(castle.settlement).toBeUndefined();
+	});
+
 	it('fasst gleichnamige Treffer in der Nähe zusammen, entfernte bleiben', () => {
 		const places = toPlaces([
 			feature({ name: 'Burg Linn', street: 'Rue de Sappeure', city: 'Krefeld' }, [6.6349, 51.3329]),

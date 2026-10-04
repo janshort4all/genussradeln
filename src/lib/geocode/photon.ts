@@ -37,6 +37,10 @@ interface PhotonFeature {
 	};
 }
 
+/** Orte (Stadt, Dorf, Ortsteil): Photon-Typ bzw. OSM place=… – Adressen (place=house) zählen nicht */
+const SETTLEMENT_TYPES = new Set(['city', 'district', 'locality']);
+const SETTLEMENT_VALUES = new Set(['city', 'town', 'village', 'hamlet', 'suburb', 'quarter', 'neighbourhood', 'borough']);
+
 /** Gleichnamige Treffer so nah beieinander gelten als derselbe Ort (z. B. Gebäude einer Burg) */
 const SAME_PLACE_M = 500;
 
@@ -57,7 +61,9 @@ export function toPlaces(features: PhotonFeature[]): Place[] {
 		const lngLat = geometry.coordinates as LngLat;
 		if (places.some((p) => p.name === name && distance(p.lngLat, lngLat) < SAME_PLACE_M)) continue;
 		seen.add(key);
-		places.push({ name, detail, lngLat });
+		const settlement =
+			(p.osm_key === 'place' && SETTLEMENT_VALUES.has(p.osm_value ?? '')) || SETTLEMENT_TYPES.has(p.type ?? '');
+		places.push({ name, detail, lngLat, ...(settlement ? { settlement } : {}) });
 	}
 	return places;
 }

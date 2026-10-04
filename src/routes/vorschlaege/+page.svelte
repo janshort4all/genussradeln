@@ -27,20 +27,30 @@
 	/** PC: Karte und Liste stehen nebeneinander – dort wählt das Zeigen mit der Maus */
 	const isWide = () => window.matchMedia('(min-width: 64rem)').matches;
 
+	/** Ein Knopf oder die Karte hat gewählt und rollt gerade dorthin – solange nicht dem Scrollen folgen */
+	let pickedAt = 0;
+
 	/**
-	 * Handy: Die Karte bleibt oben stehen. Hervorgehoben wird der Vorschlag, der gerade mitten
-	 * im sichtbaren Bereich unter der Karte steht – so folgt die Karte beim Scrollen der Liste.
+	 * Handy: Die Karte bleibt oben stehen. Hervorgehoben wird der Vorschlag im oberen Viertel des
+	 * sichtbaren Bereichs unter der Karte – so folgt die Karte beim Scrollen der Liste.
 	 */
 	function followScroll() {
-		if (isWide() || !mapBox) return;
+		if (isWide() || !mapBox || performance.now() - pickedAt < 1000) return;
+		const ids = tours.map((t) => t.id);
+		// ganz unten angekommen: der letzte Vorschlag (er kann nicht weiter nach oben rollen)
+		if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) {
+			selectedId = ids.at(-1);
+			return;
+		}
 		const top = mapBox.getBoundingClientRect().bottom;
 		const bottom = document.querySelector('.bottom-bar')?.getBoundingClientRect().top ?? window.innerHeight;
-		const middle = (top + bottom) / 2;
+		const line = top + (bottom - top) / 4;
 		let best: string | undefined;
 		let bestDistance = Infinity;
-		for (const [id, item] of Object.entries(cardItems)) {
-			const box = item.getBoundingClientRect();
-			const distance = middle < box.top ? box.top - middle : middle > box.bottom ? middle - box.bottom : 0;
+		for (const id of ids) {
+			const box = cardItems[id]?.getBoundingClientRect();
+			if (!box) continue;
+			const distance = line < box.top ? box.top - line : line > box.bottom ? line - box.bottom : 0;
 			if (distance < bestDistance) {
 				bestDistance = distance;
 				best = id;
@@ -59,13 +69,29 @@
 		});
 	}
 
-	/** Weg auf der Karte angetippt → seinen Vorschlag in der Liste zeigen */
-	function selectFromMap(id: string) {
+	/** Weg auf der Karte oder Knopf „Weg 2“ angetippt → seinen Vorschlag in der Liste zeigen */
+	function pick(id: string) {
 		selectedId = id;
+		pickedAt = performance.now();
 		if (isWide()) return;
 		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		cardItems[id]?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
 	}
+
+	const activeId = $derived(tours.some((t) => t.id === selectedId) ? selectedId : tours[0]?.id);
+
+	// „nach Kempen“ für Orte, sonst „bis Burg Linn“ (ohne Artikel passt „bis“ immer).
+	// Ältere Sitzungen kennen die Ortsart noch nicht – dann in der Ortsliste nachsehen.
+	let settlement = $state(request?.destination.settlement ?? false);
+	onMount(() => {
+		if (!request || request.destination.settlement !== undefined) return;
+		const { name, lngLat } = request.destination;
+		loadNames(asset('/data/landmarks.json'), asset('/data/places.json'))
+			.then((names) => (settlement = !!names.places.nearest(lngLat, 3000, (p) => p.name === name)))
+			.catch(() => {});
+	});
+	const towards = $derived(request ? `${settlement ? 'nach' : 'bis'} ${request.destination.name}` : '');
+	const countWords = (n: number) => (n === 1 ? 'Ein Weg' : `${n} Wege`);
 
 	const detourWord = { direct: 'direkt', nicer: 'etwas schöner', nicest: 'am schönsten' };
 	const effortWord = { easy: 'gemütlich', sporty: 'sportlicher' };
@@ -99,6 +125,8 @@
 
 	onMount(() => {
 		if (status === 'loading') compute();
+		// nach dem Zurückkommen steht die Liste evtl. schon weiter unten – Karte gleich passend zeigen
+		else requestAnimationFrame(followScroll);
 	});
 </script>
 
@@ -115,7 +143,7 @@
 	<p>Bitte sagen Sie uns zuerst, wohin Sie möchten.</p>
 	<Button variant="primary" href={resolve('/')}>Ziel wählen</Button>
 {:else}
-	<h1>Ihre Wege zu {request.destination.name}</h1>
+	<h1>{status === 'done' ? countWords(tours.length) : 'Ihre Wege'} {towards}</h1>
 	<p class="summary muted">
 		ab {request.start.name} · {detourWord[request.detour]} · {effortWord[request.effort]} ·
 		{request.returnMode === 'one-way' ? 'nur hin' : 'auf anderem Weg zurück'}
@@ -150,31 +178,50 @@
 		</div>
 	{:else}
 		<div class="wide">
-		<div class="map" bind:this={mapBox}>
-			<RouteMap
-				label="Karte mit dem Weg „{(tours.find((t) => t.id === selectedId) ?? tours[0])?.title}“ von {request.start.name} nach {request.destination.name}"
-				routes={tours.map((t, i) => ({ id: t.id, coordinates: tourLine(t), color: routeColor(i) }))}
-				markers={[
-					{ lngLat: request.start.lngLat, kind: 'start' },
-					{ lngLat: request.destination.lngLat, kind: 'destination' }
-				]}
-				{selectedId}
-				onselect={selectFromMap}
-			/>
-		</div>
+			<div class="map" bind:this={mapBox}>
+				<div class="map-canvas">
+					<RouteMap
+						label="Karte mit dem Weg „{(tours.find((t) => t.id === activeId) ?? tours[0])?.title}“ von {request.start.name} {towards}"
+						routes={tours.map((t, i) => ({ id: t.id, coordinates: tourLine(t), color: routeColor(i) }))}
+						markers={[
+							{ lngLat: request.start.lngLat, kind: 'start' },
+							{ lngLat: request.destination.lngLat, kind: 'destination' }
+						]}
+						{selectedId}
+						onselect={pick}
+					/>
+				</div>
+				<!-- Wie viele Wege es gibt und welcher gerade auf der Karte ist – bleibt mit der Karte stehen -->
+				{#if tours.length > 1}
+					<div class="picker" role="group" aria-label="Weg auf der Karte zeigen">
+						{#each tours as tour, index (tour.id)}
+							<button
+								type="button"
+								class="pick"
+								class:active={tour.id === activeId}
+								aria-pressed={tour.id === activeId}
+								style:--route-color={routeColor(index)}
+								onclick={() => pick(tour.id)}
+							>
+								<span class="swatch" aria-hidden="true"></span> Weg {index + 1}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
 
-		<ol class="tours">
-			{#each tours as tour, index (tour.id)}
-				<!-- PC: Zeigen auf eine Karte hebt ihren Weg auf der Karte hervor -->
-				<li
-					bind:this={cardItems[tour.id]}
-					onmouseenter={() => isWide() && (selectedId = tour.id)}
-					onfocusin={() => (selectedId = tour.id)}
-				>
-					<RouteCard {tour} color={routeColor(index)} selected={tour.id === selectedId} />
-				</li>
-			{/each}
-		</ol>
+			<ol class="tours">
+				{#each tours as tour, index (tour.id)}
+					<!-- PC: Zeigen auf eine Karte hebt ihren Weg auf der Karte hervor -->
+					<li
+						bind:this={cardItems[tour.id]}
+						onmouseenter={() => isWide() && (selectedId = tour.id)}
+						onfocusin={() => (selectedId = tour.id)}
+					>
+						<RouteCard {tour} number={index + 1} color={routeColor(index)} selected={tour.id === activeId} />
+					</li>
+				{/each}
+			</ol>
 		</div>
 	{/if}
 {/if}
@@ -186,19 +233,68 @@
 
 	/* Handy: Karte bleibt beim Scrollen oben stehen, die Vorschläge laufen darunter durch */
 	.map {
-		--map-height: clamp(13rem, 36vh, 20rem);
 		position: sticky;
 		top: 0;
 		z-index: 3;
-		height: calc(var(--map-height) + 1.25rem);
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
 		margin: 0 -0.25rem 0.5rem;
 		padding: 0.5rem 0.25rem 0.75rem;
 		background: var(--color-bg);
 	}
 
-	/* angetippter Weg: Vorschlag direkt unter der Karte zeigen */
+	.map-canvas {
+		height: clamp(12rem, 32vh, 20rem);
+	}
+
+	/* Knöpfe „Weg 1 … Weg 4“ unter der Karte */
+	/* vier gleich breite Knöpfe nebeneinander; bei großer Schrift rutschen sie in eine zweite Zeile */
+	.picker {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(4.75rem, 1fr));
+		gap: 0.25rem;
+	}
+
+	.pick {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.25rem;
+		min-height: var(--tap);
+		padding: 0.25rem;
+		white-space: nowrap;
+		border: 2px solid var(--color-border);
+		border-radius: 999px;
+		background: var(--color-surface);
+		color: var(--color-green);
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	.pick:hover {
+		border-color: var(--route-color);
+	}
+
+	.pick.active {
+		border-color: var(--color-green);
+		background: var(--color-green);
+		color: var(--color-surface);
+	}
+
+	.swatch {
+		flex: none;
+		width: 0.75rem;
+		height: 0.5rem;
+		border-radius: 0.25rem;
+		background: var(--route-color);
+		box-shadow: 0 0 0 1.5px var(--color-surface);
+	}
+
+	/* angetippter Weg: Vorschlag direkt unter Karte und Knöpfen zeigen */
 	.tours > li {
-		scroll-margin-top: calc(clamp(13rem, 36vh, 20rem) + 2rem);
+		scroll-margin-top: calc(clamp(12rem, 32vh, 20rem) + 6rem);
 	}
 
 	/* PC: Karte groß links und beim Scrollen stehend, Vorschläge rechts (Lastenheft B9) */
@@ -216,6 +312,12 @@
 			height: calc(100vh - var(--bottom-bar-height) - 3rem);
 			margin: 0;
 			padding: 0;
+		}
+
+		.map-canvas {
+			flex: 1;
+			height: auto;
+			min-height: 0;
 		}
 	}
 

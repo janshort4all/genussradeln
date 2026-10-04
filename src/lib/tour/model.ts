@@ -13,6 +13,8 @@ export interface Place {
 	/** Zusatz zur Unterscheidung, z. B. „Krefeld-Linn“ */
 	detail?: string;
 	lngLat: LngLat;
+	/** Stadt, Dorf oder Ortsteil – dann heißt es „nach Kempen“, sonst „bis Burg Linn“ */
+	settlement?: boolean;
 }
 
 export type ReturnMode = 'one-way' | 'other-way';

@@ -10,10 +10,12 @@
 		tour: PlannedTour;
 		/** Farbe des Wegs auf der Karte */
 		color: string;
+		/** „Weg 2“ – passt zu den Knöpfen unter der Karte */
+		number: number;
 		selected?: boolean;
 	}
 
-	let { tour, color, selected = false }: Props = $props();
+	let { tour, color, number, selected = false }: Props = $props();
 
 	const km = $derived(
 		(tour.stats.distance / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 })
@@ -23,6 +25,7 @@
 <article class="route-card" class:selected style:--route-color={color}>
 	<div class="head">
 		<span class="swatch" aria-hidden="true"></span>
+		<span class="number">Weg {number}</span>
 		{#if tour.label}<span class="label">{tour.label}</span>{/if}
 	</div>
 	<h2>
@@ -68,6 +71,11 @@
 		height: 0.5rem;
 		border-radius: 0.25rem;
 		background: var(--route-color);
+	}
+
+	.number {
+		font-weight: 700;
+		color: var(--color-green);
 	}
 
 	.label {
