@@ -14,6 +14,8 @@ export const SCORE = {
 	forest: 0.8,
 	/** Anteil durch Parks, Wiesen, Naturschutzgebiete */
 	green: 0.6,
+	/** Anteil durch Felder / offene Landschaft (schön, aber weniger als Wald und Wasser) */
+	fields: 0.35,
 	/** Anteil auf ausgeschilderten Radnetzen (Knotenpunktnetz) */
 	network: 0.4,
 	/** Anteil auf Radwegen, Wirtschaftswegen, Spielstraßen */
@@ -64,8 +66,8 @@ export const SURROUNDINGS_RADIUS_CELLS = 1;
 /** Abstand der Prüfpunkte entlang eines Wegs in Metern */
 export const SAMPLE_STEP_M = 50;
 
-/** Gewichte für die Suche nach schönen Zwischenpunkten: [Grün, Wald, Wasser] */
-export const BEAUTY_CLASS_WEIGHTS: [number, number, number] = [0.6, 0.8, 1.0];
+/** Gewichte für die Suche nach schönen Zwischenpunkten: [Felder, Grün, Wald, Wasser] */
+export const BEAUTY_CLASS_WEIGHTS: [number, number, number, number] = [0.3, 0.6, 0.8, 1.0];
 
 /** Suche nach schönen Zwischenpunkten für Umwege */
 export const VIA_SEARCH = {
@@ -87,7 +89,14 @@ export const VIA_SEARCH = {
 	/** Mindestabstand zum direkten Weg (sonst bringt der Umweg nichts) */
 	minFromDirectM: 400,
 	/** Umweg-Schätzung: Straßenweg ≈ Luftlinie × Faktor */
-	roadFactor: 1.25
+	roadFactor: 1.25,
+	/**
+	 * Wege über einen Zwischenpunkt, die mehr als so viele Meter hin und gleich wieder zurück fahren
+	 * („Stummel“, z. B. Zwischenpunkt am Ende einer Sackgasse), werden verworfen …
+	 */
+	maxBacktrackM: 120,
+	/** … dafür werden so viele Zwischenpunkte zusätzlich ausprobiert */
+	spareVias: 3
 } as const;
 
 /**

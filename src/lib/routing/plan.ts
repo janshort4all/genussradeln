@@ -9,6 +9,7 @@
 import { bearing, distance, distanceToLine, offset, resample, segmentLengths, type LngLat } from '$lib/geo/geo';
 import type { Landscape } from '$lib/scoring/landscape';
 import { WATER } from '$lib/scoring/landscape';
+import { backtrackMeters } from '$lib/scoring/backtrack';
 import { mutualOverlap, overlapShare } from '$lib/scoring/overlap';
 import { analyzeRoute, beautyScore, combineStats, lineOf, type RouteStats } from '$lib/scoring/score';
 import {
@@ -186,7 +187,7 @@ async function planDirection(
 	// Zwischenpunkte: schöne Orte (je nach Umweg-Wunsch) + knapp neben der Luftlinie (für „Fast direkt“)
 	const vias = [
 		...(deps.landscape && level.scenicVias > 0
-			? findScenicVias(deps.landscape, from, to, maxLength, lineOf(direct[0]), level.scenicVias)
+			? findScenicVias(deps.landscape, from, to, maxLength, lineOf(direct[0]), level.scenicVias + VIA_SEARCH.spareVias)
 			: []
 		).map((point) => ({ point, side: false })),
 		...sideVias(from, to).map((point) => ({ point, side: true }))
@@ -204,6 +205,8 @@ async function planDirection(
 
 	const all = paths
 		.filter(({ path }) => path.distance <= maxLength)
+		// Wege über Zwischenpunkte ohne „Stummel“ (hin und gleich wieder zurück in eine Sackgasse)
+		.filter(({ path, vias }) => !vias.length || backtrackMeters(lineOf(path)) <= VIA_SEARCH.maxBacktrackM)
 		.map(({ path, vias, side }) => {
 			const stats = analyzeRoute(path, deps.landscape);
 			const beauty = beautyScore(stats);
