@@ -93,8 +93,14 @@ describe('highlightStops und toiletSentence', () => {
 
 describe('foodGapNote', () => {
 	it('weist auf lange Strecken ohne Einkehr hin', () => {
-		expect(foodGapNote([{ km: 3, kind: 'biergarten' }, { km: 11, kind: 'cafe' }], 42)).toBe(
-			'Einige längere Abschnitte ohne Einkehrmöglichkeit.'
+		expect(foodGapNote([{ km: 3.4, kind: 'biergarten' }, { km: 11.3, kind: 'cafe' }, { km: 19.5, kind: 'cafe' }, { km: 23.3, kind: 'cafe' }], 42.1)).toBe(
+			'Auf den letzten 19 km keine Einkehrmöglichkeit.'
+		);
+		expect(foodGapNote([{ km: 14, kind: 'cafe' }, { km: 20, kind: 'cafe' }], 25)).toBe(
+			'Auf den ersten 14 km keine Einkehrmöglichkeit.'
+		);
+		expect(foodGapNote([{ km: 3, kind: 'cafe' }, { km: 18, kind: 'eis' }, { km: 22, kind: 'cafe' }], 25)).toBe(
+			'Zwischen km 3 und km 18 keine Einkehrmöglichkeit.'
 		);
 		expect(foodGapNote([{ km: 8, kind: 'cafe' }, { km: 16, kind: 'eis' }], 24)).toBeUndefined();
 		expect(foodGapNote([{ km: 5, kind: 'toilette' }], 30)).toMatch(/keine Einkehr/);

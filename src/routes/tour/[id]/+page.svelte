@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { asset, resolve } from '$app/paths';
 	import Bike from '@lucide/svelte/icons/bike';
-	import Bookmark from '@lucide/svelte/icons/bookmark';
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Clock from '@lucide/svelte/icons/clock';
@@ -134,17 +133,6 @@
 							type="button"
 							onclick={() => {
 								menuOpen = false;
-								tell('Anpassen kommt in einem späteren Schritt.');
-							}}
-						>
-							<SlidersHorizontal size={22} aria-hidden="true" /> Tour anpassen
-						</button>
-					</li>
-					<li>
-						<button
-							type="button"
-							onclick={() => {
-								menuOpen = false;
 								tell('Teilen kommt in einem späteren Schritt.');
 							}}
 						>
@@ -233,8 +221,8 @@
 				<span>Tour starten</span>
 				<ChevronRight size={26} strokeWidth={2.5} aria-hidden="true" />
 			</a>
-			<button type="button" class="save-button" onclick={() => tell(SAVE_LATER)}>
-				<Bookmark size={22} strokeWidth={2.25} aria-hidden="true" /> Tour speichern
+			<button type="button" class="adjust-button" onclick={() => tell('Anpassen kommt in einem späteren Schritt.')}>
+				<SlidersHorizontal size={22} strokeWidth={2.25} aria-hidden="true" /> Tour anpassen
 			</button>
 		</div>
 
@@ -568,7 +556,7 @@
 		background: #1d2c23;
 	}
 
-	.save-button {
+	.adjust-button {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -584,7 +572,7 @@
 		cursor: pointer;
 	}
 
-	.save-button:hover {
+	.adjust-button:hover {
 		border-color: var(--color-green);
 	}
 

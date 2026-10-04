@@ -140,11 +140,24 @@ export function toiletSentence(stops: { km: number; kind: StopKind }[], max = 3)
 /** Ab dieser Strecke ohne Café, Eis oder Biergarten weist das Tourdetail darauf hin */
 const LONG_GAP_KM = 12;
 
-/** Hinweis, wenn man unterwegs lange nirgends einkehren kann – sonst nichts */
+/**
+ * Hinweis, wo man unterwegs lange nirgends einkehren kann (längste Lücke ohne Café, Eis oder Biergarten,
+ * ab LONG_GAP_KM) – sonst nichts. Nennt die Stelle, damit klar ist, dass er zu genau diesem Weg gehört.
+ */
 export function foodGapNote(stops: { km: number; kind: StopKind }[], totalKm: number): string | undefined {
 	const food = stops.filter((s) => FOOD.includes(s.kind)).map((s) => s.km).sort((a, b) => a - b);
-	if (!food.length) return totalKm >= LONG_GAP_KM ? 'Direkt am Weg gibt es keine Einkehr – am besten etwas zu trinken mitnehmen.' : undefined;
+	if (!food.length) {
+		return totalKm >= LONG_GAP_KM ? 'Direkt am Weg gibt es keine Einkehr – am besten etwas zu trinken mitnehmen.' : undefined;
+	}
 	const points = [0, ...food, totalKm];
-	const longest = Math.max(...points.slice(1).map((km, i) => km - points[i]));
-	return longest >= LONG_GAP_KM ? 'Einige längere Abschnitte ohne Einkehrmöglichkeit.' : undefined;
+	let from = 0;
+	let to = 0;
+	for (let i = 1; i < points.length; i++) {
+		if (points[i] - points[i - 1] > to - from) [from, to] = [points[i - 1], points[i]];
+	}
+	const length = Math.round(to - from);
+	if (to - from < LONG_GAP_KM) return undefined;
+	if (from === 0) return `Auf den ersten ${length} km keine Einkehrmöglichkeit.`;
+	if (to === totalKm) return `Auf den letzten ${length} km keine Einkehrmöglichkeit.`;
+	return `Zwischen km ${Math.round(from)} und km ${Math.round(to)} keine Einkehrmöglichkeit.`;
 }
