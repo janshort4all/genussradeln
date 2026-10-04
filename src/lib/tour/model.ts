@@ -26,9 +26,16 @@ export interface TourRequest {
 	returnMode: ReturnMode;
 }
 
+/**
+ * Arten von Wegpunkten:
+ * - `via`:  automatischer Hilfspunkt der App (z. B. schöner Ort für einen Umweg). Für den Nutzer unsichtbar;
+ *           führt er zu einem „Stummel“ (hin und zurück in eine Sackgasse), wird der Weg verworfen.
+ * - `stop`: vom Nutzer gewählter Halt (Biergarten, Café …). Bleibt immer drin – ein nötiger Abstecher
+ *           (hin und zurück auf demselben Weg) wird in Kauf genommen und offen angezeigt.
+ */
 export interface Waypoint {
 	lngLat: LngLat;
-	kind: 'start' | 'via' | 'destination';
+	kind: 'start' | 'via' | 'stop' | 'destination';
 	name?: string;
 }
 

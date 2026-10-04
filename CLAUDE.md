@@ -112,6 +112,11 @@ Jede Anpassung ändert nur diese Liste und berechnet die Route neu – dadurch f
 (Verlauf der Wegpunkt-Listen) mit derselben Logik wie „Selbst planen“ (F16).
 Auf dem Handy nur einfache Knöpfe; Ziehen der Strecke auf der Karte vor allem am PC.
 
+**Hilfspunkt vs. Stopp (Entscheidung 04.10.2026):** Automatische Hilfspunkte der App (`via`) dürfen keinen „Stummel“
+erzeugen – solche Wege werden verworfen. Vom Nutzer gewählte Stopps (`stop`, z. B. Biergarten) und das Ziel bleiben
+immer drin, auch wenn sie nur über einen Abstecher hin und zurück auf demselben Weg erreichbar sind; die App zeigt
+das dann offen an („Kleiner Abstecher: 300 m hin und zurück“). Die Stummel-Prüfung gilt also nie für `stop`/Ziel.
+
 ### Schönere Strecke vorschlagen (F7) – zentrale Funktion
 
 Ziel: Nutzer müssen keine Karten lesen können, um eine bessere Strecke zu finden. Die App macht das,
