@@ -226,6 +226,9 @@ Jeder Meilenstein endet mit etwas, das man auf dem Handy ausprobieren kann.
 - Kleine, nachvollziehbare Commits auf Deutsch, z. B. `Tourkarte: Akku-Hinweis ergänzt`.
 - UI-Texte, Kommentare für Nutzer und Doku auf Deutsch; Code-Bezeichner auf Englisch.
 - Nach UI-Änderungen in schmaler Handy-Ansicht (390 px) prüfen und die goldenen Regeln abhaken.
+- **Nie auf die Testregion zuschneiden (Jan, 04.10.2026):** Logik, Voreinstellungen und UI-Entscheidungen
+  aus den Daten der Strecke ableiten (Höhenmeter, Belag …), nie aus „am Niederrhein ist es flach“.
+  Regionsgrenzen und Datendateien sind austauschbare Konfiguration.
 - Keine neuen Abhängigkeiten ohne Begründung. Keine Tracking-, Analytics- oder Werbe-Bibliotheken.
 - Geheimnisse (Server-Zugänge) nie ins Repository; `.env` ist in `.gitignore`.
 
