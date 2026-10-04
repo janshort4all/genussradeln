@@ -155,3 +155,15 @@ export function caveatOf(s: RouteStats): string | undefined {
 	if (s.badSurface >= 0.1) return 'Achtung: ein längeres Stück Schotter, Sand oder Pflaster.';
 	return undefined;
 }
+
+/** Kurze Pluspunkte zum Abhaken (höchstens drei), z. B. „Ruhige Radwege“, „Kaum Autoverkehr“, „Überwiegend flach“ */
+export function checksOf(s: RouteStats): string[] {
+	const checks: string[] = [];
+	if (s.quiet >= 0.5) checks.push('Ruhige Radwege');
+	if (s.major < 0.03) checks.push('Kaum Autoverkehr');
+	else if (s.major < 0.1) checks.push('Wenig Autoverkehr');
+	if (s.climb === 'flach') checks.push('Überwiegend flach');
+	if (s.badSurface < 0.03) checks.push('Glatter Belag');
+	if (s.water >= 0.2) checks.push('Ein Stück am Wasser');
+	return checks.slice(0, 3);
+}

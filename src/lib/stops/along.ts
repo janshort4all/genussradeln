@@ -136,3 +136,15 @@ export function toiletSentence(stops: { km: number; kind: StopKind }[], max = 3)
 	const list = unique.length > 1 ? `${unique.slice(0, -1).join(', ')} und ${unique.at(-1)}` : unique[0];
 	return unique.length > 1 ? `Toiletten gibt es ${list} km.` : `Eine Toilette gibt es ${list} km.`;
 }
+
+/** Ab dieser Strecke ohne Café, Eis oder Biergarten weist das Tourdetail darauf hin */
+const LONG_GAP_KM = 12;
+
+/** Hinweis, wenn man unterwegs lange nirgends einkehren kann – sonst nichts */
+export function foodGapNote(stops: { km: number; kind: StopKind }[], totalKm: number): string | undefined {
+	const food = stops.filter((s) => FOOD.includes(s.kind)).map((s) => s.km).sort((a, b) => a - b);
+	if (!food.length) return totalKm >= LONG_GAP_KM ? 'Direkt am Weg gibt es keine Einkehr – am besten etwas zu trinken mitnehmen.' : undefined;
+	const points = [0, ...food, totalKm];
+	const longest = Math.max(...points.slice(1).map((km, i) => km - points[i]));
+	return longest >= LONG_GAP_KM ? 'Einige längere Abschnitte ohne Einkehrmöglichkeit.' : undefined;
+}

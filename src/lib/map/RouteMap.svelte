@@ -311,8 +311,6 @@
 				bind:this={stopElements[stop.id]}
 				class="stop-marker"
 				class:focused={stop.id === focusStopId}
-				style:color={style.color}
-				style:background={style.background}
 			>
 				<style.icon size={18} strokeWidth={2.25} />
 			</div>
@@ -413,6 +411,8 @@
 		height: 1.875rem;
 		border-radius: 50%;
 		border: 2px solid var(--color-surface);
+		background: var(--color-orange);
+		color: var(--color-surface);
 		box-shadow: 0 1px 4px rgb(36 53 57 / 0.35);
 	}
 

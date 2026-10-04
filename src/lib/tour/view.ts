@@ -1,7 +1,7 @@
 /** Einheitliche Ansicht für das Tourdetail – egal ob Beispieltour oder berechneter Weg */
 import type { LngLat } from '$lib/geo/geo';
 import type { SceneKind } from '$lib/components/illustrations/TourScene.svelte';
-import { caveatOf } from '$lib/routing/describe';
+import { caveatOf, checksOf } from '$lib/routing/describe';
 import type { RouteStats } from '$lib/scoring/score';
 import type { StopKind } from '$lib/stops/kinds';
 import { elevationProfile, type ElevationProfile } from './elevation';
@@ -31,6 +31,8 @@ export interface TourView {
 	climb: string;
 	/** Haken, den man vorher wissen sollte, z. B. ein längeres Stück Schotter (nur bei berechneten Wegen) */
 	caveat?: string;
+	/** Pluspunkte zum Abhaken, z. B. „Ruhige Radwege“ (nur bei berechneten Wegen) */
+	checks: string[];
 	tags: LandscapeTag[];
 	/** Beispieltouren: feste Stopps; berechnete Wege: werden im Tourdetail gesucht */
 	stops: ViewStop[];
@@ -64,6 +66,7 @@ export function fromSample(t: SampleTour): TourView {
 		minutes: t.minutes,
 		climb: t.climb,
 		tags: t.tags,
+		checks: [],
 		stops: t.stops.map((s) => ({ id: `${s.km}-${s.kind}`, km: s.km, kind: s.kind, name: s.name })),
 		battery: t.battery,
 		backHref: 'runde',
@@ -86,6 +89,7 @@ export function fromPlanned(t: PlannedTour): TourView {
 		minutes: t.minutes,
 		climb: t.stats.climb,
 		caveat: caveatOf(t.stats),
+		checks: checksOf(t.stats),
 		tags: tagsFromStats(t.stats),
 		stops: [],
 		backHref: 'vorschlaege',

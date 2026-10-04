@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { offset, type LngLat } from '$lib/geo/geo';
-import { highlightStops, stopsAlongRoute, toiletSentence } from './along';
+import { foodGapNote, highlightStops, stopsAlongRoute, toiletSentence } from './along';
 import { FLAG, STOP_KINDS, type StopKind } from './kinds';
 import { parsePois, PoiIndex, type Poi } from './pois';
 
@@ -88,5 +88,15 @@ describe('highlightStops und toiletSentence', () => {
 		);
 		expect(toiletSentence([stop('toilette', 7.2)])).toBe('Eine Toilette gibt es nach 7 km.');
 		expect(toiletSentence([stop('cafe', 5)])).toBeUndefined();
+	});
+});
+
+describe('foodGapNote', () => {
+	it('weist auf lange Strecken ohne Einkehr hin', () => {
+		expect(foodGapNote([{ km: 3, kind: 'biergarten' }, { km: 11, kind: 'cafe' }], 42)).toBe(
+			'Einige längere Abschnitte ohne Einkehrmöglichkeit.'
+		);
+		expect(foodGapNote([{ km: 8, kind: 'cafe' }, { km: 16, kind: 'eis' }], 24)).toBeUndefined();
+		expect(foodGapNote([{ km: 5, kind: 'toilette' }], 30)).toMatch(/keine Einkehr/);
 	});
 });
