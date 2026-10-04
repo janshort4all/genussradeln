@@ -37,6 +37,11 @@ describe('stopsAlongRoute', () => {
 		expect(stops[0].km).toBeCloseTo(4, 1);
 	});
 
+	it('lässt Stopps direkt am Start weg', () => {
+		const index = new PoiIndex([poi('toilette', 0.1, 20), poi('toilette', 5, 20)]);
+		expect(stopsAlongRoute(route, index).map((s) => s.km)).toEqual([5]);
+	});
+
 	it('dünnt Bänke aus: höchstens eine je 3 km, die mit Lehne gewinnt', () => {
 		const index = new PoiIndex([
 			poi('bank', 1, 10),

@@ -129,6 +129,8 @@ export const STOP_SCORE = {
 
 /** Stopps ausdünnen, damit die Liste übersichtlich bleibt */
 export const STOP_LIMITS = {
+	/** Stopps auf den ersten Metern weglassen */
+	skipStartKm: 0.5,
 	/** Cafés/Eis/Biergärten: bester je Abschnitt … */
 	foodWindowKm: 2,
 	/** … und insgesamt höchstens */

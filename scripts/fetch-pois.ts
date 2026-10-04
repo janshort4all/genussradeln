@@ -4,7 +4,7 @@
  *
  * Ausgabe: static/data/pois.json – kompakt:
  *   { kinds: [...], items: [[lon·1e5, lat·1e5, Art-Index, Merkmal-Bits, Name?], …] }
- * Bänke werden ausgedünnt (höchstens eine je ca. 300 m), damit die Datei klein bleibt.
+ * Bänke werden ausgedünnt (höchstens eine je ca. 500 m), damit die Datei klein bleibt.
  *
  * Aufruf: npm run data:pois   (Overpass-Antworten werden in scripts/.cache/ zwischengespeichert)
  * Daten: © OpenStreetMap-Mitwirkende, ODbL.
@@ -15,8 +15,8 @@ import { loadRegionTiles, type OsmElement } from './lib/overpass.ts';
 
 type Item = [number, number, number, number, string?];
 
-const BENCH_CELL_LON = 0.0045; // ≈ 310 m
-const BENCH_CELL_LAT = 0.0027; // ≈ 300 m
+const BENCH_CELL_LON = 0.0072; // ≈ 500 m
+const BENCH_CELL_LAT = 0.0045; // ≈ 500 m
 
 const items = new Map<string, Item>();
 /** beste Bank je Rasterzelle */

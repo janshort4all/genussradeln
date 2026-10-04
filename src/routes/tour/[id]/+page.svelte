@@ -208,6 +208,8 @@
 	/* echte Karte: höher, eigener Rahmen kommt von RouteMap */
 	.map.route {
 		height: 17rem;
+		/* beim Hochscrollen zu einem Stopp etwas Luft über der Karte lassen */
+		scroll-margin-top: 0.75rem;
 		border: 0;
 		overflow: visible;
 	}

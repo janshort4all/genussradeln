@@ -91,7 +91,8 @@ export function stopsAlongRoute(line: LngLat[], index: PoiIndex, landscape?: Lan
 		}
 	});
 
-	const all: RouteStop[] = [...found.values()].map(({ poi, km, off }) => ({
+	// Stopps direkt am Start braucht niemand – dort ist man ja gerade
+	const all: RouteStop[] = [...found.values()].filter(({ km }) => km >= STOP_LIMITS.skipStartKm).map(({ poi, km, off }) => ({
 		id: poi.id,
 		km: Math.round(km * 10) / 10,
 		lngLat: poi.lngLat,
