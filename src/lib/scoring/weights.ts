@@ -92,9 +92,10 @@ export const VIA_SEARCH = {
 	roadFactor: 1.25,
 	/**
 	 * Wege über einen Zwischenpunkt, die mehr als so viele Meter hin und gleich wieder zurück fahren
-	 * („Stummel“, z. B. Zwischenpunkt am Ende einer Sackgasse), werden verworfen …
+	 * („Stummel“ in eine Sackgasse oder „Lasso“-Schleife um den Punkt), werden verworfen. Normales Kreuzen
+	 * des eigenen Wegs ergibt nur 20–40 m …
 	 */
-	maxBacktrackM: 120,
+	maxBacktrackM: 50,
 	/** … dafür werden so viele Zwischenpunkte zusätzlich ausprobiert */
 	spareVias: 3
 } as const;

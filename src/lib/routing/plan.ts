@@ -9,7 +9,7 @@
 import { bearing, distance, distanceToLine, offset, resample, segmentLengths, type LngLat } from '$lib/geo/geo';
 import type { Landscape } from '$lib/scoring/landscape';
 import { WATER } from '$lib/scoring/landscape';
-import { backtrackMeters } from '$lib/scoring/backtrack';
+import { backtrackMeters, findBacktrack } from '$lib/scoring/backtrack';
 import { mutualOverlap, overlapShare } from '$lib/scoring/overlap';
 import { analyzeRoute, beautyScore, combineStats, lineOf, type RouteStats } from '$lib/scoring/score';
 import {
@@ -195,7 +195,15 @@ async function planDirection(
 	const viaPaths = await mapLimited(vias, 4, async ({ point, side }): Promise<Found | undefined> => {
 		try {
 			const [path] = await deps.route([from, point, to], options);
-			return path ? { path, vias: [point], side } : undefined;
+			if (!path) return undefined;
+			// „Stummel“ oder „Lasso“ um den Hilfspunkt? Dann den Punkt an die Abzweigung verlegen und neu rechnen –
+			// so führt der Weg an der schönen Stelle vorbei, ohne den Abstecher.
+			const backtrack = findBacktrack(lineOf(path));
+			if (backtrack.meters > VIA_SEARCH.maxBacktrackM && backtrack.start) {
+				const [repaired] = await deps.route([from, backtrack.start, to], options);
+				if (repaired) return { path: repaired, vias: [backtrack.start], side };
+			}
+			return { path, vias: [point], side };
 		} catch (error) {
 			if (error instanceof NoRouteError) return undefined; // Zwischenpunkt nicht erreichbar → weglassen
 			throw error;

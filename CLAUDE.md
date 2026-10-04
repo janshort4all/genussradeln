@@ -89,8 +89,9 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
   2. Je nach „Wie viel Umweg für mehr Schönheit?“ (`DETOUR` in `weights.ts`: direkt / etwas schöner / am schönsten)
      zusätzliche Wege über schöne Zwischenpunkte: Rasterpunkte mit viel Wasser/Wald/Grün in der Umgebung
      (Summenfeld über `landscape.png`), innerhalb der Umweg-Ellipse um Start/Ziel, nicht direkt am kürzesten Weg.
-  3. Wege mit „Stummel“ (über 120 m hin und gleich zurück, z. B. Zwischenpunkt in einer Sackgasse) verwerfen
-     (`backtrack.ts`, `VIA_SEARCH.maxBacktrackM`); dafür ein paar Zwischenpunkte mehr ausprobieren.
+  3. Wege mit „Stummel“ (über 50 m doppelt gefahren: hin und zurück in eine Sackgasse oder Lasso-Schleife um den Punkt) verwerfen
+     (`backtrack.ts`, `VIA_SEARCH.maxBacktrackM`). Vorher Reparaturversuch: Hilfspunkt an die Abzweigung verlegen
+     und neu rechnen – dann führt der Weg an der schönen Stelle vorbei, ohne Abstecher.
   4. Nachbewertung (`score.ts`), Mehrweg-Grenze, Abzug je Mehrweg; Auswahl der besten, untereinander
      verschiedenen Wege (`DIVERSITY_MAX_OVERLAP`).
 - **„Fast direkt“ (Wunsch Jan, 04.10.2026):** Bei „etwas schöner“ / „am schönsten“ zusätzlich als 4. Vorschlag der schönste Weg,

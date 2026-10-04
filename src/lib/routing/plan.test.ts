@@ -12,6 +12,7 @@ import {
 	viaStreetTitle
 } from './describe';
 import { RoutingUnavailableError, type RouteOptions } from './graphhopper';
+import { backtrackMeters } from '$lib/scoring/backtrack';
 import { findScenicVias, planTours, sideVias } from './plan';
 
 const start: LngLat = [6.6, 51.33];
@@ -94,6 +95,36 @@ describe('planTours', () => {
 		const compactTour = tours.find((t) => t.stats.distance / 1000 <= directKm * 1.15 + 1);
 		expect(compactTour).toBeDefined();
 		expect(compactTour!.stats.major).toBe(0); // nicht die Hauptstraße
+	});
+
+	it('repariert Wege mit Abstecher in eine Sackgasse, statt sie zu zeigen', async () => {
+		// Jeder Hilfspunkt liegt am Ende einer 500-m-Sackgasse; deren Abzweigung („base“) liegt an einem guten Weg.
+		// Fragt der Planer danach mit der Abzweigung als Punkt, gibt es den Weg ohne Abstecher.
+		const bases: LngLat[] = [];
+		let repairs = 0;
+		const route = (points: LngLat[], options: RouteOptions) => {
+			if (points.length === 2) {
+				const paths = [makePath(points, { roadClass: 'primary' })];
+				if (options.alternatives) paths.push(makePath([points[0], offset(points[0], 135, 4000), points[1]], { roadClass: 'primary' }));
+				return Promise.resolve(paths);
+			}
+			const [from, via, to] = points;
+			if (bases.some((b) => distance(b, via) < 40)) {
+				repairs++;
+				return Promise.resolve([makePath([from, via, to], { roadClass: 'cycleway' })]);
+			}
+			const base = offset(via, 180, 500);
+			bases.push(base);
+			return Promise.resolve([makePath([from, base, via, base, to], { roadClass: 'cycleway' })]);
+		};
+		const tours = await planTours(request({ detour: 'nicest' }), { route, landscape });
+		expect(repairs).toBeGreaterThan(0);
+		for (const tour of tours) {
+			for (const leg of tour.legs) {
+				expect(backtrackMeters(leg.coordinates.map(([x, y]) => [x, y] as LngLat))).toBeLessThanOrEqual(50);
+			}
+		}
+		expect(tours.some((t) => t.waypoints.some((w) => w.kind === 'via'))).toBe(true);
 	});
 
 	it('legt Zwischenpunkte für „Fast direkt“ knapp neben die Luftlinie', () => {

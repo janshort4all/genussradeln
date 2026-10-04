@@ -1,7 +1,7 @@
 /**
- * „Stummel“ erkennen: Abschnitte, die ein Weg hin und gleich wieder zurück fährt
- * (z. B. weil ein Zwischenpunkt am Ende einer Sackgasse liegt).
- * Ein normales Kreuzen des eigenen Wegs zählt nur wenige Meter und fällt nicht ins Gewicht.
+ * „Stummel“ und „Lasso“ erkennen: Abschnitte, die ein Weg hin und gleich wieder zurück fährt
+ * (z. B. weil ein Zwischenpunkt am Ende einer Sackgasse liegt oder der Weg eine Runde um ihn dreht).
+ * Ein normales Kreuzen des eigenen Wegs zählt nur 20–40 m und fällt nicht ins Gewicht.
  */
 import { distance, resample, type LngLat } from '$lib/geo/geo';
 
@@ -12,8 +12,14 @@ const SAME_PLACE_M = 15;
 const MIN_GAP_M = 120;
 const CELL_DEG = 0.0003; // ≈ 20–33 m Raster für die Nachbarschaftssuche
 
-/** Meter, die der Weg später noch einmal befährt */
-export function backtrackMeters(line: LngLat[]): number {
+export interface Backtrack {
+	/** Meter, die der Weg später noch einmal befährt */
+	meters: number;
+	/** wo das doppelt gefahrene Stück beginnt (die Abzweigung in Sackgasse bzw. Schleife) */
+	start?: LngLat;
+}
+
+export function findBacktrack(line: LngLat[]): Backtrack {
 	const points = resample(line, STEP_M);
 	const gap = Math.ceil(MIN_GAP_M / STEP_M);
 	const cells = new Map<string, number[]>();
@@ -26,6 +32,7 @@ export function backtrackMeters(line: LngLat[]): number {
 	});
 
 	let revisited = 0;
+	let start: LngLat | undefined;
 	points.forEach((p, i) => {
 		const cx = Math.floor(p[0] / CELL_DEG);
 		const cy = Math.floor(p[1] / CELL_DEG);
@@ -34,11 +41,17 @@ export function backtrackMeters(line: LngLat[]): number {
 				for (const j of cells.get(key(cx + dx, cy + dy)) ?? []) {
 					if (j - i >= gap && distance(p, points[j]) <= SAME_PLACE_M) {
 						revisited++;
+						start ??= p;
 						return;
 					}
 				}
 			}
 		}
 	});
-	return revisited * STEP_M;
+	return { meters: revisited * STEP_M, start };
+}
+
+/** Meter, die der Weg später noch einmal befährt */
+export function backtrackMeters(line: LngLat[]): number {
+	return findBacktrack(line).meters;
 }

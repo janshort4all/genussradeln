@@ -18,9 +18,17 @@ describe('backtrackMeters', () => {
 		expect(meters).toBeLessThan(500);
 	});
 
-	it('ein Kreuzen des eigenen Wegs zählt kaum', () => {
+	it('ein Kreuzen des eigenen Wegs zählt kaum (unter der Grenze von 50 m)', () => {
 		// Schleife: nach Osten, im Bogen nach Norden und zurück nach Westen über die Strecke hinweg
-		const line = [at(0), at(2000), at(2000, 1000), at(1000, 1000), at(1000, -1000), at(3000, -1000)];
-		expect(backtrackMeters(line)).toBeLessThan(80);
+		const rightAngle = [at(0), at(2000), at(2000, 1000), at(1000, 1000), at(1000, -1000), at(3000, -1000)];
+		const shallow = [at(0), at(2000), at(2000, 1000), at(1300, 1000), at(800, -1000), at(3000, -1000)];
+		expect(backtrackMeters(rightAngle)).toBeLessThan(50);
+		expect(backtrackMeters(shallow)).toBeLessThan(50);
+	});
+
+	it('erkennt eine Lasso-Schleife um einen Punkt (100 m Stiel hin und zurück)', () => {
+		// wie in den Rheinwiesen: von der Straße 100 m hinein, Runde, über dieselben 100 m zurück
+		const line = [at(0), at(1000), at(1000, 100), at(1300, 400), at(1000, 700), at(700, 400), at(1000, 100), at(1000), at(2000)];
+		expect(backtrackMeters(line)).toBeGreaterThan(50);
 	});
 });
