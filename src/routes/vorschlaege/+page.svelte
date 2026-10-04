@@ -21,6 +21,51 @@
 		!request ? 'missing' : session.currentTours.length ? 'done' : 'loading'
 	);
 	let selectedId: string | undefined = $state();
+	let mapBox: HTMLDivElement | undefined = $state();
+	const cardItems: Record<string, HTMLLIElement> = {};
+
+	/** PC: Karte und Liste stehen nebeneinander – dort wählt das Zeigen mit der Maus */
+	const isWide = () => window.matchMedia('(min-width: 64rem)').matches;
+
+	/**
+	 * Handy: Die Karte bleibt oben stehen. Hervorgehoben wird der Vorschlag, der gerade mitten
+	 * im sichtbaren Bereich unter der Karte steht – so folgt die Karte beim Scrollen der Liste.
+	 */
+	function followScroll() {
+		if (isWide() || !mapBox) return;
+		const top = mapBox.getBoundingClientRect().bottom;
+		const bottom = document.querySelector('.bottom-bar')?.getBoundingClientRect().top ?? window.innerHeight;
+		const middle = (top + bottom) / 2;
+		let best: string | undefined;
+		let bestDistance = Infinity;
+		for (const [id, item] of Object.entries(cardItems)) {
+			const box = item.getBoundingClientRect();
+			const distance = middle < box.top ? box.top - middle : middle > box.bottom ? middle - box.bottom : 0;
+			if (distance < bestDistance) {
+				bestDistance = distance;
+				best = id;
+			}
+		}
+		if (best) selectedId = best;
+	}
+
+	let scrollQueued = false;
+	function onScroll() {
+		if (scrollQueued) return;
+		scrollQueued = true;
+		requestAnimationFrame(() => {
+			scrollQueued = false;
+			followScroll();
+		});
+	}
+
+	/** Weg auf der Karte angetippt → seinen Vorschlag in der Liste zeigen */
+	function selectFromMap(id: string) {
+		selectedId = id;
+		if (isWide()) return;
+		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		cardItems[id]?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+	}
 
 	const detourWord = { direct: 'direkt', nicer: 'etwas schöner', nicest: 'am schönsten' };
 	const effortWord = { easy: 'gemütlich', sporty: 'sportlicher' };
@@ -56,6 +101,8 @@
 		if (status === 'loading') compute();
 	});
 </script>
+
+<svelte:window onscroll={onScroll} />
 
 <svelte:head>
 	<title>Genuss-Radeln – Ihre Wege</title>
@@ -103,7 +150,7 @@
 		</div>
 	{:else}
 		<div class="wide">
-		<div class="map">
+		<div class="map" bind:this={mapBox}>
 			<RouteMap
 				label="Karte mit {tours.length} Wegen von {request.start.name} nach {request.destination.name}"
 				routes={tours.map((t, i) => ({ id: t.id, coordinates: tourLine(t), color: routeColor(i) }))}
@@ -112,14 +159,18 @@
 					{ lngLat: request.destination.lngLat, kind: 'destination' }
 				]}
 				{selectedId}
-				onselect={(id) => (selectedId = id)}
+				onselect={selectFromMap}
 			/>
 		</div>
 
 		<ol class="tours">
 			{#each tours as tour, index (tour.id)}
 				<!-- PC: Zeigen auf eine Karte hebt ihren Weg auf der Karte hervor -->
-				<li onmouseenter={() => (selectedId = tour.id)} onfocusin={() => (selectedId = tour.id)}>
+				<li
+					bind:this={cardItems[tour.id]}
+					onmouseenter={() => isWide() && (selectedId = tour.id)}
+					onfocusin={() => (selectedId = tour.id)}
+				>
 					<RouteCard {tour} color={routeColor(index)} selected={tour.id === selectedId} />
 				</li>
 			{/each}
@@ -133,9 +184,21 @@
 		margin-bottom: 1rem;
 	}
 
+	/* Handy: Karte bleibt beim Scrollen oben stehen, die Vorschläge laufen darunter durch */
 	.map {
-		height: 18rem;
-		margin-bottom: 1.25rem;
+		--map-height: clamp(13rem, 36vh, 20rem);
+		position: sticky;
+		top: 0;
+		z-index: 3;
+		height: calc(var(--map-height) + 1.25rem);
+		margin: 0 -0.25rem 0.5rem;
+		padding: 0.5rem 0.25rem 0.75rem;
+		background: var(--color-bg);
+	}
+
+	/* angetippter Weg: Vorschlag direkt unter der Karte zeigen */
+	.tours > li {
+		scroll-margin-top: calc(clamp(13rem, 36vh, 20rem) + 2rem);
 	}
 
 	/* PC: Karte groß links und beim Scrollen stehend, Vorschläge rechts (Lastenheft B9) */
@@ -151,7 +214,8 @@
 			position: sticky;
 			top: 1rem;
 			height: calc(100vh - var(--bottom-bar-height) - 3rem);
-			margin-bottom: 0;
+			margin: 0;
+			padding: 0;
 		}
 	}
 
