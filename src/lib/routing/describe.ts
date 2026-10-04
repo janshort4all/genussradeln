@@ -55,6 +55,8 @@ export function amountWord(share: number): string | undefined {
 	return undefined;
 }
 
+const QUIET_TITLE = 'Auf ruhigen Radwegen';
+
 interface Feature {
 	share: number;
 	title: string;
@@ -67,7 +69,7 @@ function features(s: RouteStats): Feature[] {
 		{ share: s.forest, title: 'Durch den Wald', phrase: 'durch den Wald' },
 		{ share: s.green, title: 'Durchs Grüne', phrase: 'durchs Grüne' },
 		{ share: s.fields, title: 'Durch die Felder', phrase: 'durch die Felder' },
-		{ share: s.quiet, title: 'Auf ruhigen Radwegen', phrase: 'auf ruhigen Radwegen' }
+		{ share: s.quiet, title: QUIET_TITLE, phrase: 'auf ruhigen Radwegen' }
 	]
 		.filter((f) => f.share >= 0.15)
 		.sort((a, b) => b.share - a.share);
@@ -81,12 +83,30 @@ export function titleOptions(s: RouteStats): string[] {
 }
 
 /**
+ * Landschafts-Titel, die ehrlich sind: nur Landschaften, die mindestens `minShareOfTop` der stärksten erreichen.
+ * (Ein Weg mit 45 % Wasser und 30 % Wald heißt nicht „Durch den Wald“.)
+ */
+export function honestTitles(s: RouteStats, minShareOfTop: number): string[] {
+	// Titel beschreiben, was man sieht: Landschaft vor Wegart. „Ruhige Radwege“ nur ohne nennenswerte Landschaft.
+	const landscape = features(s).filter((f) => f.title !== QUIET_TITLE && f.share >= 0.25);
+	const ranked = landscape.length ? landscape : features(s);
+	if (!ranked.length) return [];
+	return ranked.filter((f) => f.share >= ranked[0].share * minShareOfTop).map((f) => f.title);
+}
+
+/** „Am Wasser entlang – östliche Strecke“ */
+export function withSide(title: string, side: SideWord): string {
+	return `${title} – ${SIDE_ADJECTIVES[side].toLowerCase()} Strecke`;
+}
+
+/**
  * Ein Satz zum Besonderen, z. B. „Ein gutes Stück am Wasser und ab und zu durch den Wald.“
  * Ist `title` ein Landschafts-Titel (z. B. „Durch den Wald“), steht diese Landschaft vorne.
  */
 export function highlightSentence(s: RouteStats, title?: string): string {
 	const ranked = features(s);
-	const named = ranked.findIndex((f) => f.title === title);
+	// auch bei „Am Wasser entlang – östliche Strecke“ steht das Wasser vorne
+	const named = ranked.findIndex((f) => title?.startsWith(f.title));
 	if (named > 0) ranked.unshift(...ranked.splice(named, 1));
 	// features() liefert nur Anteile ≥ 15 %, amountWord() hat dafür immer ein Wort
 	const parts = ranked.slice(0, 2).map((f) => `${amountWord(f.share)} ${f.phrase}`);

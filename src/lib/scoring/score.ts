@@ -3,7 +3,7 @@ import { resample, segmentLengths, type LngLat } from '$lib/geo/geo';
 import type { DetailInterval, RoutePath } from '$lib/routing/graphhopper';
 import { climbWordOf, elevationProfile, type ClimbWord } from '$lib/tour/elevation';
 import type { Landscape } from './landscape';
-import { SAMPLE_STEP_M, SCORE, SURROUNDINGS_RADIUS_CELLS } from './weights';
+import { BIG_WATER, SAMPLE_STEP_M, SCORE, SURROUNDINGS_RADIUS_CELLS } from './weights';
 
 export type { ClimbWord };
 
@@ -64,7 +64,7 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape): RouteStats
 	const samples = resample(line, SAMPLE_STEP_M);
 	if (landscape && samples.length) {
 		for (const p of samples) {
-			const s = landscape.surroundings(p, SURROUNDINGS_RADIUS_CELLS);
+			const s = landscape.surroundings(p, SURROUNDINGS_RADIUS_CELLS, BIG_WATER);
 			if (s.water) water++;
 			if (s.forest) forest++;
 			if (s.green) green++;

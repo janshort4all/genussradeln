@@ -33,7 +33,8 @@ function rate(poi: Poi, offRoute: number, landscape?: Landscape): { score: numbe
 		if (poi.kind !== 'biergarten') reasons.push('mit Plätzen draußen');
 	}
 	if (landscape) {
-		const around = landscape.surroundings(poi.lngLat, 1);
+		// für Stopps nur echte Nähe: ein Café 400 m hinter Häusern ist nicht „am Wasser“
+		const around = landscape.surroundings(poi.lngLat, 1, null);
 		if (around.water) {
 			score += STOP_SCORE.water;
 			reasons.push('am Wasser');

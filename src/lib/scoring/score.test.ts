@@ -30,6 +30,15 @@ describe('analyzeRoute', () => {
 		expect(stats.nature).toBeGreaterThan(0.9);
 	});
 
+	it('zählt einen großen Fluss auch hinter breiten Wiesen, einen kleinen Teich nicht', () => {
+		// Weg liegt in Zeile 55; Fluss 3 Zeilen (≈ 300 m) südlich, 6 Zeilen breit
+		const river = makeLandscape((row) => (row >= 58 && row <= 63 ? WATER : NONE));
+		// Teich: nur 2 Zellen, ebenfalls ≈ 300 m entfernt
+		const pond = makeLandscape((row, col) => (row === 58 && (col === 40 || col === 41) ? WATER : NONE));
+		expect(analyzeRoute(makePath(east(2000)), river).water).toBeGreaterThan(0.9);
+		expect(analyzeRoute(makePath(east(2000)), pond).water).toBe(0);
+	});
+
 	it('erkennt Felder und wertet sie schwächer als Wasser', () => {
 		const fieldsAround = makeLandscape((row) => (row >= 50 && row <= 60 ? FIELDS : NONE));
 		const waterAround = makeLandscape((row) => (row >= 50 && row <= 60 ? WATER : NONE));

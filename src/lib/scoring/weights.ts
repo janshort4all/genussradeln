@@ -63,6 +63,15 @@ export type DetourLevel = keyof typeof DETOUR;
 /** Landschaft: Umkreis in Zellen (1 Zelle ≈ 100 m), in dem Wasser/Wald/Grün „am Weg“ zählen */
 export const SURROUNDINGS_RADIUS_CELLS = 1;
 
+/**
+ * Große Gewässer (Rhein, Seen) zählen auch aus größerer Entfernung – vom Deich sieht man den Fluss hinter den
+ * Rheinwiesen: im Umkreis von radiusCells (4 ≈ 400 m) mindestens minCells Wasserzellen (ein Teich reicht nicht).
+ */
+export const BIG_WATER = { radiusCells: 4, minCells: 8 } as const;
+
+/** Ein Weg wird nur nach einer Landschaft benannt, die mindestens diesen Anteil der stärksten erreicht */
+export const TITLE_MIN_SHARE_OF_TOP = 0.85;
+
 /** Abstand der Prüfpunkte entlang eines Wegs in Metern */
 export const SAMPLE_STEP_M = 50;
 

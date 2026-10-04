@@ -6,10 +6,12 @@ import type { TourRequest } from '$lib/tour/model';
 import {
 	extraDistanceText,
 	highlightSentence,
+	honestTitles,
 	sideOf,
 	sideTitle,
 	titleOptions,
-	viaStreetTitle
+	viaStreetTitle,
+	withSide
 } from './describe';
 import { RoutingUnavailableError, type RouteOptions } from './graphhopper';
 import { backtrackMeters } from '$lib/scoring/backtrack';
@@ -158,6 +160,14 @@ describe('planTours', () => {
 
 describe('describe', () => {
 	const base = { distance: 10000, water: 0, forest: 0, green: 0, fields: 0, nature: 0, network: 0, quiet: 0, major: 0, badSurface: 0, climb: 'flach' as const };
+
+	it('benennt Wege nur nach einer Landschaft, die wirklich vorne liegt', () => {
+		// 44 % Wasser, 30 % Wald: kein „Durch den Wald“
+		expect(honestTitles({ ...base, water: 0.44, forest: 0.3 }, 0.85)).toEqual(['Am Wasser entlang']);
+		// fast gleich viel: beide Titel sind ehrlich
+		expect(honestTitles({ ...base, water: 0.44, forest: 0.42 }, 0.85)).toEqual(['Am Wasser entlang', 'Durch den Wald']);
+		expect(withSide('Am Wasser entlang', 'östlich')).toBe('Am Wasser entlang – östliche Strecke');
+	});
 
 	it('benennt Wege nach ihrer Landschaft', () => {
 		expect(titleOptions({ ...base, water: 0.5, forest: 0.2 })[0]).toBe('Am Wasser entlang');

@@ -82,7 +82,11 @@ export class Landscape {
 	 * Landschaft im Umkreis von `radius` Zellen (1 Zelle ≈ 100 m).
 	 * Ein Radweg am Ufer liegt selbst nicht im Wasser, aber daneben – daher der Umkreis.
 	 */
-	surroundings([lon, lat]: LngLat, radius = 1): Surroundings {
+	surroundings(
+		[lon, lat]: LngLat,
+		radius = 1,
+		bigWater: { radiusCells: number; minCells: number } | null = { radiusCells: 4, minCells: 8 }
+	): Surroundings {
 		const row = this.rowOf(lat);
 		const col = this.colOf(lon);
 		const out = { water: false, forest: false, green: false, fields: false };
@@ -94,6 +98,16 @@ export class Landscape {
 				else if (v === GREEN) out.green = true;
 				else if (v === FIELDS) out.fields = true;
 			}
+		}
+		// Große Gewässer (z. B. der Rhein hinter den Rheinwiesen) sieht man auch aus größerer Entfernung:
+		// zählt, wenn im weiteren Umkreis genug Wasserzellen liegen – ein kleiner Teich reicht dafür nicht.
+		if (!out.water && bigWater) {
+			let count = 0;
+			const r = bigWater.radiusCells;
+			for (let dr = -r; dr <= r && count < bigWater.minCells; dr++) {
+				for (let dc = -r; dc <= r; dc++) if (this.cell(row + dr, col + dc) === WATER) count++;
+			}
+			out.water = count >= bigWater.minCells;
 		}
 		return out;
 	}

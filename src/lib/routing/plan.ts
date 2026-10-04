@@ -20,10 +20,11 @@ import {
 	MAX_SUGGESTIONS,
 	SCORE,
 	SPEED_KMH,
+	TITLE_MIN_SHARE_OF_TOP,
 	VIA_SEARCH
 } from '$lib/scoring/weights';
 import { newTourId, type PlannedTour, type TourRequest, type Waypoint } from '$lib/tour/model';
-import { highlightSentence, sideOf, sideTitle, titleOptions, viaStreetTitle } from './describe';
+import { highlightSentence, honestTitles, sideOf, sideTitle, viaStreetTitle, withSide } from './describe';
 import { NoRouteError, route as routeGraphHopper, type RoutePath } from './graphhopper';
 
 export interface PlanDeps {
@@ -371,13 +372,18 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 			combo.legs[1] && sideOf(combo.legs[1].line, start, end),
 			combo.legs.length > 1
 		);
-		const landscapeTitles = titleOptions(stats);
+		// nur Landschaften, die bei diesem Weg wirklich vorne liegen; ist der Titel schon vergeben,
+		// wird er mit der Himmelsrichtung ergänzt statt auf eine schwächere Landschaft auszuweichen
+		const honest = honestTitles(stats, TITLE_MIN_SHARE_OF_TOP);
+		const outboundSide = combo.legs.length === 1 ? sideOf(combo.legs[0].line, start, end) : undefined;
 		const candidates = [
-			...landscapeTitles.slice(0, -1),
+			honest[0],
+			honest[0] && outboundSide && withSide(honest[0], outboundSide),
 			street && viaStreetTitle(street),
+			...honest.slice(1),
 			side,
 			relationTitle(combo, chosen.slice(0, index)),
-			...landscapeTitles.slice(-1)
+			'Ruhige Nebenstrecke'
 		].filter((t): t is string => !!t);
 		const title = candidates.find((t) => !usedTitles.has(t)) ?? `Weitere Möglichkeit ${index + 1}`;
 		usedTitles.add(title);

@@ -97,6 +97,9 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
 - **„Fast direkt“ (Wunsch Jan, 04.10.2026):** Bei „etwas schöner“ / „am schönsten“ zusätzlich als 4. Vorschlag der schönste Weg,
   der höchstens ca. 15 % länger ist als der direkte (`COMPACT` in `weights.ts`). Kandidaten dafür zusätzlich über Punkte
   knapp links/rechts der Luftlinie (`sideVias`) – die zählen nur für „Fast direkt“, nicht für die drei schönsten.
+- **Titel (04.10.2026):** nach der Landschaft, die bei dem Weg wirklich vorne liegt (`TITLE_MIN_SHARE_OF_TOP`); ist sie
+  vergeben: Himmelsrichtung („Am Wasser entlang – östliche Strecke“) oder unterscheidende Straße, nie eine schwächere
+  Landschaft. Große Gewässer (Rhein) zählen bis ca. 400 m Abstand (`BIG_WATER`), bei Stopps nur aus der Nähe.
 - **Rückweg auf anderem Weg:** Rückweg genauso planen, Paare aus Hin- und Rückweg bilden; Abzug für
   Überlappung mit dem Hinweg (`SCORE.returnOverlap`).
 - **Landschaftskarte:** `npm run data:landscape` (Overpass, Regierungsbezirk Düsseldorf) → `static/data/landscape.png`
