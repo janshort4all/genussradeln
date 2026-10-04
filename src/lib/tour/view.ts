@@ -41,7 +41,14 @@ export interface TourView {
 	backHref: 'vorschlaege' | 'runde';
 	map:
 		| { kind: 'scene'; scene: SceneKind }
-		| { kind: 'route'; coordinates: LngLat[]; start: LngLat; destination: LngLat };
+		| {
+				kind: 'route';
+				coordinates: LngLat[];
+				/** mit Höhe (m) – für den GPX-Export */
+				track: [number, number, number][];
+				start: LngLat;
+				destination: LngLat;
+		  };
 	profile?: ElevationProfile;
 	/** bei „auf anderem Weg zurück“: Kilometer, an dem das Ziel erreicht ist */
 	destinationKm?: number;
@@ -96,6 +103,7 @@ export function fromPlanned(t: PlannedTour): TourView {
 		map: {
 			kind: 'route',
 			coordinates: coordinates.map(([lon, lat]) => [lon, lat]),
+			track: coordinates,
 			start: start.lngLat,
 			destination: destination.lngLat
 		},

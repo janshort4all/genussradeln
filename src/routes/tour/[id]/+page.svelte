@@ -5,6 +5,7 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Clock from '@lucide/svelte/icons/clock';
 	import Coffee from '@lucide/svelte/icons/coffee';
+	import Download from '@lucide/svelte/icons/download';
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import Heart from '@lucide/svelte/icons/heart';
 	import Info from '@lucide/svelte/icons/info';
@@ -22,6 +23,8 @@
 	import { DETAIL_ROUTE_COLOR } from '$lib/map/colors';
 	import { foodGapNote, highlightStops, stopsAlongRoute, toiletSentence } from '$lib/stops/along';
 	import { loadPois } from '$lib/stops/pois';
+	import { STOP_LABELS } from '$lib/stops/kinds';
+	import { downloadGpx } from '$lib/gpx/gpx';
 	import type { ViewStop } from '$lib/tour/view';
 
 	let { data } = $props();
@@ -58,6 +61,19 @@
 		return [tour.caveat, gap].filter((n): n is string => !!n);
 	});
 	let mapBox: HTMLDivElement | undefined = $state();
+
+	/** GPX-Datei für andere Navi-Apps oder den Fahrradcomputer (F12) */
+	function saveGpx() {
+		if (tour.map.kind !== 'route') return;
+		downloadGpx({
+			name: tour.title,
+			track: tour.map.track,
+			waypoints: stops.flatMap((s) =>
+				s.lngLat ? [{ lngLat: s.lngLat, name: s.name ?? STOP_LABELS[s.kind], type: STOP_LABELS[s.kind] }] : []
+			)
+		});
+		tell('Die GPX-Datei ist im Ordner „Downloads“.');
+	}
 
 	/** „2:50 Std.“ bzw. „45 Min.“ (auf 5 Minuten gerundet; „ca.“ steht in der Bezeichnung) */
 	function clockText(minutes: number): string {
@@ -224,6 +240,11 @@
 			<button type="button" class="adjust-button" onclick={() => tell('Anpassen kommt in einem späteren Schritt.')}>
 				<SlidersHorizontal size={22} strokeWidth={2.25} aria-hidden="true" /> Tour anpassen
 			</button>
+			{#if tour.map.kind === 'route'}
+				<button type="button" class="adjust-button" onclick={saveGpx}>
+					<Download size={22} strokeWidth={2.25} aria-hidden="true" /> Als GPX-Datei speichern
+				</button>
+			{/if}
 		</div>
 
 		<section class="stops">
