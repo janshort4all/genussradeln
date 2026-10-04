@@ -194,7 +194,7 @@ Jeder Meilenstein endet mit etwas, das man auf dem Handy ausprobieren kann.
 - **M2 Zieltour (F1, F3 bestimmter Ort, F4 für Ziele):** Start (Standort/Adresse) + Ziel suchen (Photon),
   „Wie viel Umweg für mehr Schönheit?“ (direkt / etwas schöner / am schönsten), 2–3 Wegvarianten mit `genuss`,
   Nachbewertung, Darstellung auf echter Karte (MapLibre); Rückweg „nur hin“ / „auf anderem Weg zurück“. ✔ erledigt
-- **M3 Tourdetail (F8, F9):** Karte, Kennzahlen in Worten, Höhenprofil, Stopps nach Kilometer.
+- **M3 Tourdetail (F8, F9):** Karte, Kennzahlen in Worten, Höhenprofil, Stopps nach Kilometer. ✔ erledigt
 - **M4 Anpassen & Selbst planen (F6, F16):** Wegpunkt-Modell, Zwischenziele, kürzer/länger, Stopp hinzufügen,
   Abschnitt meiden, Rückgängig; Punkte setzen und Strecke ziehen (PC).
 - **M4b Schönere Strecke (F7):** Schwachstellen finden, Umfahrungen berechnen, grüne Variante anzeigen, Übernehmen/Nein danke.
