@@ -94,7 +94,6 @@
 	const countWords = (n: number) => (n === 1 ? 'Ein Weg' : `${n} Wege`);
 
 	const detourWord = { direct: 'direkt', nicer: 'etwas schöner', nicest: 'am schönsten' };
-	const effortWord = { easy: 'gemütlich', sporty: 'sportlicher' };
 
 	async function compute() {
 		if (!request) return;
@@ -145,7 +144,7 @@
 {:else}
 	<h1>{status === 'done' ? countWords(tours.length) : 'Ihre Wege'} {towards}</h1>
 	<p class="summary muted">
-		ab {request.start.name} · {detourWord[request.detour]} · {effortWord[request.effort]} ·
+		ab {request.start.name} · {detourWord[request.detour]} ·
 		{request.returnMode === 'one-way' ? 'nur hin' : 'auf anderem Weg zurück'}
 	</p>
 

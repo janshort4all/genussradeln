@@ -2,13 +2,11 @@
 	import { goto } from '$app/navigation';
 	import { asset, resolve } from '$app/paths';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
-	import Feather from '@lucide/svelte/icons/feather';
 	import LocateFixed from '@lucide/svelte/icons/locate-fixed';
 	import MapPin from '@lucide/svelte/icons/map-pin';
 	import Repeat from '@lucide/svelte/icons/repeat';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import Sprout from '@lucide/svelte/icons/sprout';
-	import TrendingUp from '@lucide/svelte/icons/trending-up';
 	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import Button from '$lib/components/Button.svelte';
 	import ChoiceGroup from '$lib/components/ChoiceGroup.svelte';
@@ -28,7 +26,9 @@
 	let startPlace: Place | undefined = $state(last && last.start.name !== 'Ihr Standort' ? last.start : undefined);
 	let detour: DetourLevel = $state(last?.detour ?? 'nicer');
 	let returnMode: ReturnMode = $state(last?.returnMode ?? 'one-way');
-	let effort: Effort = $state(last?.effort ?? 'easy');
+	// Anstrengung fragen wir nicht mehr (Wunsch Jan): Länge und Steigung zeigen die Vorschläge.
+	// Gerechnet wird gemütlich – 15 km/h für die Fahrzeit, steile Stücke werden gemieden.
+	const effort: Effort = 'easy';
 
 	let busy = $state(false);
 	let problem = $state('');
@@ -125,16 +125,6 @@
 		choices={[
 			{ value: 'one-way', label: 'Nur hin', icon: ArrowRight },
 			{ value: 'other-way', label: 'Auf anderem Weg zurück', icon: Undo2 }
-		]}
-	/>
-
-	<ChoiceGroup
-		legend="Wie anstrengend?"
-		name="effort"
-		bind:value={effort}
-		choices={[
-			{ value: 'easy', label: 'Gemütlich', icon: Feather },
-			{ value: 'sporty', label: 'Sportlicher', icon: TrendingUp }
 		]}
 	/>
 
