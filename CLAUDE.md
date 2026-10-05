@@ -86,18 +86,22 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
   Route mit Profil `genuss` berechnen, ggf. über Zwischenpunkte verlängern, dann wie oben nachbewerten.
 - **Ziel = bestimmter Ort (umgesetzt in M2, `src/lib/routing/plan.ts`):**
   1. Direkter `genuss`-Weg + GraphHopper-Alternativen (`alternative_route`).
-  2. Je nach „Wie viel Umweg für mehr Schönheit?“ (`DETOUR` in `weights.ts`: direkt / etwas schöner / am schönsten)
-     zusätzliche Wege über schöne Zwischenpunkte: Rasterpunkte mit viel Wasser/Wald/Grün in der Umgebung
+  2. Zusätzliche Wege über schöne Zwischenpunkte (Spielraum `DETOUR` in `weights.ts`, gefragt wird nicht mehr): Rasterpunkte mit viel Wasser/Wald/Grün in der Umgebung
      (Summenfeld über `landscape.png`), innerhalb der Umweg-Ellipse um Start/Ziel, nicht direkt am kürzesten Weg.
   3. Wege mit „Stummel“ (über 50 m doppelt gefahren: hin und zurück in eine Sackgasse oder Lasso-Schleife um den Punkt) verwerfen
      (`backtrack.ts`, `VIA_SEARCH.maxBacktrackM`). Vorher Reparaturversuch: Hilfspunkt an die Abzweigung verlegen
      und neu rechnen – dann führt der Weg an der schönen Stelle vorbei, ohne Abstecher.
-  4. Nachbewertung (`score.ts`), Mehrweg-Grenze, Abzug je Mehrweg; Auswahl der besten, untereinander
-     verschiedenen Wege (`DIVERSITY_MAX_OVERLAP`).
-- **„Fast direkt“ (Wunsch Jan, 04.10.2026):** Bei „etwas schöner“ / „am schönsten“ zusätzlich als 4. Vorschlag der schönste Weg,
-  der höchstens ca. 15 % länger ist als der direkte (`COMPACT` in `weights.ts`). Kandidaten dafür zusätzlich über Punkte
+  4. Nachbewertung (`score.ts`), Mehrweg-Grenze, Abzug je Mehrweg.
+  5. **Auswahl (Entscheidung Jan, 04.10.2026):** bis zu `MAX_SUGGESTIONS` = 5 Wege mit klarer Rolle: „Unsere Empfehlung“
+     (beste Abwägung) bzw. „Am schönsten“ (der schönste gezeigte), „Direkt“ (der direkte genuss-Weg, **immer dabei**,
+     steht unten), „Fast direkt“; weitere nur, wenn sie sich lohnen (`WORTHWHILE`: kein gezeigter Weg ist kürzer und
+     fast genauso schön) und sich unterscheiden (`DIVERSITY_MAX_OVERLAP`). Reihenfolge: Empfehlung, dann nach Länge.
+  6. Fahrzeit: `rideMinutes` (`src/lib/tour/duration.ts`) = Strecke / 15 km/h + `CLIMB_MINUTES_PER_100M` je 100 Höhenmeter.
+- **„Fast direkt“ (Wunsch Jan, 04.10.2026):** der schönste Weg, der höchstens ca. 15 % länger ist als der direkte
+  (`COMPACT` in `weights.ts`). Kandidaten dafür zusätzlich über Punkte
   knapp links/rechts der Luftlinie (`sideVias`) – die zählen nur für „Fast direkt“, nicht für die drei schönsten.
-- **Titel (04.10.2026):** nach der Landschaft, die bei dem Weg wirklich vorne liegt (`TITLE_MIN_SHARE_OF_TOP`); ist sie
+- **Titel (04.10.2026):** zuerst benannter Höhepunkt und unterscheidende Orte („Am Rhein entlang über Nierst“,
+  `src/lib/naming/`, Daten `landmarks.json`/`places.json`); sonst nach der Landschaft, die bei dem Weg wirklich vorne liegt (`TITLE_MIN_SHARE_OF_TOP`); ist sie
   vergeben: Himmelsrichtung („Am Wasser entlang – östliche Strecke“) oder unterscheidende Straße, nie eine schwächere
   Landschaft. Große Gewässer (Rhein) zählen bis ca. 400 m Abstand (`BIG_WATER`), bei Stopps nur aus der Nähe.
 - **Rückweg auf anderem Weg:** Rückweg genauso planen, Paare aus Hin- und Rückweg bilden; Abzug für
@@ -208,16 +212,18 @@ Jeder Meilenstein endet mit etwas, das man auf dem Handy ausprobieren kann.
 > Reihenfolge deshalb umgestellt; alle 16 Funktionen bleiben. Testen bis M9 am PC (Routing lokal).
 
 - **M2 Zieltour (F1, F3 bestimmter Ort, F4 für Ziele):** Start (Standort/Adresse) + Ziel suchen (Photon),
-  „Wie viel Umweg für mehr Schönheit?“ (direkt / etwas schöner / am schönsten), 2–3 Wegvarianten mit `genuss`,
+  bis zu 5 Wegvarianten mit `genuss` (direkter immer dabei),
   Nachbewertung, Darstellung auf echter Karte (MapLibre); Rückweg „nur hin“ / „auf anderem Weg zurück“. ✔ erledigt
 - **M3 Tourdetail (F8, F9):** Karte, Kennzahlen in Worten, Höhenprofil, Stopps nach Kilometer. ✔ erledigt
+> **Reihenfolge (Entscheidung 05.10.2026):** Als Nächstes **M6 Navigation** (danach M4, M4b, M5 …), damit Testpersonen
+> die Touren direkt in der App fahren können. GPX-Export (F12 aus M7) ist vorgezogen und fertig.
 - **M4 Anpassen & Selbst planen (F6, F16):** Wegpunkt-Modell, Zwischenziele, kürzer/länger, Stopp hinzufügen,
   Abschnitt meiden, Rückgängig; Punkte setzen und Strecke ziehen (PC).
 - **M4b Schönere Strecke (F7):** Schwachstellen finden, Umfahrungen berechnen, grüne Variante anzeigen, Übernehmen/Nein danke.
 - **M5 Rundtouren & Freitext (F2, F4 Rundtour, F3 Ortsart, F5):** Rundtour-Vorschläge nach Dauer/km, Ziel als Ortsart
   („ein Biergarten“), Worterkennung mit Tests.
 - **M6 Navigation (F10):** Positionsverfolgung, Abbiegeanzeige, Sprachansagen, Off-Route-Hinweis, Wake Lock, dunkle Ansicht.
-- **M7 Offline & Export (F11, F12):** Tour inkl. Kartenkacheln vorab cachen, GPX-Export.
+- **M7 Offline & Export (F11, F12):** Tour inkl. Kartenkacheln vorab cachen, GPX-Export (✔ vorgezogen, `src/lib/gpx/`).
 - **M8 Merken, Teilen, Akku (F13, F14, F15):** IndexedDB, Teilen-Link ohne Konto; Akkugröße (z. B. 400/500/625/750 Wh)
   + Ladestand, einfache Verbrauchsschätzung nach Strecke, Steigung und Anstrengung, Ausgabe in drei Stufen.
 - **M9 Testreife:** Routing auf Server, Impressum + Datenschutzhinweis, Kurzanleitung, Test auf 2–3 echten Android-Handys.

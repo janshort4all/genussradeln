@@ -49,14 +49,14 @@ Alle Anforderungen gehören in die erste Testversion.
 | Nr. | Bereich | Anforderung |
 | --- | --- | --- |
 | F1 | Startpunkt | Start am aktuellen Standort; alternativ Adresse oder Ort eingeben |
-| F2 | Tourwunsch | Umfang (wahlweise Dauer: 1 Std. / 2 Std. / halber Tag, oder Länge in km), Anstrengung (gemütlich / sportlicher), Landschaft (Grün, Wasser, Wald, Aussicht) |
+| F2 | Tourwunsch | Umfang (wahlweise Dauer: 1 Std. / 2 Std. / halber Tag, oder Länge in km), Anstrengung (gemütlich / sportlicher, nur bei Rundtouren), Landschaft (Grün, Wasser, Wald, Aussicht) |
 | F3 | Tourart | Rundtour oder Tour zu einem Ziel. Ziel = Art von Ort („irgendein Biergarten unterwegs“) oder bestimmter Ort („Biergarten am See“). Bei Zieltouren: Rückweg auf anderem Weg oder nur Hinweg |
-| F4 | Vorschläge | Drei Touren, automatisch berechnet und nach Schönheit gewichtet (Wasser, Wald, ruhige Wege, guter Belag, wenig Autoverkehr) |
+| F4 | Vorschläge | Automatisch berechnet und nach Schönheit gewichtet (Wasser, Wald, ruhige Wege, guter Belag, wenig Autoverkehr). Zieltouren: bis zu fünf Wege mit klarer Rolle („Unsere Empfehlung“ bzw. „Am schönsten“, „Fast direkt“, „Direkt“), der direkte Weg ist immer dabei; weitere nur, wenn sie sich lohnen. Rundtouren: drei |
 | F5 | Wunsch in eigenen Worten | Freitextfeld, auch per Spracheingabe der Handy-Tastatur, z. B. „20 km durchs Grüne zum Biergarten“. App erkennt Länge, Dauer, Landschaft und Ziel und füllt die Auswahl vor; Knöpfe bleiben der Hauptweg |
 | F6 | Tour anpassen | Jeder Vorschlag lässt sich ändern: kürzer / länger, Stopp hinzufügen (Café, Biergarten, Toilette …), Abschnitt meiden, Start oder Ziel ändern; am PC zusätzlich Strecke auf der Karte verschieben. Rückgängig jederzeit möglich |
 | F7 | Schönere Strecke vorschlagen | App findet selbst unschöne Abschnitte (z. B. neben Hauptstraßen) und zeigt eine grüne, gestrichelte Umfahrung auf der Karte mit Schild „Durchs Grüne · +1,8 km“. Darunter in Worten: bisher / neu, Mehrweg in km und Minuten. Übernehmen mit einem Tipp, „Nein, danke“, rückgängig jederzeit. Höchstens 2–3 Vorschläge pro Tour, nur beim Planen, nie während der Fahrt |
-| F8 | Tourdetail | Karte, Länge, Dauer, Steigung in Worten, Höhenprofil, Liste der Stopps nach Kilometer |
-| F9 | Stopps | Cafés und Biergärten, Toiletten, Aussichtspunkte und Bänke, E-Bike-Ladepunkte entlang der Tour |
+| F8 | Tourdetail | Karte, Länge, Fahrzeit (mit Zuschlag für Steigungen), Steigung in Worten, Pluspunkte und Hinweise aus der Strecke, Höhenprofil (nur wenn nicht flach), „Einkehren unterwegs“ |
+| F9 | Stopps | Cafés, Eis und Biergärten, Toiletten, Aussichtspunkte, Bänke und E-Bike-Ladepunkte entlang der Tour. Im Tourdetail stehen nur höchstens drei Orte zum Einkehren oder Schauen; Toiletten in einem Satz; Bänke sieht man unterwegs |
 | F10 | Navigation | Große Abbiegeanzeige, deutsche Sprachansagen mit Signalton, Hinweis beim Verlassen der Route |
 | F11 | Offline | Karte und Strecke der gewählten Tour vor dem Losfahren laden; Navigation läuft auch im Funkloch |
 | F12 | Export | Tour als GPX-Datei für E-Bike-Display und Garmin |
@@ -64,6 +64,13 @@ Alle Anforderungen gehören in die erste Testversion.
 | F14 | Merken | Touren auf dem Gerät speichern und erneut starten |
 | F15 | Weitergeben | Tour als Link teilen; der Link öffnet die Tour ohne Konto |
 | F16 | Selbst planen | Punkte auf der Karte setzen; die App verbindet sie über schöne Wege; am PC und am Handy bedienbar |
+
+**Entscheidungen während der Umsetzung (Jan):**
+- 03.10.2026: Schwerpunkt Zieltour („Ziel eingeben → schönster Weg dorthin“), Rundtouren sind Nebensache.
+- 04.10.2026: Bei Zieltouren keine Fragen nach Anstrengung und Umweg – Länge, Fahrzeit und Steigung zeigen die Vorschläge. Gerechnet wird gemütlich (15 km/h plus Zuschlag für Steigungen).
+- 04.10.2026: Tourdetail nach Jans Entwurf (Kacheln, Pluspunkte, „Tour starten“, „Tour anpassen“, „Als GPX-Datei speichern“, Einkehr-Karten mit Zeichnungen statt Fotos).
+- 04.10.2026: Logik nie auf die Testregion zuschneiden – alles aus den Daten der jeweiligen Strecke ableiten.
+- 05.10.2026: Reihenfolge: Navigation (F10) vor Anpassen (F6/F16), damit Testpersonen die Touren direkt in der App fahren können. GPX-Export (F12) ist vorgezogen und fertig.
 
 F5 kommt ohne kostenpflichtige KI aus: Eine einfache Worterkennung reicht für typische Sätze (Zahl + „km“ oder „Stunden“, „Grün“, „Wasser“, „Biergarten“). Was sie nicht versteht, fragt die App über die Knöpfe nach.
 
@@ -84,9 +91,9 @@ Maßstab: Die Testperson kommt beim ersten Versuch allein vom Wunsch bis zum Los
 | B9 | Am PC dieselbe Bedienung, nur mit größerer Karte |
 
 Mockup-Screens:
-1. **Start:** „Worauf haben Sie heute Lust?“ – Startpunkt, Rundtour oder Ziel, Dauer oder km, Anstrengung, Landschaft, Feld „Oder sagen Sie es in eigenen Worten“, Knopf „Touren vorschlagen“; unten Leiste „Tour finden / Meine Touren / Selbst planen“.
-2. **Vorschläge:** drei Tourkarten mit Mini-Karte, Name, km/Dauer/Steigung, ein Satz zum Besonderen, Akku-Hinweis; „Andere Vorschläge zeigen“.
-3. **Tourdetail:** große Karte mit Stopps, Kennzahlen, „Unterwegs erwartet Sie“ (Stopps nach km), Akku-Hinweis, „Losfahren“, „Tour anpassen“, „An mein E-Bike-Display senden“.
+1. **Start:** „Wohin möchten Sie?“ – Ziel, Startpunkt, „Und zurück?“, Knopf „Schönsten Weg finden“; daneben „Kein bestimmtes Ziel?“ zur Rundtour (Dauer oder km, Anstrengung, Landschaft), später Feld „Oder sagen Sie es in eigenen Worten“; unten Leiste „Tour finden / Meine Touren / Selbst planen“.
+2. **Vorschläge:** „4 Wege nach Kempen“; Karte bleibt oben stehen und zeigt den Weg, bei dem man in der Liste ist (mit Fahrtrichtungspfeilen), darunter Knöpfe „Weg: 1 2 3 …“; Wegkarten mit Rolle, Name, km/Dauer/Steigung, ein Satz zum Besonderen, Mehrweg.
+3. **Tourdetail:** Karte mit Stopps, Titel, Beschreibungssatz, Kacheln Strecke / Fahrzeit / Steigungen, grüner Kasten mit Pluspunkten und Hinweisen, „Tour starten“, „Tour anpassen“, „Als GPX-Datei speichern“, „Einkehren unterwegs“; oben Herz (Merken) und Menü „…“ (Teilen).
 4. **Schönere Strecke:** Karte mit bisheriger Strecke (orange, an der Hauptstraße) und grün gestrichelter, leicht leuchtender Umfahrung mit Schild „Durchs Grüne · +1,8 km“; unten Karte „Schönere Strecke gefunden“ mit Bisher/Neu, „Nein, danke“ und „Übernehmen“.
 5. **Navigation:** schwarzer Hintergrund, große Abbiegeanweisung oben, Karte, Rest-km, Ankunftszeit, nächster Stopp, „Pause“ / „Beenden“.
 
@@ -101,7 +108,7 @@ Betriebskosten möglichst 0 € im Monat; nur offene Daten und kostenlose Dienst
 | Routing | Rundtouren mit Gewichtung für Schönheit | GraphHopper (Open Source), Profil „Genuss-Radeln“ |
 | Server | Kostenlos betreibbar | z. B. Oracle Cloud Always Free; Konditionen prüfen |
 | Kartendaten | Offen und aktuell | OSM-Auszug der Region (Geofabrik) |
-| Stopps | Cafés, Toiletten, Aussicht, Bänke, Ladepunkte | Einmal aus OSM ziehen, als Datei mitliefern |
+| Stopps, Landschaft, Namen | Cafés, Toiletten, Aussicht, Bänke, Ladepunkte; Wasser/Wald/Grün/Felder | Aus dem OSM-Auszug der Region erzeugt (`npm run data`), als Dateien mitgeliefert |
 | Offline | Tour läuft im Funkloch | Service Worker speichert Karte und Strecke |
 | Strom sparen | Navigation darf das Handy nicht leeren | Dunkle Ansicht, gedrosselte Standortabfrage, Wachhalten nur während der Fahrt |
 | Sprachansagen | Deutsch, mit Signalton | Web Speech API |
