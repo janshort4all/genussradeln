@@ -136,6 +136,21 @@ describe('planTours', () => {
 		expect(tours.some((t) => t.waypoints.some((w) => w.kind === 'via'))).toBe(true);
 	});
 
+	it('verwirft Umwege über einen großen Fluss (lange Brücke), die der direkte Weg nicht braucht', async () => {
+		// jeder Weg über einen Zwischenpunkt führt über eine 1 km lange Brücke hin und anders zurück
+		const route = (points: LngLat[], options: RouteOptions) => {
+			const via = points.length === 3;
+			const line = via ? [points[0], offset(points[1], 0, 500), offset(points[1], 0, 1500), points[2]] : points;
+			const path = makePath(line, { roadClass: 'cycleway' });
+			if (via) path.details.road_environment = [[0, 1, 'road'], [1, 2, 'bridge'], [2, line.length - 1, 'road']];
+			const paths = [via ? path : makePath(points, { roadClass: 'primary' })];
+			if (options.alternatives) paths.push(makePath([points[0], offset(points[0], 135, 4000), points[1]], { roadClass: 'primary' }));
+			return Promise.resolve(paths);
+		};
+		const tours = await planTours(request(), { route, landscape });
+		expect(tours.every((t) => t.waypoints.every((w) => w.kind !== 'via'))).toBe(true);
+	});
+
 	it('legt Zwischenpunkte für „Fast direkt“ knapp neben die Luftlinie', () => {
 		const vias = sideVias(start, end);
 		expect(vias).toHaveLength(4);

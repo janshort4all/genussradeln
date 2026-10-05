@@ -113,7 +113,13 @@ export const VIA_SEARCH = {
 	 */
 	maxBacktrackM: 50,
 	/** … dafür werden so viele Zwischenpunkte zusätzlich ausprobiert */
-	spareVias: 3
+	spareVias: 3,
+	/**
+	 * Brücken und Fähren ab dieser Länge (Meter) gelten als Querung eines großen Flusses o. Ä. Ein Vorschlag darf
+	 * nicht mehr davon nehmen als der direkte Weg – sonst führt ein schöner Zwischenpunkt auf der anderen Flussseite
+	 * zu einem riesigen Umweg über zwei Brücken (gefunden: Krefeld → Moers über die Uerdinger Rheinbrücke).
+	 */
+	longCrossingM: 300
 } as const;
 
 /**

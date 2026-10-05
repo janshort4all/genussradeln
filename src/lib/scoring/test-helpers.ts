@@ -17,7 +17,7 @@ export function makeLandscape(fill: (row: number, col: number) => number = () =>
  */
 export function makePath(
 	line: LngLat[],
-	props: Partial<{ roadClass: string; network: string; surface: string; slope: number; climbPerKm: number }> = {}
+	props: Partial<{ roadClass: string; network: string; surface: string; slope: number; climbPerKm: number; environment: string }> = {}
 ): RoutePath {
 	const last = line.length - 1;
 	const climb = props.climbPerKm ?? 0;
@@ -33,7 +33,8 @@ export function makePath(
 			surface: [[0, last, props.surface ?? 'asphalt']],
 			smoothness: [[0, last, 'good']],
 			street_name: [[0, last, null]],
-			average_slope: [[0, last, props.slope ?? 0]]
+			average_slope: [[0, last, props.slope ?? 0]],
+			road_environment: [[0, last, props.environment ?? 'road']]
 		}
 	};
 }

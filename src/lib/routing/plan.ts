@@ -87,6 +87,19 @@ function compactScore(c: LegCandidate, directDistance: number): number {
 	return c.beauty - DETOUR.compactPenalty * Math.max(0, c.path.distance / directDistance - 1);
 }
 
+/** Meter auf langen Brücken und Fähren (Querung großer Flüsse, siehe VIA_SEARCH.longCrossingM) */
+export function longCrossingMeters(path: RoutePath): number {
+	const lengths = segmentLengths(lineOf(path));
+	let total = 0;
+	for (const [from, to, value] of path.details.road_environment ?? []) {
+		if (value !== 'bridge' && value !== 'ferry') continue;
+		let meters = 0;
+		for (let i = from; i < to; i++) meters += lengths[i] ?? 0;
+		if (meters >= VIA_SEARCH.longCrossingM) total += meters;
+	}
+	return total;
+}
+
 /** Anfragen gleichzeitig, aber nicht alle auf einmal (GraphHopper schonen) */
 async function mapLimited<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
 	const results: R[] = new Array(items.length);
@@ -222,8 +235,11 @@ async function planDirection(
 	});
 	for (const p of viaPaths) if (p) paths.push(p);
 
+	// keine zusätzlichen Fluss-Querungen gegenüber dem direkten Weg (über die Brücke hin, woanders zurück)
+	const directCrossing = longCrossingMeters(direct[0]);
 	const all = paths
 		.filter(({ path }) => path.distance <= maxLength)
+		.filter(({ path }) => path === direct[0] || longCrossingMeters(path) <= directCrossing + 50)
 		// Wege über Zwischenpunkte ohne „Stummel“ (hin und gleich wieder zurück in eine Sackgasse)
 		.filter(({ path, vias }) => !vias.length || backtrackMeters(lineOf(path)) <= VIA_SEARCH.maxBacktrackM)
 		.map(({ path, vias, side }) => {

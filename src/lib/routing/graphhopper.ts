@@ -22,6 +22,8 @@ export interface RouteDetails {
 	smoothness: DetailInterval<string>[];
 	street_name: DetailInterval<string | null>[];
 	average_slope: DetailInterval<number>[];
+	/** „bridge“, „ferry“, „tunnel“, „road“ … (fehlt bei älteren gespeicherten Touren) */
+	road_environment?: DetailInterval<string>[];
 }
 
 /**
@@ -65,7 +67,8 @@ const DETAILS: (keyof RouteDetails)[] = [
 	'surface',
 	'smoothness',
 	'street_name',
-	'average_slope'
+	'average_slope',
+	'road_environment'
 ];
 
 /** GraphHopper ist nicht erreichbar (z. B. am Handy im Testbetrieb) */
