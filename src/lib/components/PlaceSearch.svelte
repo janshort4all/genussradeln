@@ -29,6 +29,23 @@
 	let status: 'idle' | 'searching' | 'empty' | 'error' = $state('idle');
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let controller: AbortController | undefined;
+	let box: HTMLDivElement | undefined = $state();
+	/** solange gesucht wird: Platz unter dem Feld, damit es sich ganz nach oben rollen lässt */
+	let active = $state(false);
+	let blurTimer: ReturnType<typeof setTimeout> | undefined;
+
+	/**
+	 * Am Handy liegt die Tastatur über der unteren Bildschirmhälfte – die Vorschläge unter dem Feld wären
+	 * verdeckt. Daher das Feld nach oben rollen, sobald man hineintippt und sobald Vorschläge da sind.
+	 */
+	function scrollIntoReach() {
+		if (!box || !window.matchMedia('(pointer: coarse)').matches) return;
+		clearTimeout(blurTimer);
+		active = true;
+		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		// kurz warten, bis die Tastatur offen ist und der sichtbare Bereich kleiner geworden ist
+		setTimeout(() => box?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' }), 350);
+	}
 
 	function onInput() {
 		value = undefined;
@@ -47,6 +64,7 @@
 			try {
 				results = await searchPlaces(q, near, controller.signal);
 				status = results.length ? 'idle' : 'empty';
+				scrollIntoReach();
 			} catch (error) {
 				if ((error as Error).name === 'AbortError') return;
 				results = [];
@@ -55,7 +73,13 @@
 		}, 350);
 	}
 
+	/** Platz erst später wegnehmen – sonst verrutscht die Liste, während man einen Vorschlag antippt */
+	function onBlur() {
+		blurTimer = setTimeout(() => (active = false), 400);
+	}
+
 	function choose(place: Place) {
+		active = false;
 		value = place;
 		query = place.name;
 		results = [];
@@ -70,7 +94,7 @@
 	}
 </script>
 
-<div class="place-search" class:prominent>
+<div class="place-search" class:prominent class:active bind:this={box}>
 	<label class="field-label" for="{id}-input">{label}</label>
 	<div class="input-row">
 		<input
@@ -78,6 +102,8 @@
 			type="search"
 			bind:value={query}
 			oninput={onInput}
+			onfocus={scrollIntoReach}
+			onblur={onBlur}
 			{placeholder}
 			autocomplete="off"
 			enterkeyhint="search"
@@ -122,6 +148,12 @@
 <style>
 	.place-search {
 		margin: 0 0 1.75rem;
+		/* beim Hochrollen etwas Luft über dem Feld lassen */
+		scroll-margin-top: 0.75rem;
+	}
+
+	.place-search.active {
+		padding-bottom: 70vh;
 	}
 
 	.prominent .field-label {
