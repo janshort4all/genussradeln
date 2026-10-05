@@ -2,7 +2,7 @@
  * Genaue Nähe zu Wasser, Wald und Grünflächen für einzelne Punkte (z. B. Stopps), aus den echten
  * OSM-Geometrien der Landschaftsdaten – genauer als das 100-m-Raster der Landschaftskarte.
  */
-import type { OsmElement } from './overpass.ts';
+import type { OsmElement } from './osm-file.ts';
 
 type Point = [number, number];
 export type NearbyClass = 'water' | 'forest' | 'green';

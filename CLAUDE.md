@@ -53,7 +53,7 @@ Alle Werte als CSS-Variablen in `src/app.css`:
 | Karte | MapLibre GL JS, Kacheln von OpenFreeMap (Stil „liberty“ als Basis, eigener ruhiger Stil später) |
 | Routing | GraphHopper (Open Source, selbst gehostet), OSM-Auszug Regierungsbezirk Düsseldorf von Geofabrik |
 | Schönheit | GraphHopper-Custom-Model „genuss“ + Nachbewertung der Kandidaten im Client (siehe unten) |
-| Stopps (POIs) | Einmalig per Overpass-Skript aus OSM exportiert → `static/data/pois.json` (kompakt, siehe `scripts/fetch-pois.ts`) |
+| Daten (Stopps, Landschaft, Namen) | Aus der OSM-Regionsdatei von Geofabrik (dieselbe wie fürs Routing) per `npm run data` → `static/data/`. Kein Overpass (überlastet) |
 | Speicherung | IndexedDB auf dem Gerät (z. B. `idb-keyval`), kein Backend |
 | Sprachansagen | Web Speech API (`speechSynthesis`, `lang="de-DE"`) + kurzer Signalton |
 | Hosting App | GitHub Pages oder Cloudflare Pages |
@@ -102,8 +102,9 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
   Landschaft. Große Gewässer (Rhein) zählen bis ca. 400 m Abstand (`BIG_WATER`), bei Stopps nur aus der Nähe.
 - **Rückweg auf anderem Weg:** Rückweg genauso planen, Paare aus Hin- und Rückweg bilden; Abzug für
   Überlappung mit dem Hinweg (`SCORE.returnOverlap`).
-- **Landschaftskarte:** `npm run data:landscape` (Overpass, Regierungsbezirk Düsseldorf) → `static/data/landscape.png`
-  (Graustufen 0/85/170/255 = nichts/Grün/Wald/Wasser, ca. 100 m Zellen) + `landscape.json` (Ausdehnung).
+- **Datendateien (05.10.2026):** `npm run data` liest die Regionsdatei `routing/data/*.osm.pbf` direkt (`scripts/lib/osm-file.ts`,
+  Bibliothek `@osmix/pbf`, nur Entwicklung) und schreibt `landscape.png/.json` (Klassen nichts/Felder/Grün/Wald/Wasser,
+  ca. 100 m Zellen, Ausdehnung aus der Datei), `pois.json`, `places.json`, `landmarks.json`. Andere Region = andere Datei.
 - **Ortssuche:** Photon (`src/lib/geocode/photon.ts`), begrenzt auf die Region, Haltestellen und nahe Doppelte gefiltert.
 - **Karte:** `src/lib/map/RouteMap.svelte` (MapLibre 6, nur ESM; Worker per `?worker&url` + `setWorkerUrl`,
   `worker.format: 'es'` in `vite.config.ts`), Stil OpenFreeMap „liberty“.
@@ -167,8 +168,9 @@ genuss-radeln/
 │   ├── docker-compose.yml
 │   └── README.md               # Daten laden, starten, auf Server bringen
 ├── scripts/
-│   ├── fetch-pois.ts           # Overpass → static/data/pois.json
-│   └── fetch-landscape.ts      # Wasser/Wald/Grün → static/data/landscape.png
+│   ├── build-data.ts           # OSM-Regionsdatei → alle Dateien in static/data/
+│   ├── data/                   # Bausteine: Landschaft, Stopps, Orte, Gewässer-/Waldnamen
+│   └── lib/osm-file.ts         # .osm.pbf lesen
 ├── src/
 │   ├── lib/
 │   │   ├── components/         # Button, ChoiceGroup, TourCard, BatteryHint, ElevationProfile …
@@ -239,8 +241,7 @@ npm install          # Abhängigkeiten installieren (einmalig bzw. nach Änderun
 npm run dev          # App lokal unter http://localhost:5173
 npm run check        # TypeScript- und Svelte-Prüfung
 npm test             # Unit-Tests (Vitest, Dateien *.test.ts in src/)
-npm run data:pois       # Stopps (Cafés, Toiletten, Bänke …) aus OSM neu erzeugen → static/data/pois.json
-npm run data:landscape  # Landschaftskarte (Wasser/Wald/Grün) aus OSM neu erzeugen → static/data/ (dauert, Overpass)
+npm run data         # Landschaft, Stopps, Orts- und Gewässernamen aus der OSM-Regionsdatei → static/data/ (ca. 1 Min.)
 npm run build        # statischer Build nach build/
 npm run preview      # fertigen Build lokal ansehen
 npm run icons        # Logo und App-Symbole aus assets/logo-original.png neu erzeugen

@@ -1,17 +1,14 @@
 /**
- * Erzeugt die benannten Orientierungspunkte für Weg-Titel wie „Am Rhein entlang“ oder „Durch den Stadtwald“:
+ * Benannte Orientierungspunkte für Weg-Titel wie „Am Rhein entlang“ oder „Durch den Stadtwald“:
  * Flüsse und Kanäle, größere Seen, Wälder, Parks und Naturschutzgebiete mit Namen.
- * Nutzt die bereits geladenen Overpass-Daten der Landschaftskarte (scripts/.cache/landscape) – kein neuer Download.
  *
  * Ausgabe: static/data/landmarks.json – kompakt:
  *   { names: [[Name, Art], …], points: [[lon·1e4, lat·1e4, Name-Index], …] }
  *   Art: river | lake | forest | park. Punkte liegen alle ca. 400 m entlang von Flüssen bzw. am Rand von Flächen.
- *
- * Aufruf: npm run data:landmarks   (nach npm run data:landscape)
  * Daten: © OpenStreetMap-Mitwirkende, ODbL.
  */
-import { readdir, readFile, writeFile } from 'node:fs/promises';
-import { REGION, type OsmElement } from './lib/overpass.ts';
+import { writeFile } from 'node:fs/promises';
+import type { Bounds, OsmElement } from '../lib/osm-file.ts';
 
 type Point = [number, number];
 type Kind = 'river' | 'lake' | 'forest' | 'park';
@@ -24,22 +21,14 @@ const SKIP_NAME = /hafen|angel|e\.\s?v\.|becken|klär|schönung|rückhalte|regen
 /** Seen nur, wenn der Name wie ein See klingt (sonst z. B. Firmen- oder Flurnamen) */
 const LAKE_NAME = /see|weiher|teich|meer|maar|kolk|altarm|baggerloch/i;
 
-const cacheDir = new URL('./.cache/landscape/', import.meta.url);
-const byName = new Map<string, { kind: Kind; parts: Point[][] }>();
-const seen = new Set<string>();
-
-for (const file of await readdir(cacheDir)) {
-	const { elements } = JSON.parse(await readFile(new URL(file, cacheDir), 'utf8')) as { elements: OsmElement[] };
+export async function buildLandmarks(elements: OsmElement[], bounds: Bounds) {
+	const byName = new Map<string, { kind: Kind; parts: Point[][] }>();
 	for (const e of elements) {
-		const key = `${e.type}/${e.id}`;
-		if (seen.has(key)) continue;
-		seen.add(key);
 		const t = e.tags ?? {};
 		const name = t.name?.trim();
 		if (!name || SKIP_NAME.test(name)) continue;
 		const kind = kindOf(t, name);
 		if (!kind) continue;
-
 		const parts =
 			e.type === 'way'
 				? [toPoints(e.geometry)]
@@ -49,35 +38,33 @@ for (const file of await readdir(cacheDir)) {
 		entry.parts.push(...parts.filter((p) => p.length > 1));
 		byName.set(mapKey, entry);
 	}
-}
 
-const names: [string, Kind][] = [];
-const points: [number, number, number][] = [];
-for (const [mapKey, { kind, parts }] of byName) {
-	const size = parts.reduce((sum, p) => sum + lineLength(p), 0);
-	if (size < MIN_SIZE_M[kind]) continue;
-	const index = names.push([mapKey.split('|')[1], kind]) - 1;
-	// je Name höchstens ein Punkt pro Rasterzelle (≈ 400 m) und nur innerhalb der Testregion
-	// (Flüsse wie Rhein und Maas kommen aus OSM in voller Länge)
-	const taken = new Set<string>();
-	for (const part of parts) {
-		for (const [lon, lat] of sample(part, SPACING_M)) {
-			if (lon < REGION.west || lon > REGION.east || lat < REGION.south || lat > REGION.north) continue;
-			const k = `${Math.floor(lon / 0.0058)}:${Math.floor(lat / 0.0036)}`;
-			if (taken.has(k)) continue;
-			taken.add(k);
-			points.push([Math.round(lon * 1e4), Math.round(lat * 1e4), index]);
+	const names: [string, Kind][] = [];
+	const points: [number, number, number][] = [];
+	for (const [mapKey, { kind, parts }] of byName) {
+		const size = parts.reduce((sum, p) => sum + lineLength(p), 0);
+		if (size < MIN_SIZE_M[kind]) continue;
+		const index = names.push([mapKey.split('|')[1], kind]) - 1;
+		// je Name höchstens ein Punkt pro Rasterzelle (≈ 400 m) und nur innerhalb der Region
+		// (Flüsse wie Rhein und Maas kommen in voller Länge)
+		const taken = new Set<string>();
+		for (const part of parts) {
+			for (const [lon, lat] of sample(part, SPACING_M)) {
+				if (lon < bounds.west || lon > bounds.east || lat < bounds.south || lat > bounds.north) continue;
+				const k = `${Math.floor(lon / 0.0058)}:${Math.floor(lat / 0.0036)}`;
+				if (taken.has(k)) continue;
+				taken.add(k);
+				points.push([Math.round(lon * 1e4), Math.round(lat * 1e4), index]);
+			}
 		}
+		if (!taken.size) names.pop();
 	}
-	if (!taken.size) names.pop();
+
+	const json = JSON.stringify({ names, points, source: '© OpenStreetMap-Mitwirkende (ODbL)' });
+	await writeFile(new URL('../../static/data/landmarks.json', import.meta.url), json + '\n');
+	const counts = names.reduce<Record<string, number>>((acc, [, k]) => ((acc[k] = (acc[k] ?? 0) + 1), acc), {});
+	console.log(`Fertig: static/data/landmarks.json (${Math.round(json.length / 1024)} KB, ${points.length} Punkte)`, counts);
 }
-
-const json = JSON.stringify({ names, points, source: '© OpenStreetMap-Mitwirkende (ODbL)' });
-await writeFile(new URL('../static/data/landmarks.json', import.meta.url), json + '\n');
-const counts = names.reduce<Record<string, number>>((acc, [, k]) => ((acc[k] = (acc[k] ?? 0) + 1), acc), {});
-console.log(`Fertig: static/data/landmarks.json (${Math.round(json.length / 1024)} KB, ${points.length} Punkte)`, counts);
-
-// ---------------------------------------------------------------------------
 
 function kindOf(t: Record<string, string>, name: string): Kind | undefined {
 	if (t.waterway === 'river' || t.waterway === 'canal') return 'river';
