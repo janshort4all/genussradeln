@@ -99,13 +99,23 @@ export function spokenDistance(meters: number): string {
 	return km === 1 ? 'In einem Kilometer' : `In ${km.toLocaleString('de-DE')} Kilometern`;
 }
 
-/** Ansage vor einer Abzweigung, z. B. „In 150 Metern links abbiegen, Uerdinger Straße.“ */
-export function announceAhead(m: Maneuver, meters: number, isFinalGoal: boolean, goalName?: string): string {
+/**
+ * Ansage vor einer Abzweigung, z. B. „In 150 Metern links abbiegen, Uerdinger Straße.“
+ * Folgt gleich die nächste (`then`): „In 150 Metern links abbiegen und gleich danach rechts abbiegen.“
+ */
+export function announceAhead(
+	m: Maneuver,
+	meters: number,
+	isFinalGoal: boolean,
+	goalName?: string,
+	then?: Maneuver
+): string {
 	if (m.sign === 4) {
 		return isFinalGoal
 			? `${spokenDistance(meters)} sind Sie am Ziel.`
 			: `${spokenDistance(meters)} erreichen Sie ${goalName ?? 'Ihr Ziel'}.`;
 	}
+	if (then && then.sign !== 4) return `${spokenDistance(meters)} ${actionText(m)} und gleich danach ${actionText(then)}.`;
 	return `${spokenDistance(meters)} ${actionText(m)}${m.street ? `, ${m.street}` : ''}.`;
 }
 

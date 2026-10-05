@@ -18,8 +18,8 @@ export const NAV = {
 	backOnRouteM: 25,
 	/** so viele Meldungen in Folge neben der Strecke, bevor wir es ansagen (GPS springt manchmal) */
 	offRouteFixes: 2,
-	/** folgt eine Abzweigung so kurz danach, wird sie gleich mit angesagt („Danach gleich rechts“) */
-	thenWithinM: 60,
+	/** folgt eine Abzweigung so kurz danach, wird sie gleich mit angesagt und angezeigt („und gleich danach rechts“) */
+	thenWithinM: 100,
 	/** lange Gerade: „Der Strecke 2,5 Kilometer folgen“ */
 	longStraightM: 1000,
 	/** Suchfenster auf der Strecke ab dem letzten Stand (verhindert Sprünge auf den Rückweg) */
@@ -54,6 +54,8 @@ export interface NavView {
 	/** nächste Abzweigung (oder Ziel) und die Entfernung dorthin */
 	maneuver?: Maneuver;
 	distance?: number;
+	/** Abzweigung gleich danach (für „dann rechts abbiegen“) */
+	then?: Maneuver;
 	/** restliche Meter bis zum Ende der Tour */
 	remaining: number;
 	/** Anzeige-Position: auf der Strecke, oder der echte Standort, wenn man daneben ist */
@@ -117,17 +119,18 @@ export function guide(track: RouteTrack, previous: NavState, fix: Fix, goalName?
 	// 3. Was kommt als Nächstes?
 	const maneuver = track.nextManeuver(along);
 	const distance = maneuver ? maneuver.at - along : undefined;
+	const after = maneuver && track.maneuverAfter(maneuver);
+	const then = maneuver && maneuver.sign !== 4 && after && after.at - maneuver.at <= NAV.thenWithinM ? after : undefined;
 
 	if (maneuver && distance !== undefined && !state.offRoute) {
 		const isFinal = maneuver.sign === 4 && maneuver.leg === track.legCount - 1;
 		if (distance <= NAV.nowM) {
-			const then = track.maneuverAfter(maneuver);
-			const soon = then && then.at - maneuver.at <= NAV.thenWithinM ? then : undefined;
-			say(`now:${maneuver.at}`, announceNow(maneuver, soon, isFinal, goalName), true);
-			if (soon) state.said.push(`ahead:${soon.at}`);
+			say(`now:${maneuver.at}`, announceNow(maneuver, then, isFinal, goalName), true);
+			if (then) state.said.push(`ahead:${then.at}`);
 			if (isFinal) state.finished = true;
 		} else if (distance <= NAV.aheadM && distance > NAV.nowM * 2) {
-			say(`ahead:${maneuver.at}`, announceAhead(maneuver, distance, isFinal, goalName));
+			say(`ahead:${maneuver.at}`, announceAhead(maneuver, distance, isFinal, goalName, then));
+			if (then) state.said.push(`ahead:${then.at}`);
 		} else if (distance >= NAV.longStraightM) {
 			say(`straight:${maneuver.at}`, `${spokenDistance(distance)} kommt die nächste Abzweigung. Bis dahin der Strecke folgen.`);
 		}
@@ -138,6 +141,7 @@ export function guide(track: RouteTrack, previous: NavState, fix: Fix, goalName?
 		state,
 		maneuver,
 		distance,
+		then,
 		remaining,
 		position: state.offRoute ? fix.lngLat : loc.point,
 		heading,

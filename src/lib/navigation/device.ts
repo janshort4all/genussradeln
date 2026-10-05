@@ -51,8 +51,14 @@ export class Voice {
 		osc.stop(now + 0.3);
 	}
 
+	/**
+	 * Die neueste Ansage gewinnt: Eine noch wartende oder laufende ältere wird abgebrochen –
+	 * sonst käme z. B. „In 150 Metern links“ erst, wenn man schon abgebogen ist.
+	 */
 	say(text: string, beep = false) {
 		if (this.muted) return;
+		if (this.canSpeak) speechSynthesis.cancel();
+		clearTimeout(this.pending);
 		if (beep) this.beep();
 		if (!this.canSpeak) return;
 		const utterance = new SpeechSynthesisUtterance(text);
@@ -60,8 +66,10 @@ export class Voice {
 		utterance.rate = 0.95;
 		if (this.voice) utterance.voice = this.voice;
 		// nach dem Signalton kurz warten
-		setTimeout(() => speechSynthesis.speak(utterance), beep ? 300 : 0);
+		this.pending = setTimeout(() => speechSynthesis.speak(utterance), beep ? 300 : 0);
 	}
+
+	private pending: ReturnType<typeof setTimeout> | undefined;
 
 	stop() {
 		if (this.canSpeak) speechSynthesis.cancel();
@@ -124,7 +132,7 @@ export function followPosition(onFix: (fix: Fix) => void, onProblem: (problem: P
  * Probefahrt ohne GPS: fährt die Strecke ab (Standard: 18 km/h, `speedUp`-fach beschleunigt),
  * mit leichtem Wackeln wie bei echtem GPS. Ein Abstecher neben die Strecke zeigt den „Strecke verlassen“-Hinweis.
  */
-export function simulateRide(track: RouteTrack, onFix: (fix: Fix) => void, speedUp = 4): () => void {
+export function simulateRide(track: RouteTrack, onFix: (fix: Fix) => void, speedUp = 2.5): () => void {
 	const metersPerTick = (18 / 3.6) * speedUp;
 	let along = 0;
 	let tick = 0;

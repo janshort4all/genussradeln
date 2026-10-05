@@ -84,7 +84,8 @@
 		const next = guide(track, navState, fix, tour.destinationName);
 		navState = next.state;
 		view = next;
-		for (const a of next.speak) voice.say(a.text, a.beep);
+		// alle Ansagen dieser Meldung in einem Satz – eine neue Ansage bricht sonst die vorige ab
+		if (next.speak.length) voice.say(next.speak.map((a) => a.text).join(' '), next.speak.some((a) => a.beep));
 		if (next.state.finished) finish();
 	}
 
@@ -228,6 +229,13 @@
 					<p class="distance">{distanceText(view.distance)}</p>
 					<p class="action">{view.maneuver.sign === 4 ? 'Ziel' : actionText(view.maneuver)}</p>
 					{#if view.maneuver.street}<p class="street">{view.maneuver.street}</p>{/if}
+					{#if view.then}
+						<p class="then">
+							<span>dann</span>
+							<TurnArrow kind={arrowOf(view.then.sign)} size={30} />
+							<span>{actionText(view.then)}</span>
+						</p>
+					{/if}
 				</div>
 			{/if}
 		</section>
@@ -413,6 +421,22 @@
 		font-size: 1.25rem;
 		color: var(--nav-muted);
 		overflow-wrap: anywhere;
+	}
+
+	/* gleich danach die nächste Abzweigung („dann ↱ rechts abbiegen“) */
+	.then {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.375rem;
+		margin-top: 0.25rem !important;
+		font-size: 1.25rem;
+		font-weight: 700;
+		color: var(--nav-text);
+	}
+
+	.then :global(svg) {
+		color: var(--nav-accent);
 	}
 
 	.map {

@@ -87,6 +87,38 @@ describe('guide', () => {
 	});
 });
 
+describe('Abzweigungen kurz hintereinander', () => {
+	it('sagt beide in einem Satz an', () => {
+		// links, nach 60 m gleich rechts (ein „U“)
+		const a = offset(start, 90, 500);
+		const b = offset(a, 0, 60);
+		const c = offset(b, 90, 500);
+		const u = new RouteTrack([
+			{
+				coordinates: [start, a, b, c],
+				instructions: [
+					{ index: 1, sign: -2 },
+					{ index: 2, sign: 2 },
+					{ index: 3, sign: 4 }
+				]
+			}
+		]);
+		let state = initialNavState();
+		const spoken: string[] = [];
+		for (let m = 0; m <= 1060; m += 10) {
+			const p = m <= 500 ? offset(start, 90, m) : m <= 560 ? offset(a, 0, m - 500) : offset(b, 90, m - 560);
+			const view = guide(u, state, { lngLat: p, accuracy: 5 });
+			state = view.state;
+			spoken.push(...view.speak.map((s) => s.text));
+			if (m === 400) expect(view.then?.sign).toBe(2);
+		}
+		expect(spoken).toContain('In 150 Metern links abbiegen und gleich danach rechts abbiegen.');
+		expect(spoken).toContain('Jetzt links abbiegen. Danach gleich rechts abbiegen.');
+		expect(spoken).toContain('Jetzt rechts abbiegen.');
+		expect(spoken.some((t) => t.startsWith('In') && t.includes('rechts abbiegen.') && !t.includes('links'))).toBe(false);
+	});
+});
+
 describe('wording', () => {
 	it('spricht und schreibt verständlich', () => {
 		expect(actionText({ sign: 6, exit: 2 })).toBe('im Kreisverkehr die 2. Ausfahrt nehmen');
