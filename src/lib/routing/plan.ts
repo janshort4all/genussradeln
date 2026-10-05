@@ -388,8 +388,10 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 		}
 	}
 	// Reihenfolge: die Empfehlung zuerst, dann vom längsten zum kürzesten – der direkte steht unten
+	// (der direkte genuss-Weg ist nicht immer der kürzeste – er steht trotzdem immer ganz unten)
 	const [first, ...rest] = chosen;
-	const ordered = [first, ...rest.sort((a, b) => lengthOf(b) - lengthOf(a))];
+	const others = rest.filter((c) => c !== direct).sort((a, b) => lengthOf(b) - lengthOf(a));
+	const ordered = [first, ...others, ...(direct && rest.includes(direct) ? [direct] : [])];
 	// Die Empfehlung (beste Abwägung aus Schönheit und Umweg) ist nicht immer der schönste Weg –
 	// ist ein längerer noch schöner, heißt der „Am schönsten“
 	const prettiest = ordered.reduce((a, b) => (beautyOf(b) > beautyOf(a) ? b : a));

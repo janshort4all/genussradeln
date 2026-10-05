@@ -80,8 +80,8 @@ describe('planTours', () => {
 		expect(direct).toBeDefined();
 		expect(tours.at(-1)).toBe(direct);
 		expect(direct!.waypoints.some((w) => w.kind === 'via')).toBe(false);
-		// danach vom längsten zum kürzesten
-		for (let i = 1; i + 1 < tours.length; i++) {
+		// danach vom längsten zum kürzesten (ohne den direkten Weg, der steht immer unten)
+		for (let i = 1; i + 2 < tours.length; i++) {
 			expect(tours[i].stats.distance).toBeGreaterThanOrEqual(tours[i + 1].stats.distance);
 		}
 		expect(new Set(tours.map((t) => t.title)).size).toBe(tours.length);
