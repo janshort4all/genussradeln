@@ -181,9 +181,12 @@ export async function unpackTour(text: string): Promise<PlannedTour> {
 	};
 }
 
-/** Der fertige Link: am PC immer auf die Online-App, sonst auf die App, die gerade läuft */
+/**
+ * Der fertige Link: Läuft die App gerade vom PC (localhost oder im WLAN, also ohne https),
+ * zeigt er auf die Online-App – nur dort funktionieren Standort und Navigation am Handy.
+ */
 export async function shareUrl(tour: PlannedTour, sharedPagePath: string): Promise<string> {
-	const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
-	const page = local ? new URL('geteilt', PUBLIC_APP_URL) : new URL(sharedPagePath, location.origin);
+	const page =
+		location.protocol === 'https:' ? new URL(sharedPagePath, location.origin) : new URL('geteilt', PUBLIC_APP_URL);
 	return `${page.href}#${await packTour(tour)}`;
 }

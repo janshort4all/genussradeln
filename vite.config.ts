@@ -50,6 +50,13 @@ export default defineConfig({
 			}
 		})
 	],
+	// Wegberechnung über den Entwicklungsserver durchreichen: So kann auch das Handy im selben WLAN planen
+	// (npm run dev:handy), während GraphHopper selbst nur auf dem PC erreichbar bleibt.
+	server: {
+		proxy: {
+			'/routing': { target: 'http://localhost:8989', rewrite: (path) => path.replace(/^\/routing/, '') }
+		}
+	},
 	// MapLibre startet seinen Worker als Modul ({ type: 'module' })
 	worker: {
 		format: 'es'

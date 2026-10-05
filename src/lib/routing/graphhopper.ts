@@ -1,11 +1,14 @@
 /**
  * Anschluss an GraphHopper (Profil „genuss“). Im Testbetrieb läuft GraphHopper lokal auf dem PC.
  * Adresse änderbar über die Umgebungsvariable VITE_ROUTING_URL (z. B. für den späteren Server).
+ * Beim Entwickeln geht die Anfrage über den Entwicklungsserver (/routing, siehe vite.config.ts) –
+ * so funktioniert die Planung auch am Handy im selben WLAN.
  */
 import type { LngLat } from '$lib/geo/geo';
 import { GEMUETLICH_MODEL } from './custom-models';
 
-export const ROUTING_URL: string = import.meta.env.VITE_ROUTING_URL ?? 'http://localhost:8989';
+export const ROUTING_URL: string =
+	import.meta.env.VITE_ROUTING_URL ?? (import.meta.env.DEV ? '/routing' : 'http://localhost:8989');
 
 export type Effort = 'easy' | 'sporty';
 
