@@ -6,6 +6,12 @@
 /** Reisegeschwindigkeit für die Dauer-Angabe (E-Bike, inkl. kurzer Stopps an Ampeln) */
 export const SPEED_KMH = { easy: 15, sporty: 19 } as const;
 
+/**
+ * Zuschlag für Bergauf-Stücke (Minuten je 100 Höhenmeter): Mit E-Bike-Unterstützung deutlich weniger als
+ * beim normalen Rad (dort ca. 10). Startwerte – nach Testfahrten im Hügelland justieren.
+ */
+export const CLIMB_MINUTES_PER_100M = { easy: 6, sporty: 4 } as const;
+
 /** Punkte für die Nachbewertung eines Wegs */
 export const SCORE = {
 	/** Anteil am Wasser (Fluss, See, Kanal in ca. 100–150 m Nähe) */
@@ -28,37 +34,24 @@ export const SCORE = {
 	returnOverlap: 1.2
 } as const;
 
-/** „Wie viel Umweg für mehr Schönheit?“ */
+/**
+ * Spielraum für Umwege. Gefragt wird nicht mehr (Entscheidung Jan, 04.10.2026): Die Vorschläge reichen
+ * immer vom direkten bis zum schönsten Weg, jeder mit klarer Rolle („Direkt“, „Fast direkt“, „Am schönsten“).
+ */
 export const DETOUR = {
-	direct: {
-		/** höchstens so viel länger als der direkte genuss-Weg (Anteil) … */
-		maxExtraRatio: 0.12,
-		/** … mindestens aber so viele km Spielraum (bei kurzen Wegen) */
-		minExtraKm: 0.5,
-		/** GraphHopper-Alternativen: max. Gewichtsfaktor gegenüber dem besten Weg */
-		alternativeFactor: 1.3,
-		/** Anzahl Umwege über schöne Zwischenpunkte */
-		scenicVias: 0,
-		/** Abzug je 100 % Mehrweg in der Bewertung */
-		detourPenalty: 1.5
-	},
-	nicer: {
-		maxExtraRatio: 0.3,
-		minExtraKm: 1.5,
-		alternativeFactor: 1.5,
-		scenicVias: 5,
-		detourPenalty: 0.6
-	},
-	nicest: {
-		maxExtraRatio: 0.6,
-		minExtraKm: 3,
-		alternativeFactor: 1.9,
-		scenicVias: 8,
-		detourPenalty: 0.2
-	}
+	/** höchstens so viel länger als der direkte genuss-Weg (Anteil) … */
+	maxExtraRatio: 0.6,
+	/** … mindestens aber so viele km Spielraum (bei kurzen Wegen) */
+	minExtraKm: 3,
+	/** GraphHopper-Alternativen: max. Gewichtsfaktor gegenüber dem besten Weg */
+	alternativeFactor: 1.9,
+	/** Anzahl Umwege über schöne Zwischenpunkte */
+	scenicVias: 8,
+	/** Abzug je 100 % Mehrweg bei der Suche nach dem schönsten Weg */
+	detourPenalty: 0.2,
+	/** strenger Abzug je 100 % Mehrweg für „Fast direkt“ */
+	compactPenalty: 1.5
 } as const;
-
-export type DetourLevel = keyof typeof DETOUR;
 
 /** Landschaft: Umkreis in Zellen (1 Zelle ≈ 100 m), in dem Wasser/Wald/Grün „am Weg“ zählen */
 export const SURROUNDINGS_RADIUS_CELLS = 1;
@@ -143,8 +136,15 @@ export const COMPACT = {
 /** Vorschläge dürfen sich höchstens so stark überdecken (Anteil gemeinsamer Strecke) */
 export const DIVERSITY_MAX_OVERLAP = 0.6;
 
-/** So viele Wege werden höchstens vorgeschlagen */
-export const MAX_SUGGESTIONS = 3;
+/** So viele Wege werden höchstens vorgeschlagen (der direkte ist immer dabei) */
+export const MAX_SUGGESTIONS = 5;
+
+/**
+ * Ein weiterer Vorschlag kommt nur dazu, wenn er sich lohnt: Kein schon gezeigter Weg darf kürzer
+ * (bis lengthTolerance länger zählt als „gleich lang“) und fast genauso schön sein (bis beautyMargin weniger).
+ * Deshalb gibt es bei kurzen oder einfachen Strecken oft nur zwei oder drei Vorschläge.
+ */
+export const WORTHWHILE = { lengthTolerance: 0.02, beautyMargin: 0.03 } as const;
 
 /** Stopps unterwegs (F9): so weit dürfen sie neben dem Weg liegen (Meter) */
 export const STOP_RADIUS_M = {

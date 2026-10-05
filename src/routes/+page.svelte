@@ -6,7 +6,6 @@
 	import MapPin from '@lucide/svelte/icons/map-pin';
 	import Repeat from '@lucide/svelte/icons/repeat';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import Sprout from '@lucide/svelte/icons/sprout';
 	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import Button from '$lib/components/Button.svelte';
 	import ChoiceGroup from '$lib/components/ChoiceGroup.svelte';
@@ -15,7 +14,6 @@
 	import { currentPosition, PositionError } from '$lib/geo/position';
 	import { inRegion } from '$lib/geocode/photon';
 	import type { Effort } from '$lib/routing/graphhopper';
-	import type { DetourLevel } from '$lib/scoring/weights';
 	import type { Place, ReturnMode } from '$lib/tour/model';
 	import { session } from '$lib/tour/session.svelte';
 
@@ -24,7 +22,6 @@
 	let destination: Place | undefined = $state(last?.destination);
 	let startMode: 'here' | 'address' = $state(last && last.start.name !== 'Ihr Standort' ? 'address' : 'here');
 	let startPlace: Place | undefined = $state(last && last.start.name !== 'Ihr Standort' ? last.start : undefined);
-	let detour: DetourLevel = $state(last?.detour ?? 'nicer');
 	let returnMode: ReturnMode = $state(last?.returnMode ?? 'one-way');
 	// Anstrengung fragen wir nicht mehr (Wunsch Jan): Länge und Steigung zeigen die Vorschläge.
 	// Gerechnet wird gemütlich – 15 km/h für die Fahrzeit, steile Stücke werden gemieden.
@@ -69,7 +66,7 @@
 			problem = 'Start und Ziel liegen sehr nah beieinander. Bitte wählen Sie ein anderes Ziel.';
 			return;
 		}
-		session.setRequest({ start, destination, detour, effort, returnMode });
+		session.setRequest({ start, destination, effort, returnMode });
 		goto(resolve('/vorschlaege'));
 	}
 </script>
@@ -106,17 +103,6 @@
 	{#if startMode === 'address'}
 		<PlaceSearch label="Startpunkt" placeholder="z. B. Ihre Straße und Hausnummer" bind:value={startPlace} />
 	{/if}
-
-	<ChoiceGroup
-		legend="Wie viel Umweg für mehr Schönheit?"
-		name="detour"
-		bind:value={detour}
-		choices={[
-			{ value: 'direct', label: 'Direkt', icon: ArrowRight },
-			{ value: 'nicer', label: 'Etwas schöner', icon: Sprout },
-			{ value: 'nicest', label: 'Am schönsten', icon: Sparkles }
-		]}
-	/>
 
 	<ChoiceGroup
 		legend="Und zurück?"

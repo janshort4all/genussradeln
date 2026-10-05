@@ -37,7 +37,6 @@ function request(partial: Partial<TourRequest> = {}): TourRequest {
 	return {
 		start: { name: 'Start', lngLat: start },
 		destination: { name: 'Ziel', lngLat: end },
-		detour: 'nicest',
 		effort: 'easy',
 		returnMode: 'one-way',
 		...partial
@@ -72,18 +71,26 @@ describe('findScenicVias', () => {
 });
 
 describe('planTours', () => {
-	it('schlägt höchstens drei verschiedene Wege vor, der schönste zuerst', async () => {
+	it('schlägt verschiedene Wege vor: der schönste zuerst, der direkte immer dabei und unten', async () => {
 		const tours = await planTours(request(), { route: fakeRoute, landscape });
 		expect(tours.length).toBeGreaterThanOrEqual(2);
-		expect(tours.length).toBeLessThanOrEqual(3);
+		expect(tours.length).toBeLessThanOrEqual(5);
 		expect(tours[0].label).toBe('Am schönsten');
+		const direct = tours.find((t) => t.label === 'Direkt');
+		expect(direct).toBeDefined();
+		expect(tours.at(-1)).toBe(direct);
+		expect(direct!.waypoints.some((w) => w.kind === 'via')).toBe(false);
+		// danach vom längsten zum kürzesten
+		for (let i = 1; i + 1 < tours.length; i++) {
+			expect(tours[i].stats.distance).toBeGreaterThanOrEqual(tours[i + 1].stats.distance);
+		}
 		expect(new Set(tours.map((t) => t.title)).size).toBe(tours.length);
 		// gemütlich: 15 km/h
 		const km = tours[0].stats.distance / 1000;
 		expect(tours[0].minutes).toBe(Math.round((km / 15) * 60));
 	});
 
-	it('bietet bei „am schönsten“ zusätzlich einen fast direkten Weg an', async () => {
+	it('bietet zusätzlich einen fast direkten Weg an, wenn der direkte unschön ist', async () => {
 		// direkter Weg an der Hauptstraße, Umwege über Radwege und am See – die schönen sind alle deutlich länger
 		const route = (points: LngLat[], options: RouteOptions) => {
 			const via = points.length === 3 ? points[1] : undefined;
@@ -92,7 +99,7 @@ describe('planTours', () => {
 			if (options.alternatives) paths.push(makePath([points[0], offset(points[0], 135, 4000), points[1]], { roadClass: 'cycleway' }));
 			return Promise.resolve(paths);
 		};
-		const tours = await planTours(request({ detour: 'nicest' }), { route, landscape });
+		const tours = await planTours(request(), { route, landscape });
 		const directKm = 6;
 		const compactTour = tours.find((t) => t.stats.distance / 1000 <= directKm * 1.15 + 1);
 		expect(compactTour).toBeDefined();
@@ -119,7 +126,7 @@ describe('planTours', () => {
 			bases.push(base);
 			return Promise.resolve([makePath([from, base, via, base, to], { roadClass: 'cycleway' })]);
 		};
-		const tours = await planTours(request({ detour: 'nicest' }), { route, landscape });
+		const tours = await planTours(request(), { route, landscape });
 		expect(repairs).toBeGreaterThan(0);
 		for (const tour of tours) {
 			for (const leg of tour.legs) {

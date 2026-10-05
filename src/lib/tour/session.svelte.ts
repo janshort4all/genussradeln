@@ -33,7 +33,7 @@ function save(data: SessionData) {
 }
 
 export function requestKey(r: TourRequest): string {
-	return JSON.stringify([r.start.lngLat, r.destination.lngLat, r.detour, r.effort, r.returnMode]);
+	return JSON.stringify([r.start.lngLat, r.destination.lngLat, r.effort, r.returnMode]);
 }
 
 const data: SessionData = $state(typeof sessionStorage === 'undefined' ? { tours: [] } : load());

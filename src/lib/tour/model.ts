@@ -5,7 +5,6 @@
 import type { LngLat } from '$lib/geo/geo';
 import type { Effort } from '$lib/routing/graphhopper';
 import type { RouteStats } from '$lib/scoring/score';
-import type { DetourLevel } from '$lib/scoring/weights';
 
 /** Ein Ort, z. B. aus der Suche oder der eigene Standort */
 export interface Place {
@@ -23,7 +22,6 @@ export type ReturnMode = 'one-way' | 'other-way';
 export interface TourRequest {
 	start: Place;
 	destination: Place;
-	detour: DetourLevel;
 	effort: Effort;
 	returnMode: ReturnMode;
 }

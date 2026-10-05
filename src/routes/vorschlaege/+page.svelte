@@ -93,7 +93,6 @@
 	const towards = $derived(request ? `${settlement ? 'nach' : 'bis'} ${request.destination.name}` : '');
 	const countWords = (n: number) => (n === 1 ? 'Ein Weg' : `${n} Wege`);
 
-	const detourWord = { direct: 'direkt', nicer: 'etwas schöner', nicest: 'am schönsten' };
 
 	async function compute() {
 		if (!request) return;
@@ -144,7 +143,7 @@
 {:else}
 	<h1>{status === 'done' ? countWords(tours.length) : 'Ihre Wege'} {towards}</h1>
 	<p class="summary muted">
-		ab {request.start.name} · {detourWord[request.detour]} ·
+		ab {request.start.name} ·
 		{request.returnMode === 'one-way' ? 'nur hin' : 'auf anderem Weg zurück'}
 	</p>
 
@@ -192,17 +191,19 @@
 				</div>
 				<!-- Wie viele Wege es gibt und welcher gerade auf der Karte ist – bleibt mit der Karte stehen -->
 				{#if tours.length > 1}
-					<div class="picker" role="group" aria-label="Weg auf der Karte zeigen">
+					<div class="picker" role="group" aria-labelledby="picker-label">
+						<span class="picker-label" id="picker-label">Weg:</span>
 						{#each tours as tour, index (tour.id)}
 							<button
 								type="button"
 								class="pick"
 								class:active={tour.id === activeId}
 								aria-pressed={tour.id === activeId}
+								aria-label="Weg {index + 1} auf der Karte zeigen"
 								style:--route-color={routeColor(index)}
 								onclick={() => pick(tour.id)}
 							>
-								<span class="swatch" aria-hidden="true"></span> Weg {index + 1}
+								<span class="swatch" aria-hidden="true"></span>{index + 1}
 							</button>
 						{/each}
 					</div>
@@ -247,21 +248,29 @@
 		height: clamp(12rem, 32vh, 20rem);
 	}
 
-	/* Knöpfe „Weg 1 … Weg 4“ unter der Karte */
-	/* vier gleich breite Knöpfe nebeneinander; bei großer Schrift rutschen sie in eine zweite Zeile */
+	/* „Weg: 1 2 3 4 5“ unter der Karte – gleich breite Knöpfe; bei großer Schrift rutschen sie in eine zweite Zeile */
 	.picker {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(4.75rem, 1fr));
-		gap: 0.25rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.375rem;
+	}
+
+	.picker-label {
+		font-weight: 700;
+		color: var(--color-green);
+		margin-right: 0.125rem;
 	}
 
 	.pick {
 		display: inline-flex;
+		flex: 1 1 0;
 		align-items: center;
 		justify-content: center;
-		gap: 0.25rem;
+		gap: 0.375rem;
+		min-width: 3.5rem;
 		min-height: var(--tap);
-		padding: 0.25rem;
+		padding: 0.25rem 0.5rem;
 		white-space: nowrap;
 		border: 2px solid var(--color-border);
 		border-radius: 999px;
@@ -284,7 +293,7 @@
 
 	.swatch {
 		flex: none;
-		width: 0.75rem;
+		width: 1rem;
 		height: 0.5rem;
 		border-radius: 0.25rem;
 		background: var(--route-color);
