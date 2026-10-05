@@ -110,7 +110,7 @@
 		bind:value={returnMode}
 		choices={[
 			{ value: 'one-way', label: 'Nur hin', icon: ArrowRight },
-			{ value: 'other-way', label: 'Auf anderem Weg zurück', icon: Undo2 }
+			{ value: 'other-way', label: 'Hin und zurück als Runde', icon: Undo2 }
 		]}
 	/>
 

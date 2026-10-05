@@ -6,13 +6,14 @@
 	import Clock from '@lucide/svelte/icons/clock';
 	import Coffee from '@lucide/svelte/icons/coffee';
 	import Download from '@lucide/svelte/icons/download';
-	import Ellipsis from '@lucide/svelte/icons/ellipsis';
+	import Copy from '@lucide/svelte/icons/copy';
+	import MessageCircle from '@lucide/svelte/icons/message-circle';
 	import Heart from '@lucide/svelte/icons/heart';
 	import Info from '@lucide/svelte/icons/info';
 	import Leaf from '@lucide/svelte/icons/leaf';
 	import MapIcon from '@lucide/svelte/icons/map';
 	import MountainSnow from '@lucide/svelte/icons/mountain-snow';
-	import Smartphone from '@lucide/svelte/icons/smartphone';
+	import Share2 from '@lucide/svelte/icons/share-2';
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import BatteryHint from '$lib/components/BatteryHint.svelte';
@@ -41,7 +42,7 @@
 	}
 	const SAVE_LATER = 'Touren merken kommt in einem späteren Schritt – bis dahin wird noch nichts gespeichert.';
 
-	// Menü „Weitere Möglichkeiten“ (…)
+	// Menü „Teilen“ (am PC; am Handy öffnet sich gleich das Teilen-Menü des Handys)
 	let menuOpen = $state(false);
 	let menuBox: HTMLDivElement | undefined = $state();
 	function closeMenuOutside(event: MouseEvent) {
@@ -64,23 +65,44 @@
 	let mapBox: HTMLDivElement | undefined = $state();
 
 	/**
-	 * Tour aufs Handy schicken: die ganze Tour steckt im Link. Am Handy öffnet sich das Teilen-Menü
-	 * (WhatsApp, E-Mail …), am PC wird der Link kopiert.
+	 * Tour teilen: Der Link ist kurz – er enthält nur Eckpunkte, der Empfänger rechnet den Weg nach.
+	 * Am Handy öffnet sich das Teilen-Menü (WhatsApp, E-Mail …), am PC ein kleines Menü.
 	 */
-	async function sendToPhone() {
-		menuOpen = false;
+	let shareText = $state('');
+	let shareLink = $state('');
+
+	async function prepareShare(): Promise<boolean> {
 		const planned = data.planned;
-		if (!planned) return tell('Beispieltouren lassen sich nicht verschicken.');
+		if (!planned) {
+			tell('Beispieltouren lassen sich nicht teilen.');
+			return false;
+		}
+		shareLink = await shareUrl(planned, resolve('/geteilt'));
+		const km = tour.km.toLocaleString('de-DE', { maximumFractionDigits: 0 });
+		shareText = `Radtour „${tour.title}“, ${km} km – hier ansehen und losfahren:`;
+		return true;
+	}
+
+	async function share() {
 		try {
-			const url = await shareUrl(planned, resolve('/geteilt'));
+			if (!(await prepareShare())) return;
 			if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
-				await navigator.share({ title: `Radtour: ${tour.title}`, url });
+				await navigator.share({ title: `Radtour: ${tour.title}`, text: shareText, url: shareLink });
 			} else {
-				await navigator.clipboard.writeText(url);
-				tell('Link kopiert. Fügen Sie ihn in WhatsApp oder eine E-Mail ein und schicken Sie ihn ans Handy.');
+				menuOpen = !menuOpen;
 			}
 		} catch (error) {
 			if ((error as Error).name !== 'AbortError') tell('Der Link konnte nicht erstellt werden.');
+		}
+	}
+
+	async function copyLink() {
+		menuOpen = false;
+		try {
+			await navigator.clipboard.writeText(`${shareText} ${shareLink}`);
+			tell('Link kopiert – jetzt z. B. in WhatsApp oder eine E-Mail einfügen.');
+		} catch {
+			tell('Kopieren hat nicht geklappt.');
 		}
 	}
 
@@ -159,18 +181,28 @@
 			<button
 				type="button"
 				class="icon-button"
-				aria-label="Weitere Möglichkeiten"
+				aria-label="Tour teilen"
 				aria-expanded={menuOpen}
 				aria-controls="tour-menu"
-				onclick={() => (menuOpen = !menuOpen)}
+				onclick={share}
 			>
-				<Ellipsis size={26} strokeWidth={2.5} aria-hidden="true" />
+				<Share2 size={26} strokeWidth={2.25} aria-hidden="true" />
 			</button>
 			{#if menuOpen}
 				<ul class="menu" id="tour-menu">
 					<li>
-						<button type="button" onclick={sendToPhone}>
-							<Smartphone size={22} aria-hidden="true" /> Aufs Handy schicken
+						<a
+							href="https://wa.me/?text={encodeURIComponent(`${shareText} ${shareLink}`)}"
+							target="_blank"
+							rel="noopener noreferrer"
+							onclick={() => (menuOpen = false)}
+						>
+							<MessageCircle size={22} aria-hidden="true" /> Per WhatsApp schicken
+						</a>
+					</li>
+					<li>
+						<button type="button" onclick={copyLink}>
+							<Copy size={22} aria-hidden="true" /> Link kopieren
 						</button>
 					</li>
 				</ul>
@@ -369,7 +401,8 @@
 		box-shadow: 0 6px 20px rgb(36 53 57 / 0.18);
 	}
 
-	.menu button {
+	.menu button,
+	.menu a {
 		display: flex;
 		align-items: center;
 		gap: 0.625rem;
@@ -386,7 +419,12 @@
 		cursor: pointer;
 	}
 
-	.menu button:hover {
+	.menu a {
+		text-decoration: none;
+	}
+
+	.menu button:hover,
+	.menu a:hover {
 		background: var(--color-green-light);
 	}
 

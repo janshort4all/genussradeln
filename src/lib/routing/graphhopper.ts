@@ -85,6 +85,11 @@ export interface RouteOptions {
 	effort: Effort;
 	/** GraphHopper-Alternativen berechnen (nur bei genau 2 Punkten) */
 	alternatives?: { maxPaths: number; maxWeightFactor: number; maxShareFactor: number };
+	/**
+	 * Punkte genau dort lassen, wo sie liegen (auch auf Brücken/in Tunneln) – zum Nachrechnen eines geteilten
+	 * Wegs, dessen Stützpunkte auf der Strecke selbst liegen. Sonst schiebt GraphHopper sie von Brücken weg.
+	 */
+	exactPoints?: boolean;
 	signal?: AbortSignal;
 }
 
@@ -99,10 +104,11 @@ export async function route(points: LngLat[], options: RouteOptions): Promise<Ro
 		instructions: true,
 		locale: 'de',
 		details: DETAILS,
-		// keine Wenden an Zwischenpunkten
-		pass_through: points.length > 2
+		// keine Wenden an Zwischenpunkten (außer beim Nachrechnen: die Punkte liegen dann auf der Strecke selbst)
+		pass_through: points.length > 2 && !options.exactPoints
 	};
 	if (options.effort === 'easy') body.custom_model = GEMUETLICH_MODEL;
+	if (options.exactPoints) body.snap_preventions = [];
 	if (options.alternatives && points.length === 2) {
 		body.algorithm = 'alternative_route';
 		body['alternative_route.max_paths'] = options.alternatives.maxPaths;

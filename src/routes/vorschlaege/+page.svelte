@@ -144,7 +144,7 @@
 	<h1>{status === 'done' ? countWords(tours.length) : 'Ihre Wege'} {towards}</h1>
 	<p class="summary muted">
 		ab {request.start.name} ·
-		{request.returnMode === 'one-way' ? 'nur hin' : 'auf anderem Weg zurück'}
+		{request.returnMode === 'one-way' ? 'nur hin' : 'hin und zurück als Runde'}
 	</p>
 
 	{#if status === 'loading'}

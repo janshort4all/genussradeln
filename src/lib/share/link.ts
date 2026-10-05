@@ -1,11 +1,13 @@
 /**
- * Tour als Link (F15, vorgezogen für den Test): Die ganze Tour – Weg, Höhen, Abbiegehinweise, Kennzahlen –
- * steckt gepackt im Link hinter dem „#“. Dieser Teil wird nie an einen Server geschickt; es braucht kein Konto.
- * So kommt eine am PC geplante Tour aufs Handy (z. B. per WhatsApp oder E-Mail).
+ * Tour als Link (F15): Die Tour steckt gepackt im Link hinter dem „#“. Dieser Teil wird nie an einen Server
+ * geschickt; es braucht kein Konto und nichts wird gespeichert.
+ *
+ * Fassung 2 (kurz, ca. 300 Zeichen): nur Start, Ziel und Stützpunkte alle ca. 2 km – das Handy des Empfängers
+ * rechnet den Weg mit der Wegberechnung nach (rebuild.ts). Fassung 1 (lang, ganze Strecke) wird weiter gelesen.
  */
-import type { LngLat } from '$lib/geo/geo';
+import { distance, type LngLat } from '$lib/geo/geo';
 import type { RouteInstruction } from '$lib/routing/graphhopper';
-import type { PlannedTour, Waypoint } from '$lib/tour/model';
+import type { PlannedTour, ReturnMode, Waypoint } from '$lib/tour/model';
 
 /** Die Online-Adresse der App – Links vom PC (localhost) sollen am Handy funktionieren */
 export const PUBLIC_APP_URL = 'https://janshort4all.github.io/genussradeln/';
@@ -111,6 +113,70 @@ function fromBase64Url(text: string): Uint8Array {
 
 const round5 = (v: number) => Math.round(v * 1e5) / 1e5;
 
+/** Kurze Fassung: was der Empfänger braucht, um genau diesen Weg nachzurechnen */
+export interface TourSpec {
+	v: 2;
+	id: string;
+	t: string;
+	l?: string;
+	r: ReturnMode;
+	/** Start und Ziel: [Name, Länge, Breite] (Ziel mit 1, wenn es ein Ort ist – „nach Kempen“) */
+	s: [string, number, number];
+	d: [string, number, number, number?];
+	/** Mehrweg gegenüber dem direkten Weg (Meter) */
+	x: number;
+	/** je Abschnitt die Stützpunkte als Polyline (inkl. Anfang und Ende) */
+	g: string[];
+}
+
+/** Abstand der Stützpunkte: eng genug, dass die Nachrechnung genau denselben Weg findet */
+export const ANCHOR_SPACING_M = 2000;
+
+/**
+ * Anfang, dann etwa alle ANCHOR_SPACING_M Meter ein Punkt, dann das Ende. Die Punkte liegen immer in der Mitte
+ * eines Wegstücks, nie auf einem Knick oder einer Kreuzung – dort könnte die Wegberechnung sie sonst an eine
+ * querende Straße hängen (gefunden: 350 m hinein und wieder zurück).
+ */
+export function anchorsOf(line: LngLat[]): LngLat[] {
+	const out: LngLat[] = [line[0]];
+	let since = 0;
+	for (let i = 1; i < line.length; i++) {
+		const step = distance(line[i - 1], line[i]);
+		since += step;
+		if (since >= ANCHOR_SPACING_M && i < line.length - 1 && step > 2) {
+			out.push([(line[i - 1][0] + line[i][0]) / 2, (line[i - 1][1] + line[i][1]) / 2]);
+			since = 0;
+		}
+	}
+	out.push(line[line.length - 1]);
+	return out;
+}
+
+export async function packShort(tour: PlannedTour): Promise<string> {
+	const { start, destination, returnMode } = tour.request;
+	const spec: TourSpec = {
+		v: 2,
+		id: tour.id,
+		t: tour.title,
+		...(tour.label ? { l: tour.label } : {}),
+		r: returnMode,
+		s: [start.name, round5(start.lngLat[0]), round5(start.lngLat[1])],
+		d: destination.settlement
+			? [destination.name, round5(destination.lngLat[0]), round5(destination.lngLat[1]), 1]
+			: [destination.name, round5(destination.lngLat[0]), round5(destination.lngLat[1])],
+		x: Math.round(tour.extraDistance),
+		g: tour.legs.map((leg) => encodePolyline(anchorsOf(leg.coordinates.map(([lon, lat]) => [lon, lat] as LngLat))))
+	};
+	return toBase64Url(await deflate(JSON.stringify(spec)));
+}
+
+/** Link lesen: fertige Tour (Fassung 1) oder Bauplan zum Nachrechnen (Fassung 2) */
+export async function unpackShared(text: string): Promise<{ tour: PlannedTour } | { spec: TourSpec }> {
+	const json = JSON.parse(await inflate(fromBase64Url(text)));
+	if (json.v === 2) return { spec: json as TourSpec };
+	return { tour: await unpackTour(text) };
+}
+
 export async function packTour(tour: PlannedTour): Promise<string> {
 	const shared: SharedTour = {
 		v: 1,
@@ -188,5 +254,5 @@ export async function unpackTour(text: string): Promise<PlannedTour> {
 export async function shareUrl(tour: PlannedTour, sharedPagePath: string): Promise<string> {
 	const page =
 		location.protocol === 'https:' ? new URL(sharedPagePath, location.origin) : new URL('geteilt', PUBLIC_APP_URL);
-	return `${page.href}#${await packTour(tour)}`;
+	return `${page.href}#${await packShort(tour)}`;
 }

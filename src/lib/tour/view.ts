@@ -89,7 +89,7 @@ export function fromPlanned(t: PlannedTour): TourView {
 		title: t.title,
 		subtitle:
 			returnMode === 'other-way'
-				? `Von ${start.name} zu ${destination.name} und auf anderem Weg zurück`
+				? `Von ${start.name} zu ${destination.name} und als Runde zurück`
 				: `Von ${start.name} zu ${destination.name}`,
 		highlight: t.highlight,
 		km: Math.round(t.stats.distance / 100) / 10,

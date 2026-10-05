@@ -2,6 +2,10 @@
 	import MapPin from '@lucide/svelte/icons/map-pin';
 	import X from '@lucide/svelte/icons/x';
 	import type { LngLat } from '$lib/geo/geo';
+	import { asset } from '$app/paths';
+	import { onMount } from 'svelte';
+	import { distance } from '$lib/geo/geo';
+	import { loadLocalPlaces, matchLocalPlaces } from '$lib/geocode/local';
 	import { searchPlaces } from '$lib/geocode/photon';
 	import type { Place } from '$lib/tour/model';
 
@@ -47,30 +51,44 @@
 		setTimeout(() => box?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' }), 350);
 	}
 
-	function onInput() {
+	// Ortsliste schon beim Öffnen laden – dann erscheinen Orte beim Tippen sofort
+	onMount(() => void loadLocalPlaces(asset('/data/places.json')).catch(() => {}));
+
+	/** Gleicher Ort aus Ortsliste und Photon (gleicher Name, nah beieinander) nur einmal zeigen */
+	function merge(local: Place[], remote: Place[]): Place[] {
+		const fresh = remote.filter((r) => !local.some((l) => l.name === r.name && distance(l.lngLat, r.lngLat) < 3000));
+		return [...local, ...fresh].slice(0, 6);
+	}
+
+	async function onInput() {
 		value = undefined;
 		clearTimeout(timer);
 		controller?.abort();
 		const q = query.trim();
-		if (q.length < 3) {
-			results = [];
-			status = 'idle';
-			return;
-		}
-		// erst suchen, wenn kurz nicht getippt wird (schont den Suchdienst)
+		// sofort: Orte aus der eigenen Ortsliste (der Suchdienst braucht gut eine Sekunde)
+		const local = await loadLocalPlaces(asset('/data/places.json'))
+			.then((all) => matchLocalPlaces(q, all, near))
+			.catch(() => []);
+		if (q !== query.trim()) return; // inzwischen weitergetippt
+		results = local;
+		status = 'idle';
+		if (local.length) scrollIntoReach();
+		if (q.length < 3) return;
+		// Straßen und Adressen: Suchdienst, sobald kurz nicht getippt wird (schont den Dienst)
 		timer = setTimeout(async () => {
 			controller = new AbortController();
-			status = 'searching';
+			if (!local.length) status = 'searching';
 			try {
-				results = await searchPlaces(q, near, controller.signal);
+				const remote = await searchPlaces(q, near, controller.signal);
+				results = merge(local, remote);
 				status = results.length ? 'idle' : 'empty';
 				scrollIntoReach();
 			} catch (error) {
 				if ((error as Error).name === 'AbortError') return;
-				results = [];
-				status = 'error';
+				// Suchdienst nicht erreichbar: die Orte aus der eigenen Liste bleiben stehen
+				if (!local.length) status = 'error';
 			}
-		}, 350);
+		}, 250);
 	}
 
 	/** Platz erst später wegnehmen – sonst verrutscht die Liste, während man einen Vorschlag antippt */

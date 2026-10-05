@@ -290,6 +290,11 @@ Veröffentlichen: Push auf `main` → GitHub Action `.github/workflows/deploy.ym
   (Worte für Anzeige/Ansage), `device.ts` (Sprache + Signalton, Wake Lock, Vollbild, `watchPosition` gedrosselt, Probefahrt).
   Karte: `NavMap.svelte` mit eigenem ruhigem Stil `map/nav-style.ts` (dunkel/hell), dreht mit der Fahrtrichtung, nicht verschiebbar.
   Probefahrt am PC (Maus) oder mit `?probefahrt` in der Adresse. Neu berechnen bei Abweichung gibt es erst mit Server (M9).
-- **Tour im Link (`src/lib/share/link.ts`, Seite `/geteilt`):** Polyline + Höhen + Hinweise, deflate + base64url hinter „#“
-  (geht an keinen Server). Am PC zeigt der Link immer auf die Online-App (`PUBLIC_APP_URL`) – Änderungen also erst pushen.
+- **Tour im Link (`src/lib/share/`, Seite `/geteilt`):** kurz (ca. 300 Zeichen): Start, Ziel und Stützpunkte etwa alle 2 km
+  (immer mitten in einem Wegstück, nie auf Kreuzungen), deflate + base64url hinter „#“ (geht an keinen Server, nichts wird
+  gespeichert). Der Empfänger rechnet den Weg durch die Stützpunkte nach (`rebuild.ts`, `exactPoints`: kein Wegschieben von
+  Brücken, Wenden erlaubt). Alte lange Links (ganze Strecke) werden weiter gelesen. Teilen-Knopf: Handy → Teilen-Menü,
+  PC → „Per WhatsApp schicken“ (wa.me) / „Link kopieren“. Ohne https zeigt der Link auf die Online-App (`PUBLIC_APP_URL`).
+- **Ortssuche sofort:** Orte aus `places.json` erscheinen beim Tippen ohne Wartezeit (`geocode/local.ts`), Photon (ca. 1,3 s)
+  ergänzt Straßen und Adressen.
 - PowerShell-Skripte (`*.ps1`) als UTF-8 **mit BOM** speichern, sonst zeigt Windows PowerShell 5.1 Umlaute falsch.

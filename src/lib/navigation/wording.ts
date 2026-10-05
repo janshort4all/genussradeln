@@ -124,7 +124,7 @@ export function announceNow(m: Maneuver, then: Maneuver | undefined, isFinalGoal
 	if (m.sign === 4) {
 		return isFinalGoal
 			? 'Sie sind am Ziel. Schöne Pause!'
-			: `Sie haben ${goalName ?? 'Ihr Ziel'} erreicht. Jetzt geht es auf anderem Weg zurück.`;
+			: `Sie haben ${goalName ?? 'Ihr Ziel'} erreicht. Jetzt beginnt der Rückweg – auf einem anderen Weg.`;
 	}
 	const now = `Jetzt ${actionText(m)}.`;
 	if (then && then.sign !== 4) return `${now} Danach gleich ${actionText(then)}.`;
