@@ -21,6 +21,20 @@ export interface RouteDetails {
 	average_slope: DetailInterval<number>[];
 }
 
+/**
+ * Abbiegehinweis (für die Navigation): an Punkt `index` der Koordinaten passiert `sign`.
+ * sign laut GraphHopper: -3 scharf links, -2 links, -1 leicht links, 0 geradeaus, 1 leicht rechts, 2 rechts,
+ * 3 scharf rechts, 4 Ziel, 5 Zwischenpunkt, 6 Kreisverkehr, -6 Kreisverkehr verlassen, ±7 links/rechts halten, ±8 wenden
+ */
+export interface RouteInstruction {
+	index: number;
+	sign: number;
+	/** Straßenname, falls bekannt */
+	street?: string;
+	/** Kreisverkehr: Nummer der Ausfahrt */
+	exit?: number;
+}
+
 export interface RoutePath {
 	/** Meter */
 	distance: number;
@@ -31,6 +45,15 @@ export interface RoutePath {
 	/** [lon, lat, Höhe] */
 	coordinates: [number, number, number][];
 	details: RouteDetails;
+	/** Abbiegehinweise (fehlen bei älteren gespeicherten Touren) */
+	instructions?: RouteInstruction[];
+}
+
+interface GraphHopperInstruction {
+	sign: number;
+	interval: [number, number];
+	street_name?: string;
+	exit_number?: number;
 }
 
 const DETAILS: (keyof RouteDetails)[] = [
@@ -67,7 +90,7 @@ export async function route(points: LngLat[], options: RouteOptions): Promise<Ro
 		'ch.disable': true,
 		elevation: true,
 		points_encoded: false,
-		instructions: false,
+		instructions: true,
 		locale: 'de',
 		details: DETAILS,
 		// keine Wenden an Zwischenpunkten
@@ -101,13 +124,27 @@ export async function route(points: LngLat[], options: RouteOptions): Promise<Ro
 		throw new NoRouteError(message || `GraphHopper antwortet mit ${response.status}`);
 	}
 	return (result.paths ?? []).map(
-		(p: { distance: number; time: number; ascend: number; descend: number; points: { coordinates: [number, number, number][] }; details: RouteDetails }) => ({
+		(p: {
+			distance: number;
+			time: number;
+			ascend: number;
+			descend: number;
+			points: { coordinates: [number, number, number][] };
+			details: RouteDetails;
+			instructions?: GraphHopperInstruction[];
+		}) => ({
 			distance: p.distance,
 			time: p.time,
 			ascend: p.ascend,
 			descend: p.descend,
 			coordinates: p.points.coordinates,
-			details: p.details
+			details: p.details,
+			instructions: (p.instructions ?? []).map((i) => ({
+				index: i.interval[0],
+				sign: i.sign,
+				...(i.street_name ? { street: i.street_name } : {}),
+				...(i.exit_number ? { exit: i.exit_number } : {})
+			}))
 		})
 	);
 }

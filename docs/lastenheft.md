@@ -71,6 +71,7 @@ Alle Anforderungen gehören in die erste Testversion.
 - 04.10.2026: Tourdetail nach Jans Entwurf (Kacheln, Pluspunkte, „Tour starten“, „Tour anpassen“, „Als GPX-Datei speichern“, Einkehr-Karten mit Zeichnungen statt Fotos).
 - 04.10.2026: Logik nie auf die Testregion zuschneiden – alles aus den Daten der jeweiligen Strecke ableiten.
 - 05.10.2026: Reihenfolge: Navigation (F10) vor Anpassen (F6/F16), damit Testpersonen die Touren direkt in der App fahren können. GPX-Export (F12) ist vorgezogen und fertig.
+- 05.10.2026: Navigation mit eigener ruhiger Karte (dunkel, auf Wunsch „Heller“), die sich mit der Fahrtrichtung dreht; Vollbild; Ansagen mit Signalton. Weil die Wegberechnung bis M9 nur am PC läuft, kommen Touren per Link aufs Handy („Aufs Handy schicken“, vorgezogen aus F15).
 
 F5 kommt ohne kostenpflichtige KI aus: Eine einfache Worterkennung reicht für typische Sätze (Zahl + „km“ oder „Stunden“, „Grün“, „Wasser“, „Biergarten“). Was sie nicht versteht, fragt die App über die Knöpfe nach.
 

@@ -12,6 +12,8 @@ interface SessionData {
 	/** Vorschläge gehören immer zu genau diesem Wunsch */
 	requestKey?: string;
 	tours: PlannedTour[];
+	/** über einen Link geöffnete Touren (z. B. vom PC aufs Handy geschickt) */
+	shared?: PlannedTour[];
 }
 
 function load(): SessionData {
@@ -59,6 +61,10 @@ export const session = {
 		save($state.snapshot(data));
 	},
 	findTour(id: string): PlannedTour | undefined {
-		return data.tours.find((t) => t.id === id);
+		return data.tours.find((t) => t.id === id) ?? data.shared?.find((t) => t.id === id);
+	},
+	addShared(tour: PlannedTour) {
+		data.shared = [tour, ...(data.shared ?? []).filter((t) => t.id !== tour.id)].slice(0, 5);
+		save($state.snapshot(data));
 	}
 };

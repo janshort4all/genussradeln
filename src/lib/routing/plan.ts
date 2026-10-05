@@ -458,7 +458,11 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 			highlight: highlightSentence(stats, title, highlight ? namedPhrase(highlight) : undefined),
 			request,
 			waypoints,
-			legs: combo.legs.map((l) => ({ coordinates: l.path.coordinates, distance: l.path.distance })),
+			legs: combo.legs.map((l) => ({
+				coordinates: l.path.coordinates,
+				distance: l.path.distance,
+				instructions: l.path.instructions
+			})),
 			stats,
 			extraDistance: Math.max(0, total - directTotal),
 			minutes: rideMinutes(

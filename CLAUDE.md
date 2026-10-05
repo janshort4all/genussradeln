@@ -223,6 +223,7 @@ Jeder Meilenstein endet mit etwas, das man auf dem Handy ausprobieren kann.
 - **M5 Rundtouren & Freitext (F2, F4 Rundtour, F3 Ortsart, F5):** Rundtour-Vorschläge nach Dauer/km, Ziel als Ortsart
   („ein Biergarten“), Worterkennung mit Tests.
 - **M6 Navigation (F10):** Positionsverfolgung, Abbiegeanzeige, Sprachansagen, Off-Route-Hinweis, Wake Lock, dunkle Ansicht.
+  ✔ umgesetzt 05.10.2026 (Test draußen steht aus), dazu vorgezogen „Aufs Handy schicken“ (Tour im Link, Teil von F15).
 - **M7 Offline & Export (F11, F12):** Tour inkl. Kartenkacheln vorab cachen, GPX-Export (✔ vorgezogen, `src/lib/gpx/`).
 - **M8 Merken, Teilen, Akku (F13, F14, F15):** IndexedDB, Teilen-Link ohne Konto; Akkugröße (z. B. 400/500/625/750 Wh)
   + Ladestand, einfache Verbrauchsschätzung nach Strecke, Steigung und Anstrengung, Ausgabe in drei Stufen.
@@ -280,4 +281,12 @@ Veröffentlichen: Push auf `main` → GitHub Action `.github/workflows/deploy.ym
   `"ch.disable": true`. Ein Anfrage-`custom_model` wird an das Profil `genuss` angehängt (z. B. „gemütlich“ in `src/lib/routing/custom-models.ts`).
   Fehlendes Tempolimit ist `max_speed = Infinity` → Bedingungen immer nach oben begrenzen.
   Erkenntnisse für M2/M3 (Längen zu kurz, Höhenmeter verrauscht) stehen in `routing/README.md`.
+- **Navigation (`src/lib/navigation/`):** `track.ts` (Strecke mit Kilometrierung, Abzweigungen aus den GraphHopper-
+  `instructions`, Suche nur im Fenster ab dem letzten Stand – sonst springt die Anzeige bei Hin/Rück auf derselben Straße),
+  `guidance.ts` (reine Rechnung je Standortmeldung: Ansagen, „Strecke verlassen“; Schwellen in `NAV`), `wording.ts`
+  (Worte für Anzeige/Ansage), `device.ts` (Sprache + Signalton, Wake Lock, Vollbild, `watchPosition` gedrosselt, Probefahrt).
+  Karte: `NavMap.svelte` mit eigenem ruhigem Stil `map/nav-style.ts` (dunkel/hell), dreht mit der Fahrtrichtung, nicht verschiebbar.
+  Probefahrt am PC (Maus) oder mit `?probefahrt` in der Adresse. Neu berechnen bei Abweichung gibt es erst mit Server (M9).
+- **Tour im Link (`src/lib/share/link.ts`, Seite `/geteilt`):** Polyline + Höhen + Hinweise, deflate + base64url hinter „#“
+  (geht an keinen Server). Am PC zeigt der Link immer auf die Online-App (`PUBLIC_APP_URL`) – Änderungen also erst pushen.
 - PowerShell-Skripte (`*.ps1`) als UTF-8 **mit BOM** speichern, sonst zeigt Windows PowerShell 5.1 Umlaute falsch.

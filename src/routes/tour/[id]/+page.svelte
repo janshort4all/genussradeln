@@ -12,7 +12,7 @@
 	import Leaf from '@lucide/svelte/icons/leaf';
 	import MapIcon from '@lucide/svelte/icons/map';
 	import MountainSnow from '@lucide/svelte/icons/mountain-snow';
-	import Share2 from '@lucide/svelte/icons/share-2';
+	import Smartphone from '@lucide/svelte/icons/smartphone';
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import BatteryHint from '$lib/components/BatteryHint.svelte';
@@ -25,6 +25,7 @@
 	import { loadPois } from '$lib/stops/pois';
 	import { STOP_LABELS } from '$lib/stops/kinds';
 	import { downloadGpx } from '$lib/gpx/gpx';
+	import { shareUrl } from '$lib/share/link';
 	import type { ViewStop } from '$lib/tour/view';
 
 	let { data } = $props();
@@ -61,6 +62,27 @@
 		return [tour.caveat, gap].filter((n): n is string => !!n);
 	});
 	let mapBox: HTMLDivElement | undefined = $state();
+
+	/**
+	 * Tour aufs Handy schicken: die ganze Tour steckt im Link. Am Handy öffnet sich das Teilen-Menü
+	 * (WhatsApp, E-Mail …), am PC wird der Link kopiert.
+	 */
+	async function sendToPhone() {
+		menuOpen = false;
+		const planned = data.planned;
+		if (!planned) return tell('Beispieltouren lassen sich nicht verschicken.');
+		try {
+			const url = await shareUrl(planned, resolve('/geteilt'));
+			if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
+				await navigator.share({ title: `Radtour: ${tour.title}`, url });
+			} else {
+				await navigator.clipboard.writeText(url);
+				tell('Link kopiert. Fügen Sie ihn in WhatsApp oder eine E-Mail ein und schicken Sie ihn ans Handy.');
+			}
+		} catch (error) {
+			if ((error as Error).name !== 'AbortError') tell('Der Link konnte nicht erstellt werden.');
+		}
+	}
 
 	/** GPX-Datei für andere Navi-Apps oder den Fahrradcomputer (F12) */
 	function saveGpx() {
@@ -124,6 +146,8 @@
 <div class="topbar">
 	{#if tour.backHref === 'vorschlaege'}
 		<BackLink href={resolve('/vorschlaege')} label="Zurück zu den Wegen" />
+	{:else if tour.backHref === 'start'}
+		<BackLink href={resolve('/')} label="Zur Startseite" />
 	{:else}
 		<BackLink href={resolve('/runde/vorschlaege')} label="Zurück zu den Beispielen" />
 	{/if}
@@ -145,14 +169,8 @@
 			{#if menuOpen}
 				<ul class="menu" id="tour-menu">
 					<li>
-						<button
-							type="button"
-							onclick={() => {
-								menuOpen = false;
-								tell('Teilen kommt in einem späteren Schritt.');
-							}}
-						>
-							<Share2 size={22} aria-hidden="true" /> Tour teilen
+						<button type="button" onclick={sendToPhone}>
+							<Smartphone size={22} aria-hidden="true" /> Aufs Handy schicken
 						</button>
 					</li>
 				</ul>

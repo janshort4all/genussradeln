@@ -3,7 +3,7 @@
  * Anpassungen (ab M4) ändern nur die Wegpunkte und berechnen den Weg neu.
  */
 import type { LngLat } from '$lib/geo/geo';
-import type { Effort } from '$lib/routing/graphhopper';
+import type { Effort, RouteInstruction } from '$lib/routing/graphhopper';
 import type { RouteStats } from '$lib/scoring/score';
 
 /** Ein Ort, z. B. aus der Suche oder der eigene Standort */
@@ -44,6 +44,8 @@ export interface TourLeg {
 	coordinates: [number, number, number][];
 	/** Meter */
 	distance: number;
+	/** Abbiegehinweise für die Navigation (Index bezieht sich auf `coordinates`) */
+	instructions?: RouteInstruction[];
 }
 
 export interface PlannedTour {
@@ -62,6 +64,8 @@ export interface PlannedTour {
 	extraDistance: number;
 	/** geschätzte Fahrzeit in Minuten */
 	minutes: number;
+	/** über einen Link geöffnet (nicht hier geplant) */
+	shared?: boolean;
 }
 
 export function tourLine(tour: PlannedTour): LngLat[] {

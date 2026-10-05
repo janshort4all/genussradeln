@@ -11,8 +11,8 @@ export const prerender = false;
 
 export const load: PageLoad = ({ params }) => {
 	const planned = session.findTour(params.id);
-	if (planned) return { tour: fromPlanned(planned) };
+	if (planned) return { tour: fromPlanned(planned), planned };
 	const sample = findSampleTour(params.id);
-	if (sample) return { tour: fromSample(sample) };
+	if (sample) return { tour: fromSample(sample), planned: undefined };
 	error(404, 'Diese Tour ist nicht mehr da.');
 };
