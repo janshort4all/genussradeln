@@ -17,7 +17,8 @@
 		"routing:start": "powershell -NoProfile -ExecutionPolicy Bypass -File routing/start.ps1",
 		"routing:test": "node routing/test-roundtrip.mjs",
 		"routing:karte": "node routing/show-map.mjs --oeffnen",
-		"data": "node --max-old-space-size=8192 scripts/build-data.ts"
+		"data": "node --max-old-space-size=8192 scripts/build-data.ts",
+		"server": "node scripts/server.mjs"
 	},
 	"devDependencies": {
 		"@lucide/svelte": "^1.51.0",

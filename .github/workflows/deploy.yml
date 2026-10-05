@@ -25,6 +25,8 @@ jobs:
       - name: App bauen
         env:
           BASE_PATH: '/${{ github.event.repository.name }}'
+          # Wegberechnung auf dem eigenen Server (Oracle, siehe routing/SERVER.md)
+          VITE_ROUTING_URL: 'https://130-61-177-54.sslip.io'
         run: npm run build
 
       - name: Build hochladen

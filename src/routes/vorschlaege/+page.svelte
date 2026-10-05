@@ -156,8 +156,7 @@
 		<div class="message" role="alert">
 			<p>
 				<strong>Die Wegberechnung ist gerade nicht erreichbar.</strong><br />
-				Im Testbetrieb läuft sie nur auf dem PC, auf dem die App entwickelt wird. Online und auf dem Handy
-				ist sie noch nicht verfügbar.
+				Bitte prüfen Sie Ihre Internetverbindung und versuchen Sie es in ein paar Minuten noch einmal.
 			</p>
 			<Button icon={RefreshCw} onclick={compute}>Noch einmal versuchen</Button>
 		</div>

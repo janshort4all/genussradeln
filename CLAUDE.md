@@ -57,7 +57,7 @@ Alle Werte als CSS-Variablen in `src/app.css`:
 | Speicherung | IndexedDB auf dem Gerät (z. B. `idb-keyval`), kein Backend |
 | Sprachansagen | Web Speech API (`speechSynthesis`, `lang="de-DE"`) + kurzer Signalton |
 | Hosting App | GitHub Pages oder Cloudflare Pages |
-| Hosting Routing | Kostenloses Server-Kontingent (z. B. Oracle Cloud Always Free) – Konditionen vor Einrichtung prüfen |
+| Hosting Routing | Oracle Cloud Always Free (Ampere A1, 2 OCPUs/12 GB), https://130-61-177-54.sslip.io – siehe `routing/SERVER.md` |
 
 Vor dem Einbau einer Bibliothek oder API immer die **aktuelle offizielle Doku** prüfen
 (GraphHopper-Parameter, MapLibre-API, vite-pwa). Nicht aus dem Gedächtnis raten.
@@ -252,6 +252,9 @@ npm run data         # Landschaft, Stopps, Orts- und Gewässernamen aus der OSM-
 npm run build        # statischer Build nach build/
 npm run preview      # fertigen Build lokal ansehen
 npm run icons        # Logo und App-Symbole aus assets/logo-original.png neu erzeugen
+
+npm run server -- status|deploy|karte|logs   # Routing-Server online verwalten (routing/SERVER.md)
+npm run dev:handy       # App im WLAN fürs Handy bereitstellen (Planung über den PC)
 
 npm run routing:setup   # einmalig: GraphHopper + OSM-Auszug nach routing/data/ laden (Java 17+ nötig)
 npm run routing:start   # GraphHopper unter http://localhost:8989 (Testkarte: /maps/), Strg+C beendet
