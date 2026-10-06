@@ -110,8 +110,10 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
      der schönste überhaupt, dann nach Schönheit je Umweg; jeder lohnt sich (`WORTHWHILE`) und ist spürbar anders lang
      (`LENGTH_STEP`: ≥ 5 % bzw. 500 m). Schönheit einer Runde enthält den Abzug für denselben Weg zurück; Runden mit
      mehr als `ROUND_MAX_OVERLAP` = 40 % gemeinsamer Strecke fallen weg. Paare aus den `PAIR_CANDIDATES` = 8 besten
-     Hin- und Rückwegen. Ähnlichkeit zum direkten Weg (`DIVERSITY_MAX_OVERLAP`) schließt nichts aus – ein schönerer
-     Weg mit Abstecher ist ihm über weite Strecken gleich. Bei kurzen Strecken bleiben so oft nur zwei.
+     Hin- und Rückwegen. **Keine fast gleichen Vorschläge** (`tooSimilar`): gleich, wenn jeder von beiden zu mehr als
+     `DIVERSITY_MAX_OVERLAP` auf dem anderen verläuft – dann bleibt der schönere, auch wenn der andere der direkte ist
+     (Wunsch Jan 06.10.2026: lieber nur zwei Vorschläge). Ein Weg mit großem Abstecher ist kein „gleicher“ Weg.
+     Bleibt nur einer übrig, heißt er „Ihre Tour“. Bei kurzen Strecken bleiben so oft nur zwei.
      Die Wegkarte zeigt „Längste Tour“ groß, den beschreibenden Titel darunter.
   6. Fahrzeit: `rideMinutes` (`src/lib/tour/duration.ts`) = Strecke / 15 km/h + `CLIMB_MINUTES_PER_100M` je 100 Höhenmeter.
 - **„Fast direkt“ (Wunsch Jan, 04.10.2026, intern):** der schönste Weg, der höchstens ca. 15 % länger ist als der direkte

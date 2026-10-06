@@ -353,9 +353,22 @@ function sameLeg(a: Combination, b: Combination, i: number): boolean {
 	return a.legs[i] === b.legs[i] || mutualOverlap(a.legs[i].line, b.legs[i].line) > DIVERSITY_MAX_OVERLAP;
 }
 
-/** Zwei Vorschläge sind praktisch derselbe Weg (Hin- und ggf. Rückweg weitgehend gleich) */
-function sameTour(a: Combination, b: Combination): boolean {
-	return a.legs.every((_, i) => sameLeg(a, b, i));
+const tourLines = new WeakMap<Combination, LngLat[]>();
+const tourLine = (c: Combination) => {
+	let line = tourLines.get(c);
+	if (!line) tourLines.set(c, (line = c.legs.flatMap((l) => l.line)));
+	return line;
+};
+
+/**
+ * Zwei Vorschläge sind praktisch gleich, wenn **jeder** zum größten Teil (DIVERSITY_MAX_OVERLAP) auf dem anderen
+ * verläuft. Ein Weg mit großem schönem Abstecher ist also kein „gleicher“ Weg wie der direkte – zwei Wege, die
+ * sich nur in einem kurzen Stück unterscheiden, schon (Wunsch Jan, 06.10.2026: lieber nur zwei Vorschläge).
+ */
+function tooSimilar(a: Combination, b: Combination): boolean {
+	const la = tourLine(a);
+	const lb = tourLine(b);
+	return Math.min(overlapShare(la, lb), overlapShare(lb, la)) > DIVERSITY_MAX_OVERLAP;
 }
 
 const lengthOf = (c: Combination) => c.legs.reduce((sum, l) => sum + l.path.distance, 0);
@@ -437,7 +450,7 @@ export function lengthLabels(count: number): string[] {
 		case 0:
 			return [];
 		case 1:
-			return ['Direkte Tour'];
+			return ['Ihre Tour'];
 		case 2:
 			return ['Längere Tour', 'Kürzere Tour'];
 		case 3:
@@ -503,34 +516,29 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 	const chosen: Combination[] = [direct ?? best];
 	const differentLength = (c: Combination) =>
 		chosen.every((p) => Math.abs(lengthOf(p) - lengthOf(c)) >= lengthStep(p, c));
-	const strict = (item: Combination, p: Combination) => item.legs.some((_, i) => sameLeg(item, p, i));
-	const fits = (c: Combination, similar: (a: Combination, b: Combination) => boolean) =>
+	const fits = (c: Combination) =>
 		!chosen.includes(c) &&
-		// der direkte Weg zählt hier nicht: ein schönerer Weg mit Abstecher ist ihm über weite Strecken gleich,
-		// ist aber trotzdem eine eigene Wahl (Länge und Schönheit prüfen differentLength und worthwhile)
-		!chosen.some((p) => p !== direct && similar(c, p)) &&
+		// dem direkten Weg ähnlich ist erlaubt – von zwei fast gleichen bleibt unten der schönere
+		!chosen.some((p) => p !== direct && tooSimilar(c, p)) &&
 		differentLength(c) &&
 		worthwhile(c, chosen) &&
 		bestForItsLength(c, pool);
-	const prettiest = [...pool].sort((a, b) => beautyOf(b) - beautyOf(a)).find((c) => fits(c, sameTour));
+	const prettiest = [...pool].sort((a, b) => beautyOf(b) - beautyOf(a)).find(fits);
 	if (prettiest) chosen.push(prettiest);
-	// Auffüllen: erst Wege, die sich in jedem Abschnitt unterscheiden; „gleicher Hinweg, anderer Rückweg“
-	// nur, wenn es sonst weniger als drei Vorschläge wären
-	// Paare: score enthält schon den Abzug für denselben Weg zurück
-	const byValue = [...pool].sort((a, b) => b.score - a.score);
-	for (const [similar, max] of [
-		[strict, MAX_SUGGESTIONS],
-		[sameTour, 3]
-	] as const) {
-		for (const item of byValue) {
-			if (chosen.length >= max) break;
-			if (fits(item, similar)) chosen.push(item);
-		}
+	// Auffüllen nach Schönheit je Umweg (score enthält bei Paaren schon den Abzug für denselben Weg zurück)
+	for (const item of [...pool].sort((a, b) => b.score - a.score)) {
+		if (chosen.length >= MAX_SUGGESTIONS) break;
+		if (fits(item)) chosen.push(item);
 	}
+	// Von zwei fast gleichen Vorschlägen bleibt nur der schönere (auch wenn der andere der direkte ist)
+	const kept: Combination[] = [];
+	for (const c of [...chosen].sort((a, b) => beautyOf(b) - beautyOf(a))) if (!kept.some((k) => tooSimilar(c, k))) kept.push(c);
+	chosen.splice(0, chosen.length, ...chosen.filter((c) => kept.includes(c)));
 	// Der direkte Weg ist überflüssig, wenn ein anderer Vorschlag kürzer (oder gleich lang) und schöner ist –
 	// dann ist der der direkte (der „direkte“ genuss-Weg ist nicht immer der kürzeste)
 	if (
 		direct &&
+		chosen.includes(direct) &&
 		chosen.some((p) => p !== direct && lengthOf(p) <= lengthOf(direct) && beautyOf(p) >= beautyOf(direct))
 	)
 		chosen.splice(chosen.indexOf(direct), 1);
