@@ -55,3 +55,57 @@ export function findBacktrack(line: LngLat[]): Backtrack {
 export function backtrackMeters(line: LngLat[]): number {
 	return findBacktrack(line).meters;
 }
+
+/** Schleifen ab dieser Länge zählen (kürzere sind Eigenheiten der Kartendaten an Kreuzungen) */
+const MIN_LOOP_M = 150;
+
+export interface Loop {
+	/** Länge der Schleife in Metern */
+	meters: number;
+	/** wo sich der Weg selbst kreuzt */
+	at: LngLat;
+}
+
+/** Schnittpunkt zweier Strecken (Ränder zählen mit: ein Weg, der eine Kreuzung zweimal befährt, schneidet sich dort) */
+function intersection(a: LngLat, b: LngLat, c: LngLat, d: LngLat): LngLat | undefined {
+	const r = [b[0] - a[0], b[1] - a[1]];
+	const s = [d[0] - c[0], d[1] - c[1]];
+	const denom = r[0] * s[1] - r[1] * s[0];
+	if (denom === 0) return undefined;
+	const t = ((c[0] - a[0]) * s[1] - (c[1] - a[1]) * s[0]) / denom;
+	const u = ((c[0] - a[0]) * r[1] - (c[1] - a[1]) * r[0]) / denom;
+	const eps = 1e-9;
+	if (t < -eps || t > 1 + eps || u < -eps || u > 1 + eps) return undefined;
+	return [a[0] + t * r[0], a[1] + t * r[1]];
+}
+
+/**
+ * Fährt der Weg im Kreis? Ein Weg von A nach B, der seine eigene Strecke kreuzt, dreht dazwischen eine Runde
+ * (z. B. einmal um einen See und zurück zur selben Kreuzung) – die hätte man sich sparen können.
+ * Liefert die größte solche Schleife.
+ */
+export function findLoop(line: LngLat[]): Loop | undefined {
+	const cum = [0];
+	for (let i = 1; i < line.length; i++) cum.push(cum[i - 1] + distance(line[i - 1], line[i]));
+	let best: Loop | undefined;
+	for (let i = 0; i + 1 < line.length; i++) {
+		const a = line[i];
+		const b = line[i + 1];
+		const minLon = Math.min(a[0], b[0]);
+		const maxLon = Math.max(a[0], b[0]);
+		const minLat = Math.min(a[1], b[1]);
+		const maxLat = Math.max(a[1], b[1]);
+		for (let j = i + 2; j + 1 < line.length; j++) {
+			if (cum[j] - cum[i + 1] < MIN_LOOP_M) continue;
+			const c = line[j];
+			const d = line[j + 1];
+			if (Math.max(c[0], d[0]) < minLon || Math.min(c[0], d[0]) > maxLon) continue;
+			if (Math.max(c[1], d[1]) < minLat || Math.min(c[1], d[1]) > maxLat) continue;
+			const at = intersection(a, b, c, d);
+			if (!at) continue;
+			const meters = cum[j] + distance(c, at) - (cum[i] + distance(a, at));
+			if (meters >= MIN_LOOP_M && (!best || meters > best.meters)) best = { meters, at };
+		}
+	}
+	return best;
+}

@@ -90,7 +90,9 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
      (Summenfeld über `landscape.png`), innerhalb der Umweg-Ellipse um Start/Ziel, nicht direkt am kürzesten Weg.
   3. Wege mit „Stummel“ (über 50 m doppelt gefahren: hin und zurück in eine Sackgasse oder Lasso-Schleife um den Punkt) verwerfen
      (`backtrack.ts`, `VIA_SEARCH.maxBacktrackM`). Vorher Reparaturversuch: Hilfspunkt an die Abzweigung verlegen
-     und neu rechnen – dann führt der Weg an der schönen Stelle vorbei, ohne Abstecher.
+     und neu rechnen – dann führt der Weg an der schönen Stelle vorbei, ohne Abstecher. Ebenso Wege, die **im Kreis**
+     fahren (kreuzen die eigene Strecke, Runde ≥ 150 m, z. B. einmal um einen See; `findLoop`, Wunsch Jan 06.10.2026):
+     über die Kreuzung neu rechnen, sonst verwerfen.
   4. Nachbewertung (`score.ts`), Mehrweg-Grenze, Abzug je Mehrweg. Radwege, die direkt neben einer großen Straße
      verlaufen (eigener Weg in OSM, aber laut), zählen nicht als ruhig und bekommen Abzug (`SCORE.roadside`; Daten
      `roads.bin`: Zellen ≤ 25 m an motorway…secondary, `scoring/roads.ts`, erst ab 150 m am Stück).

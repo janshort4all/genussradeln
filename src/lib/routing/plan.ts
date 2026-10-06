@@ -13,7 +13,7 @@ import { bearing, distance, distanceToLine, offset, resample, segmentLengths, ty
 import type { Landscape } from '$lib/scoring/landscape';
 import type { RoadMask } from '$lib/scoring/roads';
 import { WATER } from '$lib/scoring/landscape';
-import { backtrackMeters, findBacktrack } from '$lib/scoring/backtrack';
+import { backtrackMeters, findBacktrack, findLoop } from '$lib/scoring/backtrack';
 import { mutualOverlap, overlapShare } from '$lib/scoring/overlap';
 import { analyzeRoute, beautyScore, combineStats, lineOf, type RouteStats } from '$lib/scoring/score';
 import {
@@ -232,6 +232,13 @@ async function planDirection(
 				const [repaired] = await deps.route([from, backtrack.start, to], options);
 				if (repaired) return { path: repaired, vias: [backtrack.start], side };
 			}
+			// Runde, die zur selben Kreuzung zurückkommt (z. B. einmal um einen See)? Nicht im Kreis fahren
+			// (Wunsch Jan, 06.10.2026): über die Kreuzung neu rechnen, dann bleibt nur der Weg ohne die Runde.
+			const loop = findLoop(lineOf(path));
+			if (loop) {
+				const [repaired] = await deps.route([from, loop.at, to], options);
+				return repaired && { path: repaired, vias: [loop.at], side };
+			}
 			return { path, vias: [point], side };
 		} catch (error) {
 			if (error instanceof NoRouteError) return undefined; // Zwischenpunkt nicht erreichbar → weglassen
@@ -247,6 +254,8 @@ async function planDirection(
 		.filter(({ path }) => path === direct[0] || longCrossingMeters(path) <= directCrossing + 50)
 		// Wege über Zwischenpunkte ohne „Stummel“ (hin und gleich wieder zurück in eine Sackgasse)
 		.filter(({ path, vias }) => !vias.length || backtrackMeters(lineOf(path)) <= VIA_SEARCH.maxBacktrackM)
+		// … und ohne Runde im Kreis
+		.filter(({ path, vias }) => !vias.length || !findLoop(lineOf(path)))
 		.map(({ path, vias, side }) => {
 			const stats = analyzeRoute(path, deps.landscape, deps.roads);
 			const beauty = beautyScore(stats);
