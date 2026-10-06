@@ -30,7 +30,7 @@ export const SCORE = {
 	major: 1.5,
 	/** Abzug: Anteil auf Radwegen direkt neben großen Straßen (Lärm, Abgase – fast so schlecht wie auf der Straße) */
 	roadside: 1.2,
-	/** Abzug: Anteil auf schlechtem Belag (Sand, Schotter, Kopfsteinpflaster …) */
+	/** Abzug: Anteil auf wirklich schlechtem Belag (Wiese, Sand, Kopfsteinpflaster – Schotter zählt nicht) */
 	badSurface: 1.0,
 	/** Abzug: Anteil des Rückwegs, der auf dem Hinweg liegt („auf anderem Weg zurück“) */
 	returnOverlap: 1.2

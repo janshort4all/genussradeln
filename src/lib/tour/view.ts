@@ -31,7 +31,7 @@ export interface TourView {
 	km: number;
 	minutes: number;
 	climb: string;
-	/** Haken, den man vorher wissen sollte, z. B. ein längeres Stück Schotter (nur bei berechneten Wegen) */
+	/** Haken, den man vorher wissen sollte, z. B. ein längeres Stück Kopfsteinpflaster (nur bei berechneten Wegen) */
 	caveat?: string;
 	/** Hinweis zur Tour (z. B. bei geteilten Touren) */
 	note?: string;

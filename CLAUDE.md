@@ -70,7 +70,9 @@ Zweistufig, damit kein eigener Rechen-Server nötig ist:
    Dauer × Geschwindigkeit (gemütlich ≈ 15 km/h, sportlicher ≈ 19 km/h), 8–12 Kandidaten über
    verschiedene `round_trip.seed`/`heading`. Profil `genuss` bevorzugt per Custom Model:
    Radwege, Wirtschaftswege, ausgeschilderte Radnetze (`bike_network`), guten Belag;
-   meidet Hauptstraßen, schlechten Belag, (bei „gemütlich“) Steigungen.
+   meidet Hauptstraßen, wirklich schlechten Belag (Wiese, Sand, Kopfsteinpflaster, sehr holprig), Schiebestrecken
+   (`get_off_bike`: Fußwege sind keine Radwege), (bei „gemütlich“) Steigungen. **Schotter-, Erd- und Feldwege sind
+   gleichwertig zu Asphalt** (E-Bike; Entscheidung Jan, 06.10.2026) – in `genuss.json` und in der Nachbewertung.
 2. **Nachbewerten (im Client):** Jeder Kandidat bekommt Punkte für Anteil der Strecke nahe Wasser /
    im Wald (vereinfachte Flächen aus OSM als `static/data/landscape.geojson`), passende Stopps
    in sinnvollem Abstand (z. B. Café nach 40–60 % der Strecke) und Abzug für Wiederholungen

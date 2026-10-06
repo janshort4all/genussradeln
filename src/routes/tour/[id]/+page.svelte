@@ -59,7 +59,7 @@
 	const allStops = $derived(tour.map.kind === 'route' ? (foundStops ?? []) : tour.stops);
 	const stops = $derived(highlightStops(allStops));
 	const toilets = $derived(toiletSentence(allStops));
-	/** Hinweise neben den Pluspunkten: viel Schotter, lange ohne Einkehr */
+	/** Hinweise neben den Pluspunkten: schlechter Belag, lange ohne Einkehr */
 	const notes = $derived.by(() => {
 		const gap = tour.map.kind === 'route' && stopsStatus === 'done' ? foodGapNote(allStops, tour.km) : undefined;
 		return [tour.note, tour.caveat, gap].filter((n): n is string => !!n);

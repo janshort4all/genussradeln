@@ -30,8 +30,12 @@ export interface RouteStats {
 
 const MAJOR_ROADS = new Set(['trunk', 'primary', 'secondary']);
 const QUIET_WAYS = new Set(['cycleway', 'track', 'living_street', 'path']);
-const BAD_SURFACES = new Set(['sand', 'grass', 'dirt', 'ground', 'cobblestone', 'gravel']);
-const BAD_SMOOTHNESS = new Set(['bad', 'very_bad', 'horrible', 'very_horrible', 'impassable']);
+/**
+ * Wirklich schlechter Belag. Schotter-, Erd- und Feldwege gehören nicht dazu – mit dem E-Bike gut fahrbar und
+ * gleichwertig zu Asphalt (Entscheidung Jan, 06.10.2026).
+ */
+const BAD_SURFACES = new Set(['sand', 'grass', 'cobblestone']);
+const BAD_SMOOTHNESS = new Set(['very_bad', 'horrible', 'very_horrible', 'impassable']);
 
 /** Wege, die als eigener Weg eingetragen sein können, obwohl sie direkt neben einer Straße laufen */
 const SIDE_WAYS = new Set(['cycleway', 'track', 'path', 'footway', 'pedestrian', 'bridleway', 'service']);

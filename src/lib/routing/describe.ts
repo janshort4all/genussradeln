@@ -158,7 +158,7 @@ export function natureWord(share: number): string {
  * Große Straßen nennt schon der Beschreibungssatz (highlightSentence).
  */
 export function caveatOf(s: RouteStats): string | undefined {
-	if (s.badSurface >= 0.1) return 'Achtung: ein längeres Stück Schotter, Sand oder Pflaster.';
+	if (s.badSurface >= 0.1) return 'Achtung: ein längeres Stück über Wiese, Sand oder Kopfsteinpflaster.';
 	return undefined;
 }
 
@@ -174,7 +174,7 @@ export function checksOf(s: RouteStats): string[] {
 	if (trafficShare(s) < 0.03) checks.push('Kaum Autoverkehr');
 	else if (trafficShare(s) < 0.1) checks.push('Wenig Autoverkehr');
 	if (s.climb === 'flach') checks.push('Überwiegend flach');
-	if (s.badSurface < 0.03) checks.push('Glatter Belag');
+	if (s.badSurface < 0.03) checks.push('Gut befahrbare Wege');
 	if (s.water >= 0.2) checks.push('Ein Stück am Wasser');
 	return checks.slice(0, 3);
 }
