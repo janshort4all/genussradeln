@@ -7,10 +7,11 @@
 	import { distance } from '$lib/geo/geo';
 	import { loadLocalPlaces, matchLocalPlaces } from '$lib/geocode/local';
 	import { searchPlaces } from '$lib/geocode/photon';
+	import { loadStreets, parseAddress, streetPlaces } from '$lib/geocode/streets';
 	import type { Place } from '$lib/tour/model';
 
 	/**
-	 * Suchfeld für Orte und Adressen mit Vorschlägen beim Tippen (Photon).
+	 * Suchfeld für Orte und Adressen mit Vorschlägen beim Tippen (eigene Verzeichnisse sofort, Photon ergänzt).
 	 * Vorschläge sind echte Knöpfe – groß, mit Ort zur Unterscheidung.
 	 */
 	interface Props {
@@ -51,13 +52,37 @@
 		setTimeout(() => box?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' }), 350);
 	}
 
-	// Ortsliste schon beim Öffnen laden – dann erscheinen Orte beim Tippen sofort
+	// Ortsliste schon beim Öffnen laden – dann erscheinen Orte beim Tippen sofort;
+	// das größere Straßenverzeichnis erst, wenn jemand ins Feld tippt
 	onMount(() => void loadLocalPlaces(asset('/data/places.json')).catch(() => {}));
+	function preloadStreets() {
+		void loadStreets(STREETS_URL).catch(() => {});
+	}
 
-	/** Gleicher Ort aus Ortsliste und Photon (gleicher Name, nah beieinander) nur einmal zeigen */
+	/** Gleicher Ort aus eigener Liste und Photon (gleicher Name, nah beieinander) nur einmal zeigen */
 	function merge(local: Place[], remote: Place[]): Place[] {
 		const fresh = remote.filter((r) => !local.some((l) => l.name === r.name && distance(l.lngLat, r.lngLat) < 3000));
 		return [...local, ...fresh].slice(0, 6);
+	}
+
+	const STREETS_URL = asset('/data/search/streets.json');
+	const NUMBERS_URL = asset('/data/search/addr');
+
+	/**
+	 * Sofort-Vorschläge aus den eigenen Verzeichnissen: Orte und Straßen (mit Hausnummer, wenn getippt).
+	 * Mit Hausnummer stehen die Adressen vorn, sonst die Orte.
+	 */
+	async function localMatches(q: string): Promise<Place[]> {
+		const [places, streets] = await Promise.all([
+			loadLocalPlaces(asset('/data/places.json'))
+				.then((all) => matchLocalPlaces(q, all, near))
+				.catch(() => [] as Place[]),
+			loadStreets(STREETS_URL)
+				.then((all) => streetPlaces(q, all, NUMBERS_URL, near))
+				.catch(() => [] as Place[])
+		]);
+		const list = parseAddress(q).number ? [...streets, ...places] : [...places, ...streets];
+		return list.slice(0, 6);
 	}
 
 	async function onInput() {
@@ -65,16 +90,14 @@
 		clearTimeout(timer);
 		controller?.abort();
 		const q = query.trim();
-		// sofort: Orte aus der eigenen Ortsliste (der Suchdienst braucht gut eine Sekunde)
-		const local = await loadLocalPlaces(asset('/data/places.json'))
-			.then((all) => matchLocalPlaces(q, all, near))
-			.catch(() => []);
+		// sofort: Orte und Straßen aus den eigenen Verzeichnissen (der Suchdienst braucht 2–4 s)
+		const local = await localMatches(q);
 		if (q !== query.trim()) return; // inzwischen weitergetippt
 		results = local;
 		status = 'idle';
 		if (local.length) scrollIntoReach();
 		if (q.length < 3) return;
-		// Straßen und Adressen: Suchdienst, sobald kurz nicht getippt wird (schont den Dienst)
+		// Ausflugsziele und weitere Adressen: Suchdienst, sobald kurz nicht getippt wird (schont den Dienst)
 		timer = setTimeout(async () => {
 			controller = new AbortController();
 			if (!local.length) status = 'searching';
@@ -120,7 +143,10 @@
 			type="search"
 			bind:value={query}
 			oninput={onInput}
-			onfocus={scrollIntoReach}
+			onfocus={() => {
+				preloadStreets();
+				scrollIntoReach();
+			}}
 			onblur={onBlur}
 			{placeholder}
 			autocomplete="off"

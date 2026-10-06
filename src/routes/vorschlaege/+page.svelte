@@ -9,17 +9,20 @@
 	import RouteMap from '$lib/map/RouteMap.svelte';
 	import { routeColor } from '$lib/map/colors';
 	import { NoRouteError, route, RoutingUnavailableError } from '$lib/routing/graphhopper';
-	import { planTours } from '$lib/routing/plan';
+	import { planTours, TooCloseError } from '$lib/routing/plan';
+	import { planRound } from '$lib/routing/round';
 	import { loadNames } from '$lib/naming/names';
 	import { loadLandscape } from '$lib/scoring/landscape';
 	import { loadRoadMask } from '$lib/scoring/roads';
 	import { tourLine } from '$lib/tour/model';
 	import { session } from '$lib/tour/session.svelte';
 
-	const request = session.request;
+	let request = $state(session.request);
+	/** Rundtour („Einfach eine schöne Runde drehen“) statt Weg zu einem Ziel */
+	const isRound = $derived(!!request?.round);
 	let tours = $state(session.currentTours);
-	let status: 'loading' | 'done' | 'missing' | 'unavailable' | 'noroute' | 'error' = $state(
-		!request ? 'missing' : session.currentTours.length ? 'done' : 'loading'
+	let status: 'loading' | 'done' | 'missing' | 'unavailable' | 'noroute' | 'tooclose' | 'error' = $state(
+		!session.request ? 'missing' : session.currentTours.length ? 'done' : 'loading'
 	);
 	let selectedId: string | undefined = $state();
 	let mapBox: HTMLDivElement | undefined = $state();
@@ -83,7 +86,7 @@
 
 	// „nach Kempen“ für Orte, sonst „bis Burg Linn“ (ohne Artikel passt „bis“ immer).
 	// Ältere Sitzungen kennen die Ortsart noch nicht – dann in der Ortsliste nachsehen.
-	let settlement = $state(request?.destination.settlement ?? false);
+	let settlement = $state(session.request?.destination.settlement ?? false);
 	onMount(() => {
 		if (!request || request.destination.settlement !== undefined) return;
 		const { name, lngLat } = request.destination;
@@ -93,6 +96,22 @@
 	});
 	const towards = $derived(request ? `${settlement ? 'nach' : 'bis'} ${request.destination.name}` : '');
 	const countWords = (n: number) => (n === 1 ? 'Ein Weg' : `${n} Wege`);
+	const heading = $derived(
+		isRound
+			? status === 'done'
+				? `${tours.length === 1 ? 'Eine Runde' : `${tours.length} Runden`} ab ${request?.start.name}`
+				: `Ihre Runden ab ${request?.start.name}`
+			: `${status === 'done' ? countWords(tours.length) : 'Ihre Wege'} ${towards}`
+	);
+
+	/** Rundtour: dieselbe Länge, neuer Zufallswert → andere Runden */
+	function otherRounds() {
+		if (!request?.round) return;
+		request = { ...request, round: { ...request.round, seed: Math.floor(Math.random() * 2 ** 31) } };
+		session.setRequest(request);
+		window.scrollTo({ top: 0 });
+		compute();
+	}
 
 
 	async function compute() {
@@ -114,13 +133,15 @@
 			})
 		]);
 		try {
-			const result = await planTours(request, { route, landscape, names, roads });
+			const deps = { route, landscape, names, roads };
+			const result = request.round ? await planRound(request, deps) : await planTours(request, deps);
 			session.setTours(request, result);
 			tours = result;
 			status = 'done';
 		} catch (error) {
 			console.warn('Wegberechnung:', error);
 			if (error instanceof RoutingUnavailableError) status = 'unavailable';
+			else if (error instanceof TooCloseError) status = 'tooclose';
 			else if (error instanceof NoRouteError) status = 'noroute';
 			else status = 'error';
 		}
@@ -136,26 +157,33 @@
 <svelte:window onscroll={onScroll} />
 
 <svelte:head>
-	<title>Genuss-Radeln – Ihre Wege</title>
+	<title>Genuss-Radeln – {isRound ? 'Ihre Runden' : 'Ihre Wege'}</title>
 </svelte:head>
 
-<BackLink href={resolve('/')} label="Wunsch ändern" />
+<BackLink href={isRound ? resolve('/runde') : resolve('/')} label="Wunsch ändern" />
 
 {#if status === 'missing' || !request}
 	<h1>Noch kein Ziel gewählt</h1>
 	<p>Bitte sagen Sie uns zuerst, wohin Sie möchten.</p>
 	<Button variant="primary" href={resolve('/')}>Ziel wählen</Button>
 {:else}
-	<h1>{status === 'done' ? countWords(tours.length) : 'Ihre Wege'} {towards}</h1>
+	<h1>{heading}</h1>
 	<p class="summary muted">
-		ab {request.start.name} ·
-		{request.returnMode === 'one-way' ? 'nur hin' : 'hin und zurück als Runde'}
+		{#if request.round}
+			Rundkurs · ca. {request.round.km} km
+		{:else}
+			ab {request.start.name} ·
+			{request.returnMode === 'one-way' ? 'nur hin' : 'hin und zurück als Runde'}
+		{/if}
 	</p>
 
 	{#if status === 'loading'}
 		<div class="message" role="status">
 			<Bike size={40} aria-hidden="true" />
-			<p><strong>Wir suchen die schönsten Wege …</strong><br />Das dauert nur einen Moment.</p>
+			<p>
+				<strong>{isRound ? 'Wir suchen schöne Runden …' : 'Wir suchen die schönsten Wege …'}</strong><br />Das dauert
+				nur einen Moment.
+			</p>
 		</div>
 	{:else if status === 'unavailable'}
 		<div class="message" role="alert">
@@ -165,11 +193,27 @@
 			</p>
 			<Button icon={RefreshCw} onclick={compute}>Noch einmal versuchen</Button>
 		</div>
+	{:else if status === 'noroute' && isRound}
+		<div class="message" role="alert">
+			<p>
+				<strong>Mit dieser Länge haben wir hier keine schöne Runde gefunden.</strong><br />
+				Bitte versuchen Sie eine andere Länge oder einen anderen Startpunkt.
+			</p>
+			<Button variant="primary" href={resolve('/runde')}>Wunsch ändern</Button>
+		</div>
 	{:else if status === 'noroute'}
 		<div class="message" role="alert">
 			<p>
 				<strong>Zu diesem Ziel haben wir keinen Radweg gefunden.</strong><br />
 				Liegt es vielleicht außerhalb der Testregion Niederrhein / Düsseldorf? Bitte wählen Sie ein anderes Ziel.
+			</p>
+			<Button variant="primary" href={resolve('/')}>Anderes Ziel wählen</Button>
+		</div>
+	{:else if status === 'tooclose'}
+		<div class="message" role="alert">
+			<p>
+				<strong>Start und Ziel liegen fast am selben Ort.</strong><br />
+				Bitte wählen Sie ein anderes Ziel – oder drehen Sie einfach eine schöne Runde ab hier.
 			</p>
 			<Button variant="primary" href={resolve('/')}>Anderes Ziel wählen</Button>
 		</div>
@@ -226,11 +270,20 @@
 					</li>
 				{/each}
 			</ol>
+			{#if isRound}
+				<div class="more">
+					<Button icon={RefreshCw} onclick={otherRounds}>Andere Runden vorschlagen</Button>
+				</div>
+			{/if}
 		</div>
 	{/if}
 {/if}
 
 <style>
+	.more {
+		margin: 0 0 1.5rem;
+	}
+
 	.summary {
 		margin-bottom: 1rem;
 	}

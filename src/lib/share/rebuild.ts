@@ -144,9 +144,22 @@ export async function rebuildTour(
 		title: spec.t,
 		label: spec.l,
 		highlight: highlightSentence(stats, spec.t),
-		request: { start, destination, effort: 'easy', returnMode: spec.r },
+		request: {
+			start,
+			destination,
+			effort: 'easy',
+			returnMode: spec.r,
+			...(spec.k ? { round: { km: spec.k, seed: 0 } } : {})
+		},
 		waypoints,
-		legs: legs.map(({ path }) => ({ coordinates: path.coordinates, distance: path.distance, instructions: path.instructions })),
+		legs: legs.map(({ path }) => ({
+			coordinates: path.coordinates,
+			distance: path.distance,
+			instructions: path.instructions,
+			bridges: (path.details.road_environment ?? [])
+				.filter(([, , v]) => v === 'bridge' || v === 'tunnel')
+				.map(([from, to]) => [from, to] as [number, number])
+		})),
 		stats,
 		extraDistance: spec.x,
 		minutes: rideMinutes(

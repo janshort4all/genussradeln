@@ -13,7 +13,7 @@ import { bearing, distance, distanceToLine, offset, resample, segmentLengths, ty
 import type { Landscape } from '$lib/scoring/landscape';
 import type { RoadMask } from '$lib/scoring/roads';
 import { WATER } from '$lib/scoring/landscape';
-import { backtrackMeters, findBacktrack, findLoop, findSpur } from '$lib/scoring/backtrack';
+import { findBacktrack, findLoop, findSpur, separatedFrom } from '$lib/scoring/backtrack';
 import { mutualOverlap, overlapShare } from '$lib/scoring/overlap';
 import { analyzeRoute, beautyScore, combineStats, lineOf, type RouteStats } from '$lib/scoring/score';
 import {
@@ -26,6 +26,7 @@ import {
 	PAIR_CANDIDATES,
 	ROUND_MAX_OVERLAP,
 	LENGTH_STEP,
+	FILL_BEAUTY_MARGIN,
 	SCORE,
 	TARGET_SUGGESTIONS,
 	TITLE_MIN_SHARE_OF_TOP,
@@ -196,6 +197,28 @@ export function findScenicVias(
 	return chosen;
 }
 
+/**
+ * Fährt der Weg einen Stummel, einen Kreis oder einen Zipfel? Kreuzungen auf Brücken/in Tunneln zählen nicht
+ * (Spiralrampen der Rheinbrücken). Liefert den Fund, damit er ggf. repariert werden kann.
+ */
+function shapeProblem(path: RoutePath): { kind: 'backtrack' | 'loop' | 'spur'; at?: LngLat } | undefined {
+	const line = lineOf(path);
+	const bridges = separatedFrom(path.details.road_environment);
+	// Am Start und am Ziel muss der Routenplaner manchmal wenden (Einbahnstraße, Punkt auf der anderen
+	// Straßenseite) – das haben alle Wege dorthin gemeinsam und ist kein Zipfel eines Umwegs
+	const nearEnds = line.map(
+		(p) => distance(p, line[0]) < VIA_SEARCH.endpointFreeM || distance(p, line[line.length - 1]) < VIA_SEARCH.endpointFreeM
+	);
+	const separated = (segment: number) => bridges(segment) || nearEnds[segment];
+	const backtrack = findBacktrack(line, separated);
+	if (backtrack.meters > VIA_SEARCH.maxBacktrackM) return { kind: 'backtrack', at: backtrack.start };
+	const loop = findLoop(line, separated);
+	if (loop) return { kind: 'loop', at: loop.at };
+	const spur = findSpur(line, separated);
+	if (spur) return { kind: 'spur', at: spur.at };
+	return undefined;
+}
+
 /** Band (Rechteck) der halben Breite `halfWidth` Meter um die Strecke a → b, etwas über die Enden hinaus */
 function band(a: LngLat, b: LngLat, halfWidth: number): LngLat[] {
 	const kx = 111_320 * Math.cos((a[1] * Math.PI) / 180);
@@ -237,10 +260,7 @@ async function viaPairs(
 ): Promise<{ path: RoutePath; vias: LngLat[]; side: boolean }[]> {
 	const points = singles
 		.filter((p): p is NonNullable<typeof p> => !!p && !p.side && p.vias.length === 1 && p.path.distance <= maxLength)
-		.filter((p) => {
-			const line = lineOf(p.path);
-			return findBacktrack(line).meters <= VIA_SEARCH.maxBacktrackM && !findLoop(line) && !findSpur(line);
-		})
+		.filter((p) => !shapeProblem(p.path))
 		.map((p) => ({ point: p.vias[0], beauty: beautyScore(analyzeRoute(p.path, deps.landscape, deps.roads)) }))
 		.sort((a, b) => b.beauty - a.beauty)
 		.slice(0, VIA_PAIRS.fromBest)
@@ -259,8 +279,7 @@ async function viaPairs(
 		try {
 			const [path] = await deps.route([from, a, b, to], options);
 			if (!path) return undefined;
-			const line = lineOf(path);
-			if (findBacktrack(line).meters > VIA_SEARCH.maxBacktrackM || findLoop(line) || findSpur(line)) return undefined;
+			if (shapeProblem(path)) return undefined;
 			return { path, vias: [a, b], side: false };
 		} catch (error) {
 			if (error instanceof NoRouteError) return undefined;
@@ -305,25 +324,13 @@ async function planDirection(
 		try {
 			const [path] = await deps.route([from, point, to], options);
 			if (!path) return undefined;
-			// „Stummel“ oder „Lasso“ um den Hilfspunkt? Dann den Punkt an die Abzweigung verlegen und neu rechnen –
-			// so führt der Weg an der schönen Stelle vorbei, ohne den Abstecher.
-			const backtrack = findBacktrack(lineOf(path));
-			if (backtrack.meters > VIA_SEARCH.maxBacktrackM && backtrack.start) {
-				const [repaired] = await deps.route([from, backtrack.start, to], options);
-				if (repaired) return { path: repaired, vias: [backtrack.start], side };
-			}
-			// Runde, die zur selben Kreuzung zurückkommt (z. B. einmal um einen See)? Nicht im Kreis fahren
-			// (Wunsch Jan, 06.10.2026): über die Kreuzung neu rechnen, dann bleibt nur der Weg ohne die Runde.
-			const loop = findLoop(lineOf(path));
-			if (loop) {
-				const [repaired] = await deps.route([from, loop.at, to], options);
-				return repaired && { path: repaired, vias: [loop.at], side };
-			}
-			// „Zipfel“ (hinein und auf einem Parallelweg zurück)? Ebenso über den Anfang des Zipfels neu rechnen
-			const spur = findSpur(lineOf(path));
-			if (spur) {
-				const [repaired] = await deps.route([from, spur.at, to], options);
-				return repaired && { path: repaired, vias: [spur.at], side };
+			// Stummel, Kreis oder Zipfel um den Hilfspunkt? Dann den Punkt an die Stelle verlegen, wo der Abstecher
+			// beginnt, und neu rechnen – so führt der Weg an der schönen Stelle vorbei, ohne den Abstecher
+			// (die Prüfung im Filter unten verwirft ihn, wenn auch das nicht klappt)
+			const problem = shapeProblem(path);
+			if (problem?.at) {
+				const [repaired] = await deps.route([from, problem.at, to], options);
+				return repaired && { path: repaired, vias: [problem.at], side };
 			}
 			return { path, vias: [point], side };
 		} catch (error) {
@@ -367,9 +374,8 @@ async function planDirection(
 		.filter(({ path }) => path.distance <= maxLength)
 		.filter(({ path }) => path === direct[0] || longCrossingMeters(path) <= directCrossing + 50)
 		// Wege über Zwischenpunkte ohne „Stummel“ (hin und gleich wieder zurück in eine Sackgasse)
-		.filter(({ path, detour }) => !detour || backtrackMeters(lineOf(path)) <= VIA_SEARCH.maxBacktrackM)
 		// … ohne Runde im Kreis und ohne Zipfel
-		.filter(({ path, detour }) => !detour || (!findLoop(lineOf(path)) && !findSpur(lineOf(path))))
+		.filter(({ path, detour }) => !detour || !shapeProblem(path))
 		.map(({ path, vias, side }) => {
 			const stats = analyzeRoute(path, deps.landscape, deps.roads);
 			const beauty = beautyScore(stats);
@@ -384,7 +390,16 @@ async function planDirection(
 				score: beauty - level.detourPenalty * extraRatio
 			};
 		})
-		.sort((a, b) => b.score - a.score);
+		.sort((a, b) => b.score - a.score)
+		// derselbe Weg kommt oft mehrfach heraus (Hilfspunkt und Korridor führen zum direkten Weg) – nur einmal
+		// behalten, sonst bestehen die besten Kandidaten für Hin- und Rückweg aus lauter gleichen Wegen
+		// (der direkte Weg selbst bleibt immer, seine Doppel fallen weg)
+		.filter((c, i, list) => {
+			if (c.path === direct[0]) return true;
+			const same = (p: (typeof list)[number]) =>
+				Math.abs(p.path.distance - c.path.distance) < 30 && mutualOverlap(p.line, c.line) > 0.97;
+			return !list.some((p, j) => (j < i || p.path === direct[0]) && p !== c && same(p));
+		});
 	const candidates = all.filter((c) => !c.side);
 
 	const compactLimit = directDistance * (1 + COMPACT.maxExtraRatio) + COMPACT.minExtraKm * 1000;
@@ -518,10 +533,17 @@ export function lengthLabels(count: number): string[] {
 	}
 }
 
+/** Start und Ziel liegen so nah beieinander, dass es keinen Weg dazwischen gibt */
+export class TooCloseError extends Error {}
+
+/** Unter diesem Abstand (Luftlinie) ist das Ziel praktisch der Start */
+const MIN_TRIP_M = 200;
+
 /** Hauptfunktion: Vorschläge für eine Zieltour */
 export async function planTours(request: TourRequest, deps: PlanDeps): Promise<PlannedTour[]> {
 	const start = request.start.lngLat;
 	const end = request.destination.lngLat;
+	if (distance(start, end) < MIN_TRIP_M) throw new TooCloseError('Start und Ziel liegen zu nah beieinander');
 
 	const outbound = await planDirection(start, end, request, deps);
 	const inbound = request.returnMode === 'other-way' ? await planDirection(end, start, request, deps) : undefined;
@@ -597,9 +619,9 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 	)
 		chosen.splice(chosen.indexOf(direct), 1);
 	// Ziel: mindestens TARGET_SUGGESTIONS Vorschläge (Wunsch Jan, 06.10.2026) – aufgefüllt mit den schönsten übrigen
-	// Wegen, die sich deutlich von allen gezeigten unterscheiden und mindestens so schön sind wie der direkte.
+	// Wegen, die sich deutlich von allen gezeigten unterscheiden und kaum weniger schön sind als der direkte.
 	// Gleich lang ist dabei erlaubt; gibt es keine solchen Wege, bleibt es bei weniger.
-	const floor = direct ? beautyOf(direct) - WORTHWHILE.beautyMargin : -Infinity;
+	const floor = direct ? beautyOf(direct) - FILL_BEAUTY_MARGIN : -Infinity;
 	for (const c of [...pool].sort((a, b) => beautyOf(b) - beautyOf(a))) {
 		if (chosen.length >= TARGET_SUGGESTIONS) break;
 		if (beautyOf(c) < floor) break;
@@ -673,7 +695,10 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 			legs: combo.legs.map((l) => ({
 				coordinates: l.path.coordinates,
 				distance: l.path.distance,
-				instructions: l.path.instructions
+				instructions: l.path.instructions,
+				bridges: (l.path.details.road_environment ?? [])
+					.filter(([, , v]) => v === 'bridge' || v === 'tunnel')
+					.map(([from, to]) => [from, to] as [number, number])
 			})),
 			stats,
 			extraDistance: Math.max(0, total - directTotal),

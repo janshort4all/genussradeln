@@ -81,6 +81,17 @@ Zweistufig, damit kein eigener Rechen-Server nötig ist:
 
 Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahrten leicht justierbar sind.
 
+### Rundtouren (F2, F4 Rundtour – umgesetzt 06.10.2026, `src/lib/routing/round.ts`)
+
+- Eingabe (`/runde`): Start (Standort oder Adresse) und Länge in km (10–50). Gerechnet wird „gemütlich“.
+- `ROUND.directions` (10) Richtungen ab einem zufälligen Winkel (`request.round.seed`, neue Suche bzw. Knopf
+  „Andere Runden vorschlagen“ → neue Runden, Wunsch Jan): je drei Hilfspunkte auf einem Kreis durch den Start, jeder an die
+  schönste Stelle seiner Umgebung geschoben; Kreis nachregeln, bis die Länge höchstens **10 %** abweicht (Wunsch Jan).
+- Prüfung je Stück rund um einen Hilfspunkt (`roundShapeProblem`): Stummel/Kreis/Zipfel → Hilfspunkt an den Anfang des
+  Abstechers verlegen und neu rechnen. Gemeinsame Zufahrt am Start ist normal; höchstens 30 % der zweiten Hälfte auf der
+  ersten (`ROUND.maxSelfOverlap`). Bis zu 5 Runden, keine fast gleichen; Name „Richtung Norden“ usw., Titel wie bei Zieltouren.
+- Anzeige über dieselbe Seite `/vorschlaege` (erkennt `request.round`); geteilte Runden tragen die Länge im Link (`k`).
+
 ### Touren mit Ziel (F3)
 
 - **Ziel = Art von Ort** („ein Biergarten“): passende POIs aus `pois.json` suchen, deren Entfernung
@@ -247,7 +258,7 @@ Jeder Meilenstein endet mit etwas, das man auf dem Handy ausprobieren kann.
   Abschnitt meiden, Rückgängig; Punkte setzen und Strecke ziehen (PC).
 - **M4b Schönere Strecke (F7):** Schwachstellen finden, Umfahrungen berechnen, grüne Variante anzeigen, Übernehmen/Nein danke.
 - **M5 Rundtouren & Freitext (F2, F4 Rundtour, F3 Ortsart, F5):** Rundtour-Vorschläge nach Dauer/km, Ziel als Ortsart
-  („ein Biergarten“), Worterkennung mit Tests.
+  („ein Biergarten“), Worterkennung mit Tests. Rundtouren nach km ✔ vorgezogen 06.10.2026 (siehe „Rundtouren“).
 - **M6 Navigation (F10):** Positionsverfolgung, Abbiegeanzeige, Sprachansagen, Off-Route-Hinweis, Wake Lock, dunkle Ansicht.
   ✔ umgesetzt 05.10.2026 (Test draußen steht aus), dazu vorgezogen „Aufs Handy schicken“ (Tour im Link, Teil von F15).
 - **M7 Offline & Export (F11, F12):** Tour inkl. Kartenkacheln vorab cachen, GPX-Export (✔ vorgezogen, `src/lib/gpx/`).
@@ -321,6 +332,15 @@ Veröffentlichen: Push auf `main` → GitHub Action `.github/workflows/deploy.ym
   gespeichert). Der Empfänger rechnet den Weg durch die Stützpunkte nach (`rebuild.ts`, `exactPoints`: kein Wegschieben von
   Brücken, Wenden erlaubt). Alte lange Links (ganze Strecke) werden weiter gelesen. Teilen-Knopf: Handy → Teilen-Menü,
   PC → „Per WhatsApp schicken“ (wa.me) / „Link kopieren“. Ohne https zeigt der Link auf die Online-App (`PUBLIC_APP_URL`).
-- **Ortssuche sofort:** Orte aus `places.json` erscheinen beim Tippen ohne Wartezeit (`geocode/local.ts`), Photon (ca. 1,3 s)
-  ergänzt Straßen und Adressen.
+- **Ortssuche sofort:** Orte (`places.json`, `geocode/local.ts`) und **Straßen mit Hausnummern** aus dem eigenen Verzeichnis
+  (`static/data/search/`, aus der OSM-Regionsdatei: `streets.json` ca. 430 KB gepackt, lädt beim ersten Tippen; Hausnummern
+  je Ort und Anfangsbuchstabe in `addr/`, 5–50 KB, nur bei Bedarf; `geocode/streets.ts`) erscheinen ohne Wartezeit.
+  Photon (2–4 s je Anfrage) ergänzt Ausflugsziele. `search/` liegt nicht im Offline-Speicher.
+- **Prüflauf Planung** (`src/lib/dev/plan-check.ts`, nur Entwicklung): viele zufällige Ziel- und Rundtouren in der ganzen
+  Region plus Grenzfälle, geprüft gegen feste Regeln (Zipfel/Kreis/Stummel, fast gleiche Vorschläge, Rückweg auf dem Hinweg,
+  Namen/Reihenfolge, Länge ±10 % bei Runden, Fahrzeit, Texte). Im Browser auf localhost:5173 (lokales GraphHopper):
+  `const m = await import('/src/lib/dev/plan-check.ts'); await m.runPlanCheck({ pairs: 36 })`. **Während des Laufs keine
+  Dateien ändern** – Vite lädt die Seite sonst neu und der Lauf bricht ab.
+- **Brücken/Tunnel:** Kreuzungen auf anderer Ebene (Spiralrampen der Rheinbrücken) sind kein Kreis/Zipfel (`separatedFrom`,
+  `TourLeg.bridges`).
 - PowerShell-Skripte (`*.ps1`) als UTF-8 **mit BOM** speichern, sonst zeigt Windows PowerShell 5.1 Umlaute falsch.

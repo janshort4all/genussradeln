@@ -1,37 +1,74 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import Binoculars from '@lucide/svelte/icons/binoculars';
-	import Clock3 from '@lucide/svelte/icons/clock-3';
-	import Feather from '@lucide/svelte/icons/feather';
 	import LocateFixed from '@lucide/svelte/icons/locate-fixed';
 	import MapPin from '@lucide/svelte/icons/map-pin';
-	import Mic from '@lucide/svelte/icons/mic';
 	import Route from '@lucide/svelte/icons/route';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import Sprout from '@lucide/svelte/icons/sprout';
-	import Sun from '@lucide/svelte/icons/sun';
-	import Timer from '@lucide/svelte/icons/timer';
-	import Trees from '@lucide/svelte/icons/trees';
-	import TrendingUp from '@lucide/svelte/icons/trending-up';
-	import WavesHorizontal from '@lucide/svelte/icons/waves-horizontal';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import ChoiceGroup from '$lib/components/ChoiceGroup.svelte';
+	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
+	import { currentPosition, PositionError } from '$lib/geo/position';
+	import { inRegion } from '$lib/geocode/photon';
+	import type { Effort } from '$lib/routing/graphhopper';
+	import { rideMinutes } from '$lib/tour/duration';
+	import type { Place } from '$lib/tour/model';
+	import { formatDuration } from '$lib/tour/sample';
+	import { session } from '$lib/tour/session.svelte';
 
-	// Rundtour-Wunsch (F2, F5) – wird in M5 an die Rundtour-Berechnung übergeben; bis dahin Beispieltouren
-	let start = $state('here');
-	let address = $state('');
-	let measure = $state<'duration' | 'distance'>('duration');
-	let duration = $state('2h');
-	let distance = $state('30');
-	let effort = $state('easy');
-	let landscape = $state<string[]>(['green']);
-	let freeText = $state('');
+	// Rundtour-Wunsch (F2): Start und Länge – die App schlägt fünf schöne Runden vor, bei jeder Suche andere.
+	const last = session.request?.round ? session.request : undefined;
+	let startMode: 'here' | 'address' = $state(last && last.start.name !== 'Ihr Standort' ? 'address' : 'here');
+	let startPlace: Place | undefined = $state(last && last.start.name !== 'Ihr Standort' ? last.start : undefined);
+	let km = $state(String(last?.round?.km ?? 20));
+	const effort: Effort = 'easy';
 
-	function submit(event: SubmitEvent) {
+	const LENGTHS = [10, 15, 20, 30, 40, 50];
+	const choices = LENGTHS.map((value) => ({ value: String(value), label: `${value} km`, icon: Route }));
+	const duration = $derived(formatDuration(rideMinutes(Number(km) * 1000, 0, effort)));
+
+	let busy = $state(false);
+	let problem = $state('');
+
+	async function submit(event: SubmitEvent) {
 		event.preventDefault();
-		goto(resolve('/runde/vorschlaege'));
+		problem = '';
+		let start: Place;
+		if (startMode === 'address') {
+			if (!startPlace) {
+				problem = 'Bitte suchen Sie Ihren Startpunkt und tippen Sie ihn in der Liste an.';
+				return;
+			}
+			start = startPlace;
+		} else {
+			busy = true;
+			try {
+				start = { name: 'Ihr Standort', lngLat: await currentPosition() };
+			} catch (error) {
+				problem = error instanceof PositionError ? error.message : 'Ihr Standort ließ sich nicht bestimmen.';
+				startMode = 'address';
+				return;
+			} finally {
+				busy = false;
+			}
+			if (!inRegion(start.lngLat)) {
+				problem =
+					'Sie sind gerade außerhalb der Testregion (Niederrhein / Düsseldorf). Bitte geben Sie einen Startpunkt in der Region ein.';
+				startMode = 'address';
+				return;
+			}
+		}
+		// jede Suche mit neuem Zufallswert → jedes Mal andere Runden
+		const seed = Math.floor(Math.random() * 2 ** 31);
+		session.setRequest({
+			start,
+			destination: start,
+			effort,
+			returnMode: 'one-way',
+			round: { km: Number(km), seed }
+		});
+		goto(resolve('/vorschlaege'));
 	}
 </script>
 
@@ -43,92 +80,31 @@
 
 <header class="intro">
 	<h1>Eine schöne Runde drehen</h1>
-	<p class="lead">
-		Rundtouren berechnet die App in einem späteren Schritt. Bis dahin sehen Sie hier Beispiele.
-	</p>
+	<p class="lead">Wir schlagen Ihnen bis zu fünf schöne Runden vor – bei jeder Suche neue.</p>
 </header>
 
-<form onsubmit={submit}>
+<form onsubmit={submit} novalidate>
 	<ChoiceGroup
 		legend="Wo starten Sie?"
 		name="start"
-		bind:value={start}
+		bind:value={startMode}
 		choices={[
 			{ value: 'here', label: 'Hier, wo ich bin', icon: LocateFixed },
 			{ value: 'address', label: 'An einer Adresse', icon: MapPin }
 		]}
 	/>
-	{#if start === 'address'}
-		<label class="field">
-			<span class="field-label">Adresse oder Ort</span>
-			<input type="text" bind:value={address} placeholder="z. B. Duisburg-Baerl" autocomplete="street-address" />
-		</label>
+	{#if startMode === 'address'}
+		<PlaceSearch label="Startpunkt" placeholder="z. B. Ihre Straße und Hausnummer" bind:value={startPlace} />
 	{/if}
 
-	{#if measure === 'duration'}
-		<ChoiceGroup
-			legend="Wie lange möchten Sie fahren?"
-			name="duration"
-			bind:value={duration}
-			choices={[
-				{ value: '1h', label: '1 Std.', icon: Timer },
-				{ value: '2h', label: '2 Std.', icon: Clock3 },
-				{ value: 'half-day', label: 'Halber Tag', icon: Sun }
-			]}
-		/>
-	{:else}
-		<ChoiceGroup
-			legend="Wie weit möchten Sie fahren?"
-			name="distance"
-			bind:value={distance}
-			choices={[
-				{ value: '15', label: '15 km', icon: Route },
-				{ value: '30', label: '30 km', icon: Route },
-				{ value: '50', label: '50 km', icon: Route }
-			]}
-		/>
-	{/if}
-	<button
-		type="button"
-		class="switch-measure"
-		onclick={() => (measure = measure === 'duration' ? 'distance' : 'duration')}
-	>
-		{measure === 'duration' ? 'Lieber in Kilometern angeben' : 'Lieber als Dauer angeben'}
-	</button>
+	<ChoiceGroup legend="Wie lang soll die Runde sein?" name="length" bind:value={km} {choices} />
+	<p class="duration muted">{km} km sind gemütlich gefahren ca. {duration}.</p>
 
-	<ChoiceGroup
-		legend="Wie anstrengend?"
-		name="effort"
-		bind:value={effort}
-		choices={[
-			{ value: 'easy', label: 'Gemütlich', icon: Feather },
-			{ value: 'sporty', label: 'Sportlicher', icon: TrendingUp }
-		]}
-	/>
+	<p class="problem" role="alert">{problem}</p>
 
-	<ChoiceGroup
-		legend="Was möchten Sie sehen? (mehrere möglich)"
-		name="landscape"
-		multiple
-		bind:value={landscape}
-		choices={[
-			{ value: 'green', label: 'Grün', icon: Sprout },
-			{ value: 'water', label: 'Wasser', icon: WavesHorizontal },
-			{ value: 'forest', label: 'Wald', icon: Trees },
-			{ value: 'view', label: 'Aussicht', icon: Binoculars }
-		]}
-	/>
-
-	<label class="field free-text">
-		<span class="field-label">Oder sagen Sie es in eigenen Worten</span>
-		<textarea rows="2" bind:value={freeText} placeholder="z. B. 20 km durchs Grüne zum Biergarten"></textarea>
-		<span class="field-hint mic-hint">
-			<Mic size={20} aria-hidden="true" />
-			Tipp: Tippen Sie auf das Mikrofon Ihrer Tastatur und sprechen Sie einfach.
-		</span>
-	</label>
-
-	<Button variant="primary" type="submit" icon={Sparkles}>Beispiel-Runden zeigen</Button>
+	<Button variant="primary" type="submit" icon={Sparkles} disabled={busy}>
+		{busy ? 'Standort wird bestimmt …' : 'Schöne Runden finden'}
+	</Button>
 </form>
 
 <style>
@@ -141,36 +117,17 @@
 		margin: 0;
 	}
 
-	.free-text {
-		padding: 1rem;
-		border-radius: var(--radius);
-		background: var(--color-green-light);
+	.duration {
+		margin: -0.5rem 0 1.5rem;
 	}
 
-	.mic-hint {
-		display: flex;
-		align-items: flex-start;
-		gap: 0.375rem;
-	}
-
-	.mic-hint :global(svg) {
-		flex: none;
-		margin-top: 0.15em;
-		color: var(--color-olive);
-	}
-
-	.switch-measure {
-		display: inline-flex;
-		align-items: center;
-		min-height: var(--tap);
-		margin: -1rem 0 1.25rem;
-		padding: 0.5rem 0;
-		border: 0;
-		background: none;
-		color: var(--color-green);
+	.problem {
+		margin: 0 0 1rem;
+		color: var(--color-orange-dark);
 		font-weight: 700;
-		text-decoration: underline;
-		text-underline-offset: 0.15em;
-		cursor: pointer;
+	}
+
+	.problem:empty {
+		display: none;
 	}
 </style>

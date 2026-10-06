@@ -21,9 +21,12 @@ export type ReturnMode = 'one-way' | 'other-way';
 /** Wunsch für eine Zieltour */
 export interface TourRequest {
 	start: Place;
+	/** bei einer Rundtour derselbe Ort wie der Start */
 	destination: Place;
 	effort: Effort;
 	returnMode: ReturnMode;
+	/** Rundtour („Einfach eine schöne Runde drehen“): gewünschte Länge und Zufallswert (neue Suche → neue Runden) */
+	round?: { km: number; seed: number };
 }
 
 /**
@@ -46,6 +49,8 @@ export interface TourLeg {
 	distance: number;
 	/** Abbiegehinweise für die Navigation (Index bezieht sich auf `coordinates`) */
 	instructions?: RouteInstruction[];
+	/** Brücken und Tunnel: Wegstücke [von, bis) (Index wie `coordinates`) */
+	bridges?: [number, number][];
 }
 
 export interface PlannedTour {

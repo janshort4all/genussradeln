@@ -27,6 +27,15 @@ export const POIS: OsmQuery = (t) =>
 export const PLACES: OsmQuery = (t, kind) =>
 	kind === 'node' && match(t.place, /^(city|town|village|suburb|quarter)$/) && !!t.name?.trim();
 
+/** Adressen (Hausnummern) – für die Sofort-Suche beim Tippen (addresses.ts) */
+export const ADDRESSES: OsmQuery = (t, kind) => kind !== 'relation' && !!t['addr:housenumber'] && !!t['addr:street'];
+
+/** Benannte Straßen und Wege – Straßen ohne eingetragene Hausnummern (addresses.ts) */
+export const STREET_NAMES: OsmQuery = (t, kind) =>
+	kind === 'way' &&
+	!!t.name &&
+	match(t.highway, /^(residential|living_street|unclassified|tertiary|secondary|primary|pedestrian|road|service|track|cycleway|path|footway|bridleway)$/);
+
 /** Große Straßen – für „Radweg direkt neben der Straße“ (roads.ts) */
 export const MAJOR_ROADS: OsmQuery = (t, kind) =>
 	kind === 'way' && match(t.highway, /^(motorway|trunk|primary|secondary)(_link)?$/);

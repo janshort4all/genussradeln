@@ -129,6 +129,8 @@ export interface TourSpec {
 	g: string[];
 	/** je Abschnitt die Länge in Metern – zur Kontrolle beim Nachrechnen */
 	m?: number[];
+	/** Rundtour: gewünschte Länge in km (Start = Ziel) */
+	k?: number;
 }
 
 /** Wie die Polyline die Punkte speichert (5 Nachkommastellen) – geprüft wird mit genau diesen Punkten */
@@ -179,7 +181,8 @@ export async function packShort(tour: PlannedTour, anchors?: LngLat[][]): Promis
 		g: tour.legs.map((leg, i) =>
 			encodePolyline(anchors?.[i] ?? anchorsOf(leg.coordinates.map(([lon, lat]) => [lon, lat] as LngLat)))
 		),
-		m: tour.legs.map((leg) => Math.round(leg.distance))
+		m: tour.legs.map((leg) => Math.round(leg.distance)),
+		...(tour.request.round ? { k: tour.request.round.km } : {})
 	};
 	return toBase64Url(await deflate(JSON.stringify(spec)));
 }

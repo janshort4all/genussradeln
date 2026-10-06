@@ -92,8 +92,9 @@ export function fromPlanned(t: PlannedTour): TourView {
 		id: t.id,
 		title: t.title,
 		kind: t.shared ? undefined : t.label,
-		subtitle:
-			returnMode === 'other-way'
+		subtitle: t.request.round
+			? `Runde ab ${start.name} (ca. ${t.request.round.km} km)`
+			: returnMode === 'other-way'
 				? `Von ${start.name} zu ${destination.name} und als Runde zurück`
 				: `Von ${start.name} zu ${destination.name}`,
 		highlight: t.highlight,

@@ -124,6 +124,8 @@ export const VIA_SEARCH = {
 	 * des eigenen Wegs ergibt nur 20–40 m …
 	 */
 	maxBacktrackM: 50,
+	/** so nah an Start und Ziel wird nicht auf Stummel/Kreis/Zipfel geprüft (dort muss man manchmal wenden) */
+	endpointFreeM: 500,
 	/** … dafür werden so viele Zwischenpunkte zusätzlich ausprobiert */
 	spareVias: 3,
 	/**
@@ -171,6 +173,31 @@ export const MAX_SUGGESTIONS = 5;
 
 /** So viele Vorschläge sollen es möglichst sein (wenn es genug deutlich verschiedene, schöne Wege gibt) */
 export const TARGET_SUGGESTIONS = 3;
+
+/**
+ * Rundtouren (round.ts): so viele Richtungen werden probiert, so weit darf die Länge vom Wunsch abweichen
+ * (Wunsch Jan, 06.10.2026: 10 %), so viele Runden werden gezeigt.
+ */
+export const ROUND = {
+	directions: 10,
+	tolerance: 0.1,
+	suggestions: 5,
+	/** Kreisumfang × Faktor ≈ Länge auf Straßen (Startwert, wird nachgeregelt) */
+	roadFactor: 1.3,
+	/** so oft wird der Kreis vergrößert/verkleinert, bis die Länge passt */
+	lengthAttempts: 4,
+	/** so oft wird ein Hilfspunkt mit Stummel/Kreis/Zipfel verlegt */
+	repairs: 2,
+	/** Hilfspunkte rücken bis zu diesem Anteil des Kreisradius an schönere Stellen */
+	scenicReach: 0.35,
+	/** höchstens dieser Anteil der zweiten Hälfte darf auf der ersten liegen (nicht denselben Weg zurück) */
+	maxSelfOverlap: 0.3,
+	/** zwei Runden sind „gleich“, wenn jede zu mehr als diesem Anteil auf der anderen liegt */
+	maxSimilarity: 0.6
+} as const;
+
+/** Beim Auffüllen auf TARGET_SUGGESTIONS darf ein Weg so viel weniger schön sein als der direkte (Schönheitspunkte) */
+export const FILL_BEAUTY_MARGIN = 0.15;
 
 /** „Hin und zurück als Runde“: so viele der besten Hin- und Rückwege werden zu Paaren kombiniert */
 export const PAIR_CANDIDATES = 8;
