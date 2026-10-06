@@ -5,7 +5,8 @@
  * großen Straße verlaufen (gefunden: Radweg 5–12 m neben der Rheinberger Straße in Moers).
  *
  * Ausgabe:
- *   static/data/roads.bin    ein Bit je Zelle (Zeile für Zeile), mit deflate-raw gepackt
+ *   static/data/roads.bin    zwei Ebenen mit je einem Bit pro Zelle (Zeile für Zeile), hintereinander, mit deflate-raw
+ *                            gepackt: 0 = irgendeine große Straße, 1 = Autobahn/Kraftfahrstraße (lauter)
  *   static/data/roads.json   Ausdehnung und Zellgröße
  * Daten: © OpenStreetMap-Mitwirkende, ODbL.
  */
@@ -21,7 +22,8 @@ const ROADSIDE_M = 25;
 export async function buildRoads(elements: OsmElement[], bounds: Bounds) {
 	const width = Math.ceil((bounds.east - bounds.west) / CELL_LON);
 	const height = Math.ceil((bounds.north - bounds.south) / CELL_LAT);
-	const bits = new Uint8Array(Math.ceil((width * height) / 8));
+	const layerBytes = Math.ceil((width * height) / 8);
+	const bits = new Uint8Array(layerBytes * 2);
 	const kx = Math.cos((((bounds.north + bounds.south) / 2) * Math.PI) / 180) * 111_320;
 	const ky = 110_540;
 	const reach = ROADSIDE_M / kx / CELL_LON + 1;
@@ -30,6 +32,7 @@ export async function buildRoads(elements: OsmElement[], bounds: Bounds) {
 	for (const e of elements) {
 		if (e.type !== 'way' || !e.geometry || e.tags?.tunnel === 'yes') continue;
 		const g = e.geometry;
+		const motorway = /^(motorway|trunk)/.test(e.tags?.highway ?? '');
 		for (let i = 1; i < g.length; i++) {
 			const a = g[i - 1];
 			const b = g[i];
@@ -54,6 +57,7 @@ export async function buildRoads(elements: OsmElement[], bounds: Bounds) {
 						bits[i2 >> 3] |= 1 << (i2 & 7);
 						marked++;
 					}
+					if (motorway) bits[layerBytes + (i2 >> 3)] |= 1 << (i2 & 7);
 				}
 			}
 		}
@@ -71,6 +75,7 @@ export async function buildRoads(elements: OsmElement[], bounds: Bounds) {
 			width,
 			height,
 			roadsideM: ROADSIDE_M,
+			layers: 2,
 			source: '© OpenStreetMap-Mitwirkende (ODbL)',
 			created: new Date().toISOString().slice(0, 10)
 		}) + '\n'

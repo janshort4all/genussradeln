@@ -99,7 +99,9 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
      Paare aus den 5 schönsten Einzel-Umwegen, in Fahrtrichtung geordnet; mit Stummel oder Kreis verworfen.
   4. Nachbewertung (`score.ts`), Mehrweg-Grenze, Abzug je Mehrweg. Radwege, die direkt neben einer großen Straße
      verlaufen (eigener Weg in OSM, aber laut), zählen nicht als ruhig und bekommen Abzug (`SCORE.roadside`; Daten
-     `roads.bin`: Zellen ≤ 25 m an motorway…secondary, `scoring/roads.ts`, erst ab 150 m am Stück).
+     `roads.bin`: Zellen ≤ 25 m an motorway…secondary, 2. Ebene nur Autobahn/Kraftfahrstraße, `scoring/roads.ts`, erst ab
+     150 m am Stück). Abgestuft (`ROADSIDE`, Wunsch Jan 06.10.2026): mit Wald oder Wasser im Umkreis von ca. 100 m nur ein
+     Drittel des Abzugs (Naherholungsgebiet an der Autobahn schlägt die Stadt), neben Autobahnen das 1,3-Fache.
   5. **Auswahl (Entscheidung Jan, 06.10.2026):** bis zu `MAX_SUGGESTIONS` = 5 Wege, **benannt nach der Länge**:
      „Längste Tour“, „Lange Tour“, „Mittlere Tour“, „Kurze Tour“, „Kürzeste Tour“ (bei zwei: „Längere/Kürzere Tour“;
      `lengthLabels` in `plan.ts`), sortiert vom längsten zum kürzesten. Keine Rollen wie „Am schönsten“ mehr.

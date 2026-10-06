@@ -4,7 +4,7 @@ import type { DetailInterval, RoutePath } from '$lib/routing/graphhopper';
 import { climbWordOf, elevationProfile, type ClimbWord } from '$lib/tour/elevation';
 import type { Landscape } from './landscape';
 import type { RoadMask } from './roads';
-import { BIG_WATER, SAMPLE_STEP_M, SCORE, SURROUNDINGS_RADIUS_CELLS } from './weights';
+import { BIG_WATER, ROADSIDE, SAMPLE_STEP_M, SCORE, SURROUNDINGS_RADIUS_CELLS } from './weights';
 
 export type { ClimbWord };
 
@@ -24,6 +24,11 @@ export interface RouteStats {
 	major: number;
 	/** Anteil auf Rad-/Fußwegen direkt neben einer großen Straße (laut, obwohl „Radweg“) */
 	roadside: number;
+	/**
+	 * Wie sehr dieser Lärm stört (Anteil, gewichtet nach ROADSIDE): im Grünen weniger, an der Autobahn mehr.
+	 * Fehlt bei älteren gespeicherten Touren – dann gilt `roadside`.
+	 */
+	roadsideNoise?: number;
 	badSurface: number;
 	climb: ClimbWord;
 }
@@ -47,14 +52,33 @@ const ROADSIDE_MIN_M = 150;
  * Straße liegen. Geprüft wird alle ca. 20 m.
  */
 export function roadsideShare(path: RoutePath, roads: RoadMask): number {
+	return roadsideStats(path, roads).share;
+}
+
+/**
+ * Wie roadsideShare, dazu `noise`: derselbe Anteil, gewichtet danach, wie sehr der Lärm stört (Wunsch Jan,
+ * 06.10.2026): mit Wald oder Wasser direkt am Weg nur ROADSIDE.greenFactor (ein Naherholungsgebiet an der
+ * Autobahn ist schöner als eine Fahrt durch die Stadt), neben Autobahnen ROADSIDE.motorwayFactor.
+ */
+export function roadsideStats(path: RoutePath, roads: RoadMask, landscape?: Landscape): { share: number; noise: number } {
 	const line = lineOf(path);
 	const lengths = segmentLengths(line);
 	const total = lengths.reduce((s, d) => s + d, 0);
-	if (total <= 0) return 0;
+	if (total <= 0) return { share: 0, noise: 0 };
 	const classOf: string[] = [];
 	for (const [from, to, value] of path.details.road_class ?? []) for (let i = from; i < to; i++) classOf[i] = value;
 	let sum = 0;
+	let noise = 0;
 	let run = 0;
+	let runNoise = 0;
+	const endRun = () => {
+		if (run >= ROADSIDE_MIN_M) {
+			sum += run;
+			noise += runNoise;
+		}
+		run = 0;
+		runNoise = 0;
+	};
 	for (let i = 0; i < lengths.length; i++) {
 		const a = line[i];
 		const b = line[i + 1];
@@ -64,14 +88,20 @@ export function roadsideShare(path: RoutePath, roads: RoadMask): number {
 			const t = (s + 0.5) / steps;
 			near = roads.near([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
 		}
-		if (near) run += lengths[i];
-		else {
-			if (run >= ROADSIDE_MIN_M) sum += run;
-			run = 0;
+		if (!near) {
+			endRun();
+			continue;
 		}
+		const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+		const around = landscape?.surroundings(mid, SURROUNDINGS_RADIUS_CELLS, BIG_WATER);
+		// nur Wald und Wasser gleichen aus – ein Grünstreifen neben der Straße macht sie nicht leiser
+		const green = !!around && (around.water || around.forest);
+		run += lengths[i];
+		runNoise +=
+			lengths[i] * (green ? ROADSIDE.greenFactor : 1) * (roads.nearMotorway(mid) ? ROADSIDE.motorwayFactor : 1);
 	}
-	if (run >= ROADSIDE_MIN_M) sum += run;
-	return Math.min(1, sum / total);
+	endRun();
+	return { share: Math.min(1, sum / total), noise: Math.min(1, noise / total) };
 }
 
 /** Anteil der Strecke (nach Länge), deren Detailwert die Bedingung erfüllt */
@@ -122,7 +152,7 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape, roads?: Roa
 		nature /= samples.length;
 	}
 
-	const roadside = roads ? roadsideShare(path, roads) : 0;
+	const { share: roadside, noise: roadsideNoise } = roads ? roadsideStats(path, roads, landscape) : { share: 0, noise: 0 };
 	return {
 		distance: path.distance,
 		water,
@@ -135,6 +165,7 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape, roads?: Roa
 		quiet: Math.max(0, detailShare(d.road_class, lengths, total, (v) => QUIET_WAYS.has(v)) - roadside),
 		major: detailShare(d.road_class, lengths, total, (v) => MAJOR_ROADS.has(v)),
 		roadside,
+		roadsideNoise,
 		badSurface: Math.max(
 			detailShare(d.surface, lengths, total, (v) => BAD_SURFACES.has(v)),
 			detailShare(d.smoothness, lengths, total, (v) => BAD_SMOOTHNESS.has(v))
@@ -153,7 +184,7 @@ export function beautyScore(s: RouteStats): number {
 		SCORE.network * s.network +
 		SCORE.quiet * s.quiet -
 		SCORE.major * s.major -
-		SCORE.roadside * (s.roadside ?? 0) -
+		SCORE.roadside * (s.roadsideNoise ?? s.roadside ?? 0) -
 		SCORE.badSurface * s.badSurface
 	);
 }
@@ -162,7 +193,7 @@ export function beautyScore(s: RouteStats): number {
 export function combineStats(parts: RouteStats[]): RouteStats {
 	const total = parts.reduce((s, p) => s + p.distance, 0) || 1;
 	const avg = (key: keyof Omit<RouteStats, 'climb' | 'distance'>) =>
-		parts.reduce((s, p) => s + p[key] * p.distance, 0) / total;
+		parts.reduce((s, p) => s + (p[key] ?? 0) * p.distance, 0) / total;
 	const order: ClimbWord[] = ['flach', 'leicht hügelig', 'hügelig'];
 	return {
 		distance: total,
@@ -175,6 +206,8 @@ export function combineStats(parts: RouteStats[]): RouteStats {
 		quiet: avg('quiet'),
 		major: avg('major'),
 		roadside: avg('roadside'),
+		// ältere gespeicherte Touren kennen roadsideNoise nicht → dort zählt roadside
+		roadsideNoise: parts.reduce((s, p) => s + (p.roadsideNoise ?? p.roadside ?? 0) * p.distance, 0) / total,
 		badSurface: avg('badSurface'),
 		climb: order[Math.max(...parts.map((p) => order.indexOf(p.climb)))]
 	};

@@ -28,13 +28,23 @@ export const SCORE = {
 	quiet: 0.5,
 	/** Abzug: Anteil auf großen Straßen (Bundes-, Landes-, Kreisstraßen) */
 	major: 1.5,
-	/** Abzug: Anteil auf Radwegen direkt neben großen Straßen (Lärm, Abgase – fast so schlecht wie auf der Straße) */
+	/**
+	 * Abzug: Anteil auf Radwegen direkt neben großen Straßen (Lärm, Abgase – fast so schlecht wie auf der Straße);
+	 * abgestuft nach ROADSIDE
+	 */
 	roadside: 1.2,
 	/** Abzug: Anteil auf wirklich schlechtem Belag (Wiese, Sand, Kopfsteinpflaster – Schotter zählt nicht) */
 	badSurface: 1.0,
 	/** Abzug: Anteil des Rückwegs, der auf dem Hinweg liegt („auf anderem Weg zurück“) */
 	returnOverlap: 1.2
 } as const;
+
+/**
+ * Radweg neben großer Straße, abgestuft (Wunsch Jan, 06.10.2026): mit Wald oder Wasser direkt am Weg nur ein
+ * Drittel des Abzugs (Naherholungsgebiet an der Autobahn schlägt die Fahrt durch die Stadt), neben Autobahnen und
+ * Kraftfahrstraßen etwas mehr als neben Bundes- und Landesstraßen.
+ */
+export const ROADSIDE = { greenFactor: 0.35, motorwayFactor: 1.3 } as const;
 
 /**
  * Spielraum für Umwege. Gefragt wird nicht mehr (Entscheidung Jan, 04.10.2026): Die Vorschläge reichen
