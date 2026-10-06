@@ -19,6 +19,7 @@ import { analyzeRoute, beautyScore, combineStats, lineOf, type RouteStats } from
 import {
 	BEAUTY_CLASS_WEIGHTS,
 	COMPACT,
+	CORRIDOR,
 	DETOUR,
 	DIVERSITY_MAX_OVERLAP,
 	MAX_SUGGESTIONS,
@@ -26,6 +27,7 @@ import {
 	ROUND_MAX_OVERLAP,
 	LENGTH_STEP,
 	SCORE,
+	TARGET_SUGGESTIONS,
 	TITLE_MIN_SHARE_OF_TOP,
 	VIA_PAIRS,
 	VIA_SEARCH,
@@ -194,6 +196,24 @@ export function findScenicVias(
 	return chosen;
 }
 
+/** Band (Rechteck) der halben Breite `halfWidth` Meter um die Strecke a → b, etwas über die Enden hinaus */
+function band(a: LngLat, b: LngLat, halfWidth: number): LngLat[] {
+	const kx = 111_320 * Math.cos((a[1] * Math.PI) / 180);
+	const ky = 110_540;
+	const dx = (b[0] - a[0]) * kx;
+	const dy = (b[1] - a[1]) * ky;
+	const length = Math.hypot(dx, dy) || 1;
+	const ux = (dx / length) * halfWidth;
+	const uy = (dy / length) * halfWidth;
+	const corner = (x: number, y: number): LngLat => [a[0] + x / kx, a[1] + y / ky];
+	return [
+		corner(-ux - uy, -uy + ux),
+		corner(dx + ux - uy, dy + uy + ux),
+		corner(dx + ux + uy, dy + uy - ux),
+		corner(-ux + uy, -uy - ux)
+	];
+}
+
 /** Lage eines Punkts entlang der Strecke von `from` nach `to` (0 = Start, 1 = Ziel) */
 function alongAxis(point: LngLat, from: LngLat, to: LngLat): number {
 	const kx = Math.cos((from[1] * Math.PI) / 180);
@@ -269,7 +289,8 @@ async function planDirection(
 	const maxLength = directDistance * (1 + level.maxExtraRatio) + level.minExtraKm * 1000;
 
 	// side = Weg knapp neben der Luftlinie: nur Kandidat für „Fast direkt“, nicht für die schönsten Vorschläge
-	type Found = { path: RoutePath; vias: LngLat[]; side: boolean };
+	// detour = Umweg der App (über Hilfspunkt oder Korridor) → muss die Prüfungen auf Stummel, Kreis, Zipfel bestehen
+	type Found = { path: RoutePath; vias: LngLat[]; side: boolean; detour?: boolean };
 	const paths: Found[] = direct.map((path) => ({ path, vias: [], side: false }));
 
 	// Zwischenpunkte: schöne Orte (je nach Umweg-Wunsch) + knapp neben der Luftlinie (für „Fast direkt“)
@@ -310,11 +331,35 @@ async function planDirection(
 			throw error;
 		}
 	});
-	for (const p of viaPaths) if (p) paths.push(p);
+	for (const p of viaPaths) if (p) paths.push({ ...p, detour: true });
+
+	// Dieselben schönen Stellen noch einmal als Korridor statt als fester Punkt: GraphHopper bleibt im Band
+	// Start → schöne Stelle → Ziel und wählt darin selbst den besten Weg. Ein fester Punkt erzwingt manchmal einen
+	// Zipfel (Stichweg zum Ufer, Punkt hinter dem Ziel) – ein Korridor nie (Ursache der Zipfel, 06.10.2026).
+	const corridorPaths = await mapLimited(
+		vias.filter((v) => !v.side),
+		4,
+		async ({ point }): Promise<Found | undefined> => {
+			try {
+				const [path] = await deps.route([from, to], {
+					...options,
+					preferAreas: {
+						rings: [band(from, point, CORRIDOR.halfWidthM), band(point, to, CORRIDOR.halfWidthM)],
+						outsideFactor: CORRIDOR.outsideFactor
+					}
+				});
+				return path && { path, vias: [], side: false, detour: true };
+			} catch (error) {
+				if (error instanceof NoRouteError) return undefined;
+				throw error;
+			}
+		}
+	);
+	for (const p of corridorPaths) if (p) paths.push(p);
 
 	// Wege über zwei schöne Stellen nacheinander (z. B. erst am Rhein, dann am See): aus den Hilfspunkten, deren
 	// Weg schon allein am schönsten war, Paare bilden – in Fahrtrichtung geordnet (Wunsch Jan, 06.10.2026)
-	for (const p of await viaPairs(from, to, viaPaths, maxLength, deps, options)) paths.push(p);
+	for (const p of await viaPairs(from, to, viaPaths, maxLength, deps, options)) paths.push({ ...p, detour: true });
 
 	// keine zusätzlichen Fluss-Querungen gegenüber dem direkten Weg (über die Brücke hin, woanders zurück)
 	const directCrossing = longCrossingMeters(direct[0]);
@@ -322,9 +367,9 @@ async function planDirection(
 		.filter(({ path }) => path.distance <= maxLength)
 		.filter(({ path }) => path === direct[0] || longCrossingMeters(path) <= directCrossing + 50)
 		// Wege über Zwischenpunkte ohne „Stummel“ (hin und gleich wieder zurück in eine Sackgasse)
-		.filter(({ path, vias }) => !vias.length || backtrackMeters(lineOf(path)) <= VIA_SEARCH.maxBacktrackM)
+		.filter(({ path, detour }) => !detour || backtrackMeters(lineOf(path)) <= VIA_SEARCH.maxBacktrackM)
 		// … ohne Runde im Kreis und ohne Zipfel
-		.filter(({ path, vias }) => !vias.length || (!findLoop(lineOf(path)) && !findSpur(lineOf(path))))
+		.filter(({ path, detour }) => !detour || (!findLoop(lineOf(path)) && !findSpur(lineOf(path))))
 		.map(({ path, vias, side }) => {
 			const stats = analyzeRoute(path, deps.landscape, deps.roads);
 			const beauty = beautyScore(stats);
@@ -551,6 +596,15 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 		chosen.some((p) => p !== direct && lengthOf(p) <= lengthOf(direct) && beautyOf(p) >= beautyOf(direct))
 	)
 		chosen.splice(chosen.indexOf(direct), 1);
+	// Ziel: mindestens TARGET_SUGGESTIONS Vorschläge (Wunsch Jan, 06.10.2026) – aufgefüllt mit den schönsten übrigen
+	// Wegen, die sich deutlich von allen gezeigten unterscheiden und mindestens so schön sind wie der direkte.
+	// Gleich lang ist dabei erlaubt; gibt es keine solchen Wege, bleibt es bei weniger.
+	const floor = direct ? beautyOf(direct) - WORTHWHILE.beautyMargin : -Infinity;
+	for (const c of [...pool].sort((a, b) => beautyOf(b) - beautyOf(a))) {
+		if (chosen.length >= TARGET_SUGGESTIONS) break;
+		if (beautyOf(c) < floor) break;
+		if (!chosen.includes(c) && !chosen.some((p) => tooSimilar(c, p))) chosen.push(c);
+	}
 	// vom längsten (größter Umweg) zum kürzesten
 	const ordered = [...chosen].sort((a, b) => lengthOf(b) - lengthOf(a));
 	const labels = lengthLabels(ordered.length);

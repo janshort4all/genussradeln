@@ -90,7 +90,34 @@ export interface RouteOptions {
 	 * Wegs, dessen Stützpunkte auf der Strecke selbst liegen. Sonst schiebt GraphHopper sie von Brücken weg.
 	 */
 	exactPoints?: boolean;
+	/**
+	 * Schöne Gebiete (Ringe aus Punkten), durch die der Weg führen soll: Alles außerhalb wird um
+	 * `outsideFactor` unattraktiver – GraphHopper sucht sich selbst den besten Weg hindurch. Anders als ein fester
+	 * Zwischenpunkt erzeugt das keine „Zipfel“ (hinein und wieder zurück).
+	 */
+	preferAreas?: { rings: LngLat[][]; outsideFactor: number };
 	signal?: AbortSignal;
+}
+
+/** Regeln fürs Anfrage-custom_model: „gemütlich“ und ggf. bevorzugte Gebiete */
+function requestModel(options: RouteOptions): Record<string, unknown> | undefined {
+	const priority: unknown[] = options.effort === 'easy' ? [...GEMUETLICH_MODEL.priority] : [];
+	const areas = options.preferAreas;
+	if (!areas?.rings.length) return priority.length ? { priority } : undefined;
+	const ids = areas.rings.map((_, i) => `schoen${i}`);
+	priority.push({ if: `!(${ids.map((id) => `in_${id}`).join(' || ')})`, multiply_by: String(areas.outsideFactor) });
+	return {
+		priority,
+		areas: {
+			type: 'FeatureCollection',
+			features: areas.rings.map((ring, i) => ({
+				type: 'Feature',
+				id: ids[i],
+				properties: {},
+				geometry: { type: 'Polygon', coordinates: [[...ring, ring[0]]] }
+			}))
+		}
+	};
 }
 
 /** Berechnet einen Weg durch alle Punkte (bzw. mehrere Alternativen) mit dem Profil „genuss“ */
@@ -107,7 +134,8 @@ export async function route(points: LngLat[], options: RouteOptions): Promise<Ro
 		// keine Wenden an Zwischenpunkten (außer beim Nachrechnen: die Punkte liegen dann auf der Strecke selbst)
 		pass_through: points.length > 2 && !options.exactPoints
 	};
-	if (options.effort === 'easy') body.custom_model = GEMUETLICH_MODEL;
+	const model = requestModel(options);
+	if (model) body.custom_model = model;
 	if (options.exactPoints) body.snap_preventions = [];
 	if (options.alternatives && points.length === 2) {
 		body.algorithm = 'alternative_route';

@@ -113,7 +113,7 @@ export function findLoop(line: LngLat[]): Loop | undefined {
 /** „Zipfel“: so nah kommt der Weg an eine frühere Stelle zurück … */
 const SPUR_NEAR_M = 60;
 /** … nachdem er mindestens so weit gefahren ist */
-const SPUR_MIN_M = 300;
+const SPUR_MIN_M = 400; // Brückenrampen (Schleife hinauf) sind ca. 300 m – die sind kein Zipfel
 const SPUR_STEP_M = 20;
 const SPUR_CELL_DEG = 0.001; // ≈ 70–110 m
 

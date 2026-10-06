@@ -152,6 +152,12 @@ export const COMPACT = {
 } as const;
 
 /**
+ * Umweg als Korridor (statt festem Punkt): Band Start → schöne Stelle → Ziel mit halfWidthM Metern zu jeder Seite;
+ * Wege außerhalb zählen für GraphHopper um outsideFactor weniger (0,15 = deutlich unattraktiver).
+ */
+export const CORRIDOR = { halfWidthM: 600, outsideFactor: 0.15 } as const;
+
+/**
  * Wege über zwei schöne Stellen nacheinander: Paare aus den fromBest schönsten Einzel-Umwegen
  * (5 → höchstens 10 zusätzliche Anfragen je Richtung), die Punkte mindestens minApartM auseinander.
  */
@@ -162,6 +168,9 @@ export const DIVERSITY_MAX_OVERLAP = 0.6;
 
 /** So viele Wege werden höchstens vorgeschlagen (der direkte ist immer dabei) */
 export const MAX_SUGGESTIONS = 5;
+
+/** So viele Vorschläge sollen es möglichst sein (wenn es genug deutlich verschiedene, schöne Wege gibt) */
+export const TARGET_SUGGESTIONS = 3;
 
 /** „Hin und zurück als Runde“: so viele der besten Hin- und Rückwege werden zu Paaren kombiniert */
 export const PAIR_CANDIDATES = 8;

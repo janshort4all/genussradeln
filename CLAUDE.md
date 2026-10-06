@@ -90,11 +90,15 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
   1. Direkter `genuss`-Weg + GraphHopper-Alternativen (`alternative_route`).
   2. Zusätzliche Wege über schöne Zwischenpunkte (Spielraum `DETOUR` in `weights.ts`, gefragt wird nicht mehr): Rasterpunkte mit viel Wasser/Wald/Grün in der Umgebung
      (Summenfeld über `landscape.png`), innerhalb der Umweg-Ellipse um Start/Ziel, nicht direkt am kürzesten Weg.
+     Jede schöne Stelle zusätzlich als **Korridor** (`CORRIDOR`, `band` in `plan.ts`): Band Start → Stelle → Ziel, außerhalb
+     für GraphHopper unattraktiver (`preferAreas` → Anfrage-custom_model mit `areas`; Werte über 1 wirken nicht, daher
+     „außen schlechter“). Ursache der Zipfel ist der feste Punkt (Stichweg zum Ufer, Punkt hinter dem Ziel) – ein Korridor
+     erzwingt keinen. Beide Arten sind Kandidaten; Zipfel/Kreis/Stummel fliegen raus.
   3. Wege mit „Stummel“ (über 50 m doppelt gefahren: hin und zurück in eine Sackgasse oder Lasso-Schleife um den Punkt) verwerfen
      (`backtrack.ts`, `VIA_SEARCH.maxBacktrackM`). Vorher Reparaturversuch: Hilfspunkt an die Abzweigung verlegen
      und neu rechnen – dann führt der Weg an der schönen Stelle vorbei, ohne Abstecher. Ebenso Wege, die **im Kreis**
      fahren (kreuzen die eigene Strecke, Runde ≥ 150 m, z. B. einmal um einen See; `findLoop`, Wunsch Jan 06.10.2026):
-     über die Kreuzung neu rechnen, sonst verwerfen. Ebenso **Zipfel** (`findSpur`: nach ≥ 300 m Fahrt bis auf 60 m zurück an
+     über die Kreuzung neu rechnen, sonst verwerfen. Ebenso **Zipfel** (`findSpur`: nach ≥ 400 m Fahrt bis auf 60 m zurück an
      eine frühere Stelle, z. B. auf einem Parallelweg) – nur bei Wegen über Hilfspunkte (Brückenrampen am direkten Weg bleiben).
      Zusätzlich Wege über **zwei schöne Stellen nacheinander** (z. B. erst Rhein, dann See; `viaPairs`, `VIA_PAIRS`):
      Paare aus den 5 schönsten Einzel-Umwegen, in Fahrtrichtung geordnet; mit Stummel oder Kreis verworfen.
@@ -114,7 +118,9 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
      Hin- und Rückwegen. **Keine fast gleichen Vorschläge** (`tooSimilar`): gleich, wenn jeder von beiden zu mehr als
      `DIVERSITY_MAX_OVERLAP` auf dem anderen verläuft – dann bleibt der schönere, auch wenn der andere der direkte ist
      (Wunsch Jan 06.10.2026: lieber nur zwei Vorschläge). Ein Weg mit großem Abstecher ist kein „gleicher“ Weg.
-     Bleibt nur einer übrig, heißt er „Ihre Tour“. Bei kurzen Strecken bleiben so oft nur zwei.
+     Bleibt nur einer übrig, heißt er „Ihre Tour“. **Ziel: drei Vorschläge** (`TARGET_SUGGESTIONS`, Wunsch Jan 06.10.2026): sind es
+     weniger, wird mit den schönsten übrigen Wegen aufgefüllt, die sich deutlich unterscheiden und mindestens so schön
+     sind wie der direkte – gleich lang ist dabei erlaubt. Bei kurzen Strecken bleiben so oft nur zwei.
      Die Wegkarte zeigt „Längste Tour“ groß, den beschreibenden Titel darunter.
   6. Fahrzeit: `rideMinutes` (`src/lib/tour/duration.ts`) = Strecke / 15 km/h + `CLIMB_MINUTES_PER_100M` je 100 Höhenmeter.
 - **„Fast direkt“ (Wunsch Jan, 04.10.2026, intern):** der schönste Weg, der höchstens ca. 15 % länger ist als der direkte
