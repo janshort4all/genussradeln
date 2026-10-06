@@ -22,6 +22,8 @@ import {
 	DETOUR,
 	DIVERSITY_MAX_OVERLAP,
 	MAX_SUGGESTIONS,
+	PAIR_CANDIDATES,
+	ROUND_MAX_OVERLAP,
 	LENGTH_STEP,
 	SCORE,
 	TITLE_MIN_SHARE_OF_TOP,
@@ -284,6 +286,8 @@ async function planDirection(
 interface Combination {
 	legs: LegCandidate[];
 	score: number;
+	/** Anteil des Rückwegs, der auf dem Hinweg liegt */
+	overlap: number;
 }
 
 /** Hin- bzw. Rückweg zweier Vorschläge verlaufen weitgehend gleich */
@@ -297,7 +301,13 @@ function sameTour(a: Combination, b: Combination): boolean {
 }
 
 const lengthOf = (c: Combination) => c.legs.reduce((sum, l) => sum + l.path.distance, 0);
-const beautyOf = (c: Combination) => c.legs.reduce((sum, l) => sum + l.beauty * l.path.distance, 0) / lengthOf(c);
+/** Schönheit eines Vorschlags; zurück auf demselben Weg wie hin kostet (wie bei der Bewertung der Paare) */
+const beautyOf = (c: Combination) =>
+	c.legs.reduce((sum, l) => sum + l.beauty * l.path.distance, 0) / lengthOf(c) - SCORE.returnOverlap * c.overlap;
+
+/** Unterschied in der Länge, ab dem zwei Vorschläge „anders lang“ sind (LENGTH_STEP) */
+const lengthStep = (a: Combination, b: Combination) =>
+	Math.max(LENGTH_STEP.minM, LENGTH_STEP.ratio * Math.min(lengthOf(a), lengthOf(b)));
 
 /** Lohnt sich ein weiterer Vorschlag? Nicht, wenn ein gezeigter kürzer (oder gleich lang) und fast genauso schön ist */
 function worthwhile(c: Combination, shown: Combination[]): boolean {
@@ -305,6 +315,16 @@ function worthwhile(c: Combination, shown: Combination[]): boolean {
 		(p) =>
 			lengthOf(p) <= lengthOf(c) * (1 + WORTHWHILE.lengthTolerance) &&
 			beautyOf(p) >= beautyOf(c) - WORTHWHILE.beautyMargin
+	);
+}
+
+/**
+ * Für seine Länge der schönste? Nicht, wenn ein anderer Weg höchstens spürbar länger (LENGTH_STEP) – oder kürzer –
+ * und schöner ist. So steht für jede Länge der schönste Weg zur Wahl, nicht irgendein Rest.
+ */
+function bestForItsLength(c: Combination, pool: Combination[]): boolean {
+	return !pool.some(
+		(p) => p !== c && lengthOf(p) < lengthOf(c) + lengthStep(p, c) && beautyOf(p) > beautyOf(c) + WORTHWHILE.beautyMargin
 	);
 }
 
@@ -385,59 +405,77 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 	/** Hinweg → Vorschlag (bei „auf anderem Weg zurück“ mit passendem kurzen Rückweg) */
 	const withReturn = (out: LegCandidate | undefined): Combination | undefined => {
 		if (!out) return undefined;
-		if (!inbound) return { legs: [out], score: out.score };
+		if (!inbound) return { legs: [out], score: out.score, overlap: 0 };
 		const back = returnLeg(out, inbound);
-		return back && { legs: [out, back], score: out.score };
+		if (!back) return undefined;
+		const overlap = overlapShare(back.line, out.line);
+		const total = out.path.distance + back.path.distance;
+		const score = (out.score * out.path.distance + back.score * back.path.distance) / total - SCORE.returnOverlap * overlap;
+		return { legs: [out, back], score, overlap };
 	};
 
 	let combinations: Combination[];
 	if (inbound) {
 		combinations = [];
-		for (const out of outbound.candidates.slice(0, 6)) {
-			for (const back of inbound.candidates.slice(0, 6)) {
+		for (const out of outbound.candidates.slice(0, PAIR_CANDIDATES)) {
+			for (const back of inbound.candidates.slice(0, PAIR_CANDIDATES)) {
 				const shared = overlapShare(back.line, out.line);
 				const total = out.path.distance + back.path.distance;
 				const score =
 					(out.score * out.path.distance + back.score * back.path.distance) / total -
 					SCORE.returnOverlap * shared;
-				combinations.push({ legs: [out, back], score });
+				combinations.push({ legs: [out, back], score, overlap: shared });
 			}
 		}
 		combinations.sort((a, b) => b.score - a.score);
 	} else {
-		combinations = outbound.candidates.map((c) => ({ legs: [c], score: c.score }));
+		combinations = outbound.candidates.map((c) => ({ legs: [c], score: c.score, overlap: 0 }));
 	}
 	const best = combinations[0];
 	if (!best) throw new NoRouteError('Kein passender Weg gefunden');
 
 	// Vorschläge, benannt nach ihrer Länge (Entscheidung Jan, 06.10.2026): „Längste Tour“ … „Kürzeste Tour“.
-	// Der direkte Weg ist immer dabei; jeder weitere muss sich lohnen und spürbar anders lang sein.
-	const chosen: Combination[] = [];
-	const differentLength = (c: Combination) =>
-		chosen.every(
-			(p) =>
-				Math.abs(lengthOf(p) - lengthOf(c)) >=
-				Math.max(LENGTH_STEP.minM, LENGTH_STEP.ratio * Math.min(lengthOf(p), lengthOf(c)))
-		);
+	// Der direkte Weg ist immer dabei. Für die übrigen Längen jeweils der schönste Weg dieser Länge
+	// (bestForItsLength): zuerst der schönste überhaupt (der Umweg spielt dafür kaum eine Rolle), dann die mit dem
+	// besten Verhältnis von Schönheit zu Umweg – jeder spürbar anders lang als die schon gewählten.
 	const direct = withReturn(outbound.direct);
-	chosen.push(direct ?? best);
-	if (!chosen.some((c) => sameTour(best, c)) && differentLength(best)) chosen.push(best);
 	const compact = withReturn(outbound.compact);
-	if (compact && !chosen.some((c) => sameTour(compact, c)) && differentLength(compact) && worthwhile(compact, chosen))
-		chosen.push(compact);
+	// bei der Runde nie weitgehend auf demselben Weg zurück
+	const pool = [...combinations, ...(compact ? [compact] : [])].filter((c) => c.overlap <= ROUND_MAX_OVERLAP);
+	const chosen: Combination[] = [direct ?? best];
+	const differentLength = (c: Combination) =>
+		chosen.every((p) => Math.abs(lengthOf(p) - lengthOf(c)) >= lengthStep(p, c));
+	const strict = (item: Combination, p: Combination) => item.legs.some((_, i) => sameLeg(item, p, i));
+	const fits = (c: Combination, similar: (a: Combination, b: Combination) => boolean) =>
+		!chosen.includes(c) &&
+		// der direkte Weg zählt hier nicht: ein schönerer Weg mit Abstecher ist ihm über weite Strecken gleich,
+		// ist aber trotzdem eine eigene Wahl (Länge und Schönheit prüfen differentLength und worthwhile)
+		!chosen.some((p) => p !== direct && similar(c, p)) &&
+		differentLength(c) &&
+		worthwhile(c, chosen) &&
+		bestForItsLength(c, pool);
+	const prettiest = [...pool].sort((a, b) => beautyOf(b) - beautyOf(a)).find((c) => fits(c, sameTour));
+	if (prettiest) chosen.push(prettiest);
 	// Auffüllen: erst Wege, die sich in jedem Abschnitt unterscheiden; „gleicher Hinweg, anderer Rückweg“
 	// nur, wenn es sonst weniger als drei Vorschläge wären
-	const strict = (item: Combination, p: Combination) => item.legs.some((_, i) => sameLeg(item, p, i));
+	// Paare: score enthält schon den Abzug für denselben Weg zurück
+	const byValue = [...pool].sort((a, b) => b.score - a.score);
 	for (const [similar, max] of [
 		[strict, MAX_SUGGESTIONS],
 		[sameTour, 3]
 	] as const) {
-		for (const item of combinations) {
+		for (const item of byValue) {
 			if (chosen.length >= max) break;
-			if (chosen.includes(item) || chosen.some((p) => similar(item, p))) continue;
-			if (differentLength(item) && worthwhile(item, chosen)) chosen.push(item);
+			if (fits(item, similar)) chosen.push(item);
 		}
 	}
+	// Der direkte Weg ist überflüssig, wenn ein anderer Vorschlag kürzer (oder gleich lang) und schöner ist –
+	// dann ist der der direkte (der „direkte“ genuss-Weg ist nicht immer der kürzeste)
+	if (
+		direct &&
+		chosen.some((p) => p !== direct && lengthOf(p) <= lengthOf(direct) && beautyOf(p) >= beautyOf(direct))
+	)
+		chosen.splice(chosen.indexOf(direct), 1);
 	// vom längsten (größter Umweg) zum kürzesten
 	const ordered = [...chosen].sort((a, b) => lengthOf(b) - lengthOf(a));
 	const labels = lengthLabels(ordered.length);

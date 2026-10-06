@@ -147,6 +147,12 @@ export const DIVERSITY_MAX_OVERLAP = 0.6;
 /** So viele Wege werden höchstens vorgeschlagen (der direkte ist immer dabei) */
 export const MAX_SUGGESTIONS = 5;
 
+/** „Hin und zurück als Runde“: so viele der besten Hin- und Rückwege werden zu Paaren kombiniert */
+export const PAIR_CANDIDATES = 8;
+
+/** „Hin und zurück als Runde“: höchstens dieser Anteil des Rückwegs darf auf dem Hinweg liegen (außer beim direkten) */
+export const ROUND_MAX_OVERLAP = 0.4;
+
 /**
  * Ein weiterer Vorschlag kommt nur dazu, wenn er sich lohnt: Kein schon gezeigter Weg darf kürzer
  * (bis lengthTolerance länger zählt als „gleich lang“) und fast genauso schön sein (bis beautyMargin weniger).

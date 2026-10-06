@@ -99,10 +99,14 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
   5. **Auswahl (Entscheidung Jan, 06.10.2026):** bis zu `MAX_SUGGESTIONS` = 5 Wege, **benannt nach der Länge**:
      „Längste Tour“, „Lange Tour“, „Mittlere Tour“, „Kurze Tour“, „Kürzeste Tour“ (bei zwei: „Längere/Kürzere Tour“;
      `lengthLabels` in `plan.ts`), sortiert vom längsten zum kürzesten. Keine Rollen wie „Am schönsten“ mehr.
-     Der direkte genuss-Weg ist **immer dabei**; dazu der beste (Schönheit gegen Umweg), „fast direkt“ und weitere,
-     wenn sie sich lohnen (`WORTHWHILE`: kein gezeigter Weg ist kürzer und fast genauso schön), sich unterscheiden
-     (`DIVERSITY_MAX_OVERLAP`) und spürbar anders lang sind (`LENGTH_STEP`: ≥ 5 % bzw. 500 m) – bei kurzen
-     Strecken bleiben so oft nur zwei. Die Wegkarte zeigt „Längste Tour“ groß, den beschreibenden Titel darunter.
+     Der direkte genuss-Weg ist **immer dabei** (außer ein anderer Vorschlag ist kürzer und schöner – dann ist der der direkte).
+     Für die übrigen Längen jeweils der **schönste Weg dieser Länge** (`bestForItsLength`, Wunsch Jan 06.10.2026): zuerst
+     der schönste überhaupt, dann nach Schönheit je Umweg; jeder lohnt sich (`WORTHWHILE`) und ist spürbar anders lang
+     (`LENGTH_STEP`: ≥ 5 % bzw. 500 m). Schönheit einer Runde enthält den Abzug für denselben Weg zurück; Runden mit
+     mehr als `ROUND_MAX_OVERLAP` = 40 % gemeinsamer Strecke fallen weg. Paare aus den `PAIR_CANDIDATES` = 8 besten
+     Hin- und Rückwegen. Ähnlichkeit zum direkten Weg (`DIVERSITY_MAX_OVERLAP`) schließt nichts aus – ein schönerer
+     Weg mit Abstecher ist ihm über weite Strecken gleich. Bei kurzen Strecken bleiben so oft nur zwei.
+     Die Wegkarte zeigt „Längste Tour“ groß, den beschreibenden Titel darunter.
   6. Fahrzeit: `rideMinutes` (`src/lib/tour/duration.ts`) = Strecke / 15 km/h + `CLIMB_MINUTES_PER_100M` je 100 Höhenmeter.
 - **„Fast direkt“ (Wunsch Jan, 04.10.2026, intern):** der schönste Weg, der höchstens ca. 15 % länger ist als der direkte
   (`COMPACT` in `weights.ts`). Kandidaten dafür zusätzlich über Punkte
