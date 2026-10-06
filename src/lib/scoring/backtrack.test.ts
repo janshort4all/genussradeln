@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { distance, offset, type LngLat } from '$lib/geo/geo';
-import { backtrackMeters, findLoop } from './backtrack';
+import { backtrackMeters, findLoop, findSpur } from './backtrack';
 
 const start: LngLat = [6.6, 51.3];
 const at = (east: number, north = 0) => offset(offset(start, 90, east), 0, north);
@@ -51,5 +51,19 @@ describe('findLoop', () => {
 	it('erkennt auch eine Schleife, die sich mitten auf einem Wegstück kreuzt', () => {
 		const rightAngle = [at(0), at(2000), at(2000, 1000), at(1000, 1000), at(1000, -1000), at(3000, -1000)];
 		expect(findLoop(rightAngle)?.meters).toBeGreaterThan(2500);
+	});
+});
+
+describe('findSpur', () => {
+	it('ein gerader Weg und ein weiter Bogen haben keinen Zipfel', () => {
+		expect(findSpur([at(0), at(3000)])).toBeUndefined();
+		expect(findSpur([at(0), at(1000, 800), at(2000, 800), at(3000)])).toBeUndefined();
+	});
+
+	it('erkennt einen Zipfel: 400 m hinein und auf einem Parallelweg 40 m daneben zurück', () => {
+		const line = [at(0), at(1000), at(1000, 400), at(1040, 400), at(1040, 0), at(2000)];
+		const spur = findSpur(line);
+		expect(spur).toBeDefined();
+		expect(spur!.meters).toBeGreaterThan(700);
 	});
 });

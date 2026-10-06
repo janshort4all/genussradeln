@@ -109,3 +109,51 @@ export function findLoop(line: LngLat[]): Loop | undefined {
 	}
 	return best;
 }
+
+/** „Zipfel“: so nah kommt der Weg an eine frühere Stelle zurück … */
+const SPUR_NEAR_M = 60;
+/** … nachdem er mindestens so weit gefahren ist */
+const SPUR_MIN_M = 300;
+const SPUR_STEP_M = 20;
+const SPUR_CELL_DEG = 0.001; // ≈ 70–110 m
+
+export interface Spur {
+	/** Meter, die der Weg hinein- und wieder herausfährt */
+	meters: number;
+	/** wo der Zipfel beginnt */
+	at: LngLat;
+}
+
+/**
+ * Fährt der Weg in einen „Zipfel“ – ein Stück hinein und auf einem anderen, parallelen Weg wieder zurück
+ * (z. B. um einen Hilfspunkt am Seeufer und zurück)? findBacktrack erkennt nur das Zurück auf demselben Weg,
+ * findLoop nur das Kreuzen. Liefert den längsten Zipfel.
+ */
+export function findSpur(line: LngLat[]): Spur | undefined {
+	const points = resample(line, SPUR_STEP_M);
+	const gap = Math.ceil(SPUR_MIN_M / SPUR_STEP_M);
+	const cells = new Map<string, number[]>();
+	const key = (x: number, y: number) => `${x}:${y}`;
+	points.forEach(([lon, lat], i) => {
+		const k = key(Math.floor(lon / SPUR_CELL_DEG), Math.floor(lat / SPUR_CELL_DEG));
+		const bucket = cells.get(k);
+		if (bucket) bucket.push(i);
+		else cells.set(k, [i]);
+	});
+	let best: Spur | undefined;
+	for (let i = 0; i < points.length; i++) {
+		const p = points[i];
+		const cx = Math.floor(p[0] / SPUR_CELL_DEG);
+		const cy = Math.floor(p[1] / SPUR_CELL_DEG);
+		let last = -1;
+		for (let dx = -1; dx <= 1; dx++)
+			for (let dy = -1; dy <= 1; dy++)
+				for (const j of cells.get(key(cx + dx, cy + dy)) ?? [])
+					if (j - i >= gap && j > last && distance(p, points[j]) <= SPUR_NEAR_M) last = j;
+		if (last < 0) continue;
+		const meters = (last - i) * SPUR_STEP_M;
+		if (!best || meters > best.meters) best = { meters, at: p };
+		i = last; // dieser Zipfel ist erfasst
+	}
+	return best;
+}

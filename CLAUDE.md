@@ -94,7 +94,8 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
      (`backtrack.ts`, `VIA_SEARCH.maxBacktrackM`). Vorher Reparaturversuch: Hilfspunkt an die Abzweigung verlegen
      und neu rechnen – dann führt der Weg an der schönen Stelle vorbei, ohne Abstecher. Ebenso Wege, die **im Kreis**
      fahren (kreuzen die eigene Strecke, Runde ≥ 150 m, z. B. einmal um einen See; `findLoop`, Wunsch Jan 06.10.2026):
-     über die Kreuzung neu rechnen, sonst verwerfen.
+     über die Kreuzung neu rechnen, sonst verwerfen. Ebenso **Zipfel** (`findSpur`: nach ≥ 300 m Fahrt bis auf 60 m zurück an
+     eine frühere Stelle, z. B. auf einem Parallelweg) – nur bei Wegen über Hilfspunkte (Brückenrampen am direkten Weg bleiben).
      Zusätzlich Wege über **zwei schöne Stellen nacheinander** (z. B. erst Rhein, dann See; `viaPairs`, `VIA_PAIRS`):
      Paare aus den 5 schönsten Einzel-Umwegen, in Fahrtrichtung geordnet; mit Stummel oder Kreis verworfen.
   4. Nachbewertung (`score.ts`), Mehrweg-Grenze, Abzug je Mehrweg. Radwege, die direkt neben einer großen Straße

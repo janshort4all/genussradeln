@@ -13,7 +13,7 @@ import { bearing, distance, distanceToLine, offset, resample, segmentLengths, ty
 import type { Landscape } from '$lib/scoring/landscape';
 import type { RoadMask } from '$lib/scoring/roads';
 import { WATER } from '$lib/scoring/landscape';
-import { backtrackMeters, findBacktrack, findLoop } from '$lib/scoring/backtrack';
+import { backtrackMeters, findBacktrack, findLoop, findSpur } from '$lib/scoring/backtrack';
 import { mutualOverlap, overlapShare } from '$lib/scoring/overlap';
 import { analyzeRoute, beautyScore, combineStats, lineOf, type RouteStats } from '$lib/scoring/score';
 import {
@@ -217,7 +217,10 @@ async function viaPairs(
 ): Promise<{ path: RoutePath; vias: LngLat[]; side: boolean }[]> {
 	const points = singles
 		.filter((p): p is NonNullable<typeof p> => !!p && !p.side && p.vias.length === 1 && p.path.distance <= maxLength)
-		.filter((p) => findBacktrack(lineOf(p.path)).meters <= VIA_SEARCH.maxBacktrackM && !findLoop(lineOf(p.path)))
+		.filter((p) => {
+			const line = lineOf(p.path);
+			return findBacktrack(line).meters <= VIA_SEARCH.maxBacktrackM && !findLoop(line) && !findSpur(line);
+		})
 		.map((p) => ({ point: p.vias[0], beauty: beautyScore(analyzeRoute(p.path, deps.landscape, deps.roads)) }))
 		.sort((a, b) => b.beauty - a.beauty)
 		.slice(0, VIA_PAIRS.fromBest)
@@ -237,7 +240,7 @@ async function viaPairs(
 			const [path] = await deps.route([from, a, b, to], options);
 			if (!path) return undefined;
 			const line = lineOf(path);
-			if (findBacktrack(line).meters > VIA_SEARCH.maxBacktrackM || findLoop(line)) return undefined;
+			if (findBacktrack(line).meters > VIA_SEARCH.maxBacktrackM || findLoop(line) || findSpur(line)) return undefined;
 			return { path, vias: [a, b], side: false };
 		} catch (error) {
 			if (error instanceof NoRouteError) return undefined;
@@ -295,6 +298,12 @@ async function planDirection(
 				const [repaired] = await deps.route([from, loop.at, to], options);
 				return repaired && { path: repaired, vias: [loop.at], side };
 			}
+			// „Zipfel“ (hinein und auf einem Parallelweg zurück)? Ebenso über den Anfang des Zipfels neu rechnen
+			const spur = findSpur(lineOf(path));
+			if (spur) {
+				const [repaired] = await deps.route([from, spur.at, to], options);
+				return repaired && { path: repaired, vias: [spur.at], side };
+			}
 			return { path, vias: [point], side };
 		} catch (error) {
 			if (error instanceof NoRouteError) return undefined; // Zwischenpunkt nicht erreichbar → weglassen
@@ -314,8 +323,8 @@ async function planDirection(
 		.filter(({ path }) => path === direct[0] || longCrossingMeters(path) <= directCrossing + 50)
 		// Wege über Zwischenpunkte ohne „Stummel“ (hin und gleich wieder zurück in eine Sackgasse)
 		.filter(({ path, vias }) => !vias.length || backtrackMeters(lineOf(path)) <= VIA_SEARCH.maxBacktrackM)
-		// … und ohne Runde im Kreis
-		.filter(({ path, vias }) => !vias.length || !findLoop(lineOf(path)))
+		// … ohne Runde im Kreis und ohne Zipfel
+		.filter(({ path, vias }) => !vias.length || (!findLoop(lineOf(path)) && !findSpur(lineOf(path))))
 		.map(({ path, vias, side }) => {
 			const stats = analyzeRoute(path, deps.landscape, deps.roads);
 			const beauty = beautyScore(stats);
