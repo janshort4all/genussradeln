@@ -141,6 +141,12 @@ export const COMPACT = {
 	sideViaOffsetRatio: 0.12
 } as const;
 
+/**
+ * Wege über zwei schöne Stellen nacheinander: Paare aus den fromBest schönsten Einzel-Umwegen
+ * (5 → höchstens 10 zusätzliche Anfragen je Richtung), die Punkte mindestens minApartM auseinander.
+ */
+export const VIA_PAIRS = { fromBest: 5, minApartM: 1000 } as const;
+
 /** Vorschläge dürfen sich höchstens so stark überdecken (Anteil gemeinsamer Strecke) */
 export const DIVERSITY_MAX_OVERLAP = 0.6;
 

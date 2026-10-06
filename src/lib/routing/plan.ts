@@ -27,6 +27,7 @@ import {
 	LENGTH_STEP,
 	SCORE,
 	TITLE_MIN_SHARE_OF_TOP,
+	VIA_PAIRS,
 	VIA_SEARCH,
 	WORTHWHILE
 } from '$lib/scoring/weights';
@@ -36,7 +37,7 @@ import { newTourId, type PlannedTour, type TourRequest, type Waypoint } from '$l
 import { highlightSentence, honestTitles, sideOf, sideTitle, viaStreetTitle, withSide, type NamedPhrase } from './describe';
 import type { NameData } from '$lib/naming/names';
 import { distinctPlaces, highlightOf, landmarkPhrase, landmarkTitle, routeNames, viaPlaces, type RouteNames } from '$lib/naming/title';
-import { NoRouteError, route as routeGraphHopper, type RoutePath } from './graphhopper';
+import { NoRouteError, route as routeGraphHopper, type RouteOptions, type RoutePath } from './graphhopper';
 
 export interface PlanDeps {
 	route: typeof routeGraphHopper;
@@ -193,6 +194,59 @@ export function findScenicVias(
 	return chosen;
 }
 
+/** Lage eines Punkts entlang der Strecke von `from` nach `to` (0 = Start, 1 = Ziel) */
+function alongAxis(point: LngLat, from: LngLat, to: LngLat): number {
+	const kx = Math.cos((from[1] * Math.PI) / 180);
+	const ax = (to[0] - from[0]) * kx;
+	const ay = to[1] - from[1];
+	return (((point[0] - from[0]) * kx * ax + (point[1] - from[1]) * ay) / (ax * ax + ay * ay)) || 0;
+}
+
+/**
+ * Wege über zwei Hilfspunkte: die VIA_PAIRS.fromBest schönsten Einzel-Umwege liefern die Punkte; jedes Paar wird in
+ * Fahrtrichtung geordnet und nur gerechnet, wenn es geschätzt in die erlaubte Länge passt. Wege mit Stummel oder
+ * Runde im Kreis werden verworfen (kein Reparaturversuch – dafür gibt es genug andere Paare).
+ */
+async function viaPairs(
+	from: LngLat,
+	to: LngLat,
+	singles: ({ path: RoutePath; vias: LngLat[]; side: boolean } | undefined)[],
+	maxLength: number,
+	deps: PlanDeps,
+	options: RouteOptions
+): Promise<{ path: RoutePath; vias: LngLat[]; side: boolean }[]> {
+	const points = singles
+		.filter((p): p is NonNullable<typeof p> => !!p && !p.side && p.vias.length === 1 && p.path.distance <= maxLength)
+		.filter((p) => findBacktrack(lineOf(p.path)).meters <= VIA_SEARCH.maxBacktrackM && !findLoop(lineOf(p.path)))
+		.map((p) => ({ point: p.vias[0], beauty: beautyScore(analyzeRoute(p.path, deps.landscape, deps.roads)) }))
+		.sort((a, b) => b.beauty - a.beauty)
+		.slice(0, VIA_PAIRS.fromBest)
+		.map((p) => p.point);
+	const pairs: [LngLat, LngLat][] = [];
+	for (let i = 0; i < points.length; i++) {
+		for (let j = i + 1; j < points.length; j++) {
+			const [a, b] =
+				alongAxis(points[i], from, to) <= alongAxis(points[j], from, to) ? [points[i], points[j]] : [points[j], points[i]];
+			if (distance(a, b) < VIA_PAIRS.minApartM) continue;
+			const estimate = (distance(from, a) + distance(a, b) + distance(b, to)) * VIA_SEARCH.roadFactor;
+			if (estimate <= maxLength) pairs.push([a, b]);
+		}
+	}
+	const found = await mapLimited(pairs, 4, async ([a, b]) => {
+		try {
+			const [path] = await deps.route([from, a, b, to], options);
+			if (!path) return undefined;
+			const line = lineOf(path);
+			if (findBacktrack(line).meters > VIA_SEARCH.maxBacktrackM || findLoop(line)) return undefined;
+			return { path, vias: [a, b], side: false };
+		} catch (error) {
+			if (error instanceof NoRouteError) return undefined;
+			throw error;
+		}
+	});
+	return found.filter((p): p is NonNullable<typeof p> => !!p);
+}
+
 /** Alle Wege für eine Richtung berechnen und bewerten */
 async function planDirection(
 	from: LngLat,
@@ -248,6 +302,10 @@ async function planDirection(
 		}
 	});
 	for (const p of viaPaths) if (p) paths.push(p);
+
+	// Wege über zwei schöne Stellen nacheinander (z. B. erst am Rhein, dann am See): aus den Hilfspunkten, deren
+	// Weg schon allein am schönsten war, Paare bilden – in Fahrtrichtung geordnet (Wunsch Jan, 06.10.2026)
+	for (const p of await viaPairs(from, to, viaPaths, maxLength, deps, options)) paths.push(p);
 
 	// keine zusätzlichen Fluss-Querungen gegenüber dem direkten Weg (über die Brücke hin, woanders zurück)
 	const directCrossing = longCrossingMeters(direct[0]);

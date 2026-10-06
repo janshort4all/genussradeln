@@ -93,6 +93,8 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
      und neu rechnen – dann führt der Weg an der schönen Stelle vorbei, ohne Abstecher. Ebenso Wege, die **im Kreis**
      fahren (kreuzen die eigene Strecke, Runde ≥ 150 m, z. B. einmal um einen See; `findLoop`, Wunsch Jan 06.10.2026):
      über die Kreuzung neu rechnen, sonst verwerfen.
+     Zusätzlich Wege über **zwei schöne Stellen nacheinander** (z. B. erst Rhein, dann See; `viaPairs`, `VIA_PAIRS`):
+     Paare aus den 5 schönsten Einzel-Umwegen, in Fahrtrichtung geordnet; mit Stummel oder Kreis verworfen.
   4. Nachbewertung (`score.ts`), Mehrweg-Grenze, Abzug je Mehrweg. Radwege, die direkt neben einer großen Straße
      verlaufen (eigener Weg in OSM, aber laut), zählen nicht als ruhig und bekommen Abzug (`SCORE.roadside`; Daten
      `roads.bin`: Zellen ≤ 25 m an motorway…secondary, `scoring/roads.ts`, erst ab 150 m am Stück).

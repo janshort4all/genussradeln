@@ -142,10 +142,10 @@ describe('planTours', () => {
 	});
 
 	it('verwirft Umwege über einen großen Fluss (lange Brücke), die der direkte Weg nicht braucht', async () => {
-		// jeder Weg über einen Zwischenpunkt führt über eine 1 km lange Brücke hin und anders zurück
+		// jeder Weg über Zwischenpunkte führt über eine 1 km lange Brücke hin und anders zurück
 		const route = (points: LngLat[], options: RouteOptions) => {
-			const via = points.length === 3;
-			const line = via ? [points[0], offset(points[1], 0, 500), offset(points[1], 0, 1500), points[2]] : points;
+			const via = points.length >= 3;
+			const line = via ? [points[0], offset(points[1], 0, 500), offset(points[1], 0, 1500), ...points.slice(2)] : points;
 			const path = makePath(line, { roadClass: 'cycleway' });
 			if (via) path.details.road_environment = [[0, 1, 'road'], [1, 2, 'bridge'], [2, line.length - 1, 'road']];
 			const paths = [via ? path : makePath(points, { roadClass: 'primary' })];
@@ -154,6 +154,18 @@ describe('planTours', () => {
 		};
 		const tours = await planTours(request(), { route, landscape });
 		expect(tours.every((t) => t.waypoints.every((w) => w.kind !== 'via'))).toBe(true);
+	});
+
+	it('rechnet auch Wege über zwei schöne Stellen, in Fahrtrichtung geordnet', async () => {
+		const calls: LngLat[][] = [];
+		const route = (points: LngLat[], options: RouteOptions) => {
+			calls.push(points);
+			return fakeRoute(points, options);
+		};
+		await planTours(request(), { route, landscape });
+		const pairs = calls.filter((points) => points.length === 4);
+		expect(pairs.length).toBeGreaterThan(0);
+		for (const [from, a, b] of pairs) expect(distance(from, a)).toBeLessThan(distance(from, b));
 	});
 
 	it('legt Zwischenpunkte für „Fast direkt“ knapp neben die Luftlinie', () => {
