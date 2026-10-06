@@ -26,7 +26,9 @@
 	import { loadPois } from '$lib/stops/pois';
 	import { STOP_LABELS } from '$lib/stops/kinds';
 	import { downloadGpx } from '$lib/gpx/gpx';
-	import { shareUrl } from '$lib/share/link';
+	import { shareUrlFor } from '$lib/share/link';
+	import { packVerified } from '$lib/share/rebuild';
+	import { route } from '$lib/routing/graphhopper';
 	import type { ViewStop } from '$lib/tour/view';
 
 	let { data } = $props();
@@ -60,7 +62,7 @@
 	/** Hinweise neben den Pluspunkten: viel Schotter, lange ohne Einkehr */
 	const notes = $derived.by(() => {
 		const gap = tour.map.kind === 'route' && stopsStatus === 'done' ? foodGapNote(allStops, tour.km) : undefined;
-		return [tour.caveat, gap].filter((n): n is string => !!n);
+		return [tour.note, tour.caveat, gap].filter((n): n is string => !!n);
 	});
 	let mapBox: HTMLDivElement | undefined = $state();
 
@@ -70,14 +72,29 @@
 	 */
 	let shareText = $state('');
 	let shareLink = $state('');
+	/**
+	 * Den geprüften Link schon im Hintergrund vorbereiten: Das Prüfen dauert 1–3 Sekunden, und am Handy muss
+	 * sich das Teilen-Menü direkt nach dem Antippen öffnen.
+	 */
+	let preparing: Promise<string> | undefined;
+	$effect(() => {
+		const planned = data.planned;
+		preparing = undefined;
+		shareLink = '';
+		if (!planned) return;
+		preparing = packVerified(planned, route).then((packed) => (shareLink = shareUrlFor(packed, resolve('/geteilt'))));
+		preparing.catch(() => {});
+	});
 
 	async function prepareShare(): Promise<boolean> {
-		const planned = data.planned;
-		if (!planned) {
+		if (!data.planned || !preparing) {
 			tell('Beispieltouren lassen sich nicht teilen.');
 			return false;
 		}
-		shareLink = await shareUrl(planned, resolve('/geteilt'));
+		if (!shareLink) {
+			tell('Der Link wird vorbereitet …');
+			await preparing;
+		}
 		const km = tour.km.toLocaleString('de-DE', { maximumFractionDigits: 0 });
 		shareText = `Radtour „${tour.title}“, ${km} km – hier ansehen und losfahren:`;
 		return true;

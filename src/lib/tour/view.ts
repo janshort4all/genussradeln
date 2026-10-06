@@ -31,6 +31,8 @@ export interface TourView {
 	climb: string;
 	/** Haken, den man vorher wissen sollte, z. B. ein längeres Stück Schotter (nur bei berechneten Wegen) */
 	caveat?: string;
+	/** Hinweis zur Tour (z. B. bei geteilten Touren) */
+	note?: string;
 	/** Pluspunkte zum Abhaken, z. B. „Ruhige Radwege“ (nur bei berechneten Wegen) */
 	checks: string[];
 	tags: LandscapeTag[];
@@ -96,6 +98,7 @@ export function fromPlanned(t: PlannedTour): TourView {
 		minutes: t.minutes,
 		climb: t.stats.climb,
 		caveat: caveatOf(t.stats),
+		note: t.note,
 		checks: checksOf(t.stats),
 		tags: tagsFromStats(t.stats),
 		stops: [],

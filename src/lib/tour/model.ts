@@ -66,6 +66,8 @@ export interface PlannedTour {
 	minutes: number;
 	/** über einen Link geöffnet (nicht hier geplant) */
 	shared?: boolean;
+	/** Hinweis zur Tour, z. B. „Kartendaten wurden seit dem Teilen erneuert“ */
+	note?: string;
 }
 
 export function tourLine(tour: PlannedTour): LngLat[] {

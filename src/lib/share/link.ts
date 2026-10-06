@@ -127,6 +127,13 @@ export interface TourSpec {
 	x: number;
 	/** je Abschnitt die Stützpunkte als Polyline (inkl. Anfang und Ende) */
 	g: string[];
+	/** je Abschnitt die Länge in Metern – zur Kontrolle beim Nachrechnen */
+	m?: number[];
+}
+
+/** Wie die Polyline die Punkte speichert (5 Nachkommastellen) – geprüft wird mit genau diesen Punkten */
+export function roundPoint([lon, lat]: LngLat): LngLat {
+	return [round5(lon), round5(lat)];
 }
 
 /** Abstand der Stützpunkte: eng genug, dass die Nachrechnung genau denselben Weg findet */
@@ -152,7 +159,11 @@ export function anchorsOf(line: LngLat[]): LngLat[] {
 	return out;
 }
 
-export async function packShort(tour: PlannedTour): Promise<string> {
+/**
+ * Kurze Fassung packen. `anchors`: geprüfte Stützpunkte je Abschnitt (rebuild.ts → packVerified);
+ * ohne Angabe die Standard-Stützpunkte (ungeprüft – nur für Tests).
+ */
+export async function packShort(tour: PlannedTour, anchors?: LngLat[][]): Promise<string> {
 	const { start, destination, returnMode } = tour.request;
 	const spec: TourSpec = {
 		v: 2,
@@ -165,7 +176,10 @@ export async function packShort(tour: PlannedTour): Promise<string> {
 			? [destination.name, round5(destination.lngLat[0]), round5(destination.lngLat[1]), 1]
 			: [destination.name, round5(destination.lngLat[0]), round5(destination.lngLat[1])],
 		x: Math.round(tour.extraDistance),
-		g: tour.legs.map((leg) => encodePolyline(anchorsOf(leg.coordinates.map(([lon, lat]) => [lon, lat] as LngLat))))
+		g: tour.legs.map((leg, i) =>
+			encodePolyline(anchors?.[i] ?? anchorsOf(leg.coordinates.map(([lon, lat]) => [lon, lat] as LngLat)))
+		),
+		m: tour.legs.map((leg) => Math.round(leg.distance))
 	};
 	return toBase64Url(await deflate(JSON.stringify(spec)));
 }
@@ -248,11 +262,11 @@ export async function unpackTour(text: string): Promise<PlannedTour> {
 }
 
 /**
- * Der fertige Link: Läuft die App gerade vom PC (localhost oder im WLAN, also ohne https),
+ * Der fertige Link zu gepackten Daten. Läuft die App gerade vom PC (localhost oder im WLAN, also ohne https),
  * zeigt er auf die Online-App – nur dort funktionieren Standort und Navigation am Handy.
  */
-export async function shareUrl(tour: PlannedTour, sharedPagePath: string): Promise<string> {
+export function shareUrlFor(packed: string, sharedPagePath: string): string {
 	const page =
 		location.protocol === 'https:' ? new URL(sharedPagePath, location.origin) : new URL('geteilt', PUBLIC_APP_URL);
-	return `${page.href}#${await packShort(tour)}`;
+	return `${page.href}#${packed}`;
 }
