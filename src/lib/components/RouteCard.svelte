@@ -26,11 +26,12 @@
 	<div class="head">
 		<span class="swatch" aria-hidden="true"></span>
 		<span class="number">Weg {number}</span>
-		{#if tour.label}<span class="label">{tour.label}</span>{/if}
 	</div>
+	<!-- Überschrift nach der Länge („Längste Tour“), darunter der Weg in Worten -->
 	<h2>
-		<a href={resolve('/tour/[id]', { id: tour.id })}>{tour.title}</a>
+		<a href={resolve('/tour/[id]', { id: tour.id })}>{tour.label ?? tour.title}</a>
 	</h2>
+	{#if tour.label}<p class="name">{tour.title}</p>{/if}
 	<p class="facts">{km} km · ca. {formatDuration(tour.minutes)} · {tour.stats.climb}</p>
 	<p class="highlight">{tour.highlight}</p>
 	<div class="footer">
@@ -78,17 +79,14 @@
 		color: var(--color-green);
 	}
 
-	.label {
-		padding: 0.125rem 0.625rem;
-		border-radius: 999px;
-		background: var(--color-sun-light);
-		color: var(--color-green);
-		font-size: var(--text-small);
-		font-weight: 700;
+	h2 {
+		margin-bottom: 0.25rem;
 	}
 
-	h2 {
+	.name {
 		margin-bottom: 0.625rem;
+		font-weight: 700;
+		color: var(--color-green);
 	}
 
 	h2 a {

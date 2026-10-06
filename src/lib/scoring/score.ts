@@ -3,6 +3,7 @@ import { resample, segmentLengths, type LngLat } from '$lib/geo/geo';
 import type { DetailInterval, RoutePath } from '$lib/routing/graphhopper';
 import { climbWordOf, elevationProfile, type ClimbWord } from '$lib/tour/elevation';
 import type { Landscape } from './landscape';
+import type { RoadMask } from './roads';
 import { BIG_WATER, SAMPLE_STEP_M, SCORE, SURROUNDINGS_RADIUS_CELLS } from './weights';
 
 export type { ClimbWord };
@@ -21,6 +22,8 @@ export interface RouteStats {
 	network: number;
 	quiet: number;
 	major: number;
+	/** Anteil auf Rad-/Fußwegen direkt neben einer großen Straße (laut, obwohl „Radweg“) */
+	roadside: number;
 	badSurface: number;
 	climb: ClimbWord;
 }
@@ -29,6 +32,43 @@ const MAJOR_ROADS = new Set(['trunk', 'primary', 'secondary']);
 const QUIET_WAYS = new Set(['cycleway', 'track', 'living_street', 'path']);
 const BAD_SURFACES = new Set(['sand', 'grass', 'dirt', 'ground', 'cobblestone', 'gravel']);
 const BAD_SMOOTHNESS = new Set(['bad', 'very_bad', 'horrible', 'very_horrible', 'impassable']);
+
+/** Wege, die als eigener Weg eingetragen sein können, obwohl sie direkt neben einer Straße laufen */
+const SIDE_WAYS = new Set(['cycleway', 'track', 'path', 'footway', 'pedestrian', 'bridleway', 'service']);
+/** erst ab dieser Länge am Stück zählt ein Weg als „neben der Straße“ (Kreuzungen und Brücken nicht) */
+const ROADSIDE_MIN_M = 150;
+
+/**
+ * Anteil der Strecke auf Rad-/Fußwegen, die über mindestens ROADSIDE_MIN_M am Stück direkt neben einer großen
+ * Straße liegen. Geprüft wird alle ca. 20 m.
+ */
+export function roadsideShare(path: RoutePath, roads: RoadMask): number {
+	const line = lineOf(path);
+	const lengths = segmentLengths(line);
+	const total = lengths.reduce((s, d) => s + d, 0);
+	if (total <= 0) return 0;
+	const classOf: string[] = [];
+	for (const [from, to, value] of path.details.road_class ?? []) for (let i = from; i < to; i++) classOf[i] = value;
+	let sum = 0;
+	let run = 0;
+	for (let i = 0; i < lengths.length; i++) {
+		const a = line[i];
+		const b = line[i + 1];
+		const steps = Math.max(1, Math.ceil(lengths[i] / 20));
+		let near = SIDE_WAYS.has(classOf[i]);
+		for (let s = 0; near && s < steps; s++) {
+			const t = (s + 0.5) / steps;
+			near = roads.near([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+		}
+		if (near) run += lengths[i];
+		else {
+			if (run >= ROADSIDE_MIN_M) sum += run;
+			run = 0;
+		}
+	}
+	if (run >= ROADSIDE_MIN_M) sum += run;
+	return Math.min(1, sum / total);
+}
 
 /** Anteil der Strecke (nach Länge), deren Detailwert die Bedingung erfüllt */
 export function detailShare<T>(
@@ -50,7 +90,7 @@ export function lineOf(path: RoutePath): LngLat[] {
 	return path.coordinates.map(([lon, lat]) => [lon, lat]);
 }
 
-export function analyzeRoute(path: RoutePath, landscape?: Landscape): RouteStats {
+export function analyzeRoute(path: RoutePath, landscape?: Landscape, roads?: RoadMask): RouteStats {
 	const line = lineOf(path);
 	const lengths = segmentLengths(line);
 	const total = lengths.reduce((s, d) => s + d, 0);
@@ -78,6 +118,7 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape): RouteStats
 		nature /= samples.length;
 	}
 
+	const roadside = roads ? roadsideShare(path, roads) : 0;
 	return {
 		distance: path.distance,
 		water,
@@ -86,8 +127,10 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape): RouteStats
 		fields,
 		nature,
 		network: detailShare(d.bike_network, lengths, total, (v) => !!v && v !== 'missing'),
-		quiet: detailShare(d.road_class, lengths, total, (v) => QUIET_WAYS.has(v)),
+		// Radwege direkt neben großen Straßen sind nicht ruhig
+		quiet: Math.max(0, detailShare(d.road_class, lengths, total, (v) => QUIET_WAYS.has(v)) - roadside),
 		major: detailShare(d.road_class, lengths, total, (v) => MAJOR_ROADS.has(v)),
+		roadside,
 		badSurface: Math.max(
 			detailShare(d.surface, lengths, total, (v) => BAD_SURFACES.has(v)),
 			detailShare(d.smoothness, lengths, total, (v) => BAD_SMOOTHNESS.has(v))
@@ -106,6 +149,7 @@ export function beautyScore(s: RouteStats): number {
 		SCORE.network * s.network +
 		SCORE.quiet * s.quiet -
 		SCORE.major * s.major -
+		SCORE.roadside * (s.roadside ?? 0) -
 		SCORE.badSurface * s.badSurface
 	);
 }
@@ -126,6 +170,7 @@ export function combineStats(parts: RouteStats[]): RouteStats {
 		network: avg('network'),
 		quiet: avg('quiet'),
 		major: avg('major'),
+		roadside: avg('roadside'),
 		badSurface: avg('badSurface'),
 		climb: order[Math.max(...parts.map((p) => order.indexOf(p.climb)))]
 	};

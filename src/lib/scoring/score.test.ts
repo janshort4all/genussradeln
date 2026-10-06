@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { offset, type LngLat } from '$lib/geo/geo';
 import { FIELDS, FOREST, NONE, WATER } from './landscape';
 import { mutualOverlap, overlapShare } from './overlap';
-import { analyzeRoute, beautyScore, combineStats, detailShare } from './score';
+import type { RoadMask } from './roads';
+import { analyzeRoute, beautyScore, combineStats, detailShare, roadsideShare } from './score';
 import { makeLandscape, makePath } from './test-helpers';
 
 const start: LngLat = [6.55, 51.35];
@@ -84,5 +85,24 @@ describe('overlap', () => {
 		const a = east(2000);
 		const b = a.map((p) => offset(p, 0, 500));
 		expect(overlapShare(a, b)).toBe(0);
+	});
+});
+
+describe('roadsideShare', () => {
+	// große Straße überall östlich von 1000 m hinter dem Start
+	const cut = offset(start, 90, 1000)[0];
+	const roads = { near: ([lon]: LngLat) => lon > cut } as unknown as RoadMask;
+
+	it('zählt Radwege direkt neben großen Straßen und nimmt sie aus „ruhig“ heraus', () => {
+		const line = [start, offset(start, 90, 1000), offset(start, 90, 2000)];
+		const stats = analyzeRoute(makePath(line, { roadClass: 'cycleway' }), undefined, roads);
+		expect(stats.roadside).toBeCloseTo(0.5, 1);
+		expect(stats.quiet).toBeCloseTo(0.5, 1);
+		expect(roadsideShare(makePath(east(2000), { roadClass: 'residential' }), roads)).toBe(0);
+	});
+
+	it('übersieht kurze Stücke (Kreuzungen, Brücken)', () => {
+		const line = [start, offset(start, 90, 950), offset(start, 90, 1050)];
+		expect(roadsideShare(makePath(line, { roadClass: 'cycleway' }), roads)).toBe(0);
 	});
 });

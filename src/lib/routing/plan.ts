@@ -5,11 +5,13 @@
  * 2. Zusätzliche Wege über schöne Zwischenpunkte (Wasser, Wald, Grün aus der Landschaftskarte)
  * 3. Nachbewertung (score.ts), Mehrweg begrenzen
  * 4. Bei „auf anderem Weg zurück“: Rückweg ebenso planen und Paare mit wenig Überschneidung bilden
- * 5. Auswahl mit klaren Rollen: „Am schönsten“, „Direkt“ (immer dabei), „Fast direkt“ und bis zu
- *    MAX_SUGGESTIONS insgesamt – aber nur Wege, die sich lohnen (WORTHWHILE) und sich deutlich unterscheiden
+ * 5. Auswahl: der direkte Weg (immer dabei), der beste, „fast direkt“ und bis zu MAX_SUGGESTIONS insgesamt –
+ *    nur Wege, die sich lohnen (WORTHWHILE), sich unterscheiden und spürbar anders lang sind (LENGTH_STEP).
+ *    Sie heißen nach ihrer Länge: „Längste Tour“ … „Kürzeste Tour“ (lengthLabels)
  */
 import { bearing, distance, distanceToLine, offset, resample, segmentLengths, type LngLat } from '$lib/geo/geo';
 import type { Landscape } from '$lib/scoring/landscape';
+import type { RoadMask } from '$lib/scoring/roads';
 import { WATER } from '$lib/scoring/landscape';
 import { backtrackMeters, findBacktrack } from '$lib/scoring/backtrack';
 import { mutualOverlap, overlapShare } from '$lib/scoring/overlap';
@@ -20,6 +22,7 @@ import {
 	DETOUR,
 	DIVERSITY_MAX_OVERLAP,
 	MAX_SUGGESTIONS,
+	LENGTH_STEP,
 	SCORE,
 	TITLE_MIN_SHARE_OF_TOP,
 	VIA_SEARCH,
@@ -36,6 +39,8 @@ import { NoRouteError, route as routeGraphHopper, type RoutePath } from './graph
 export interface PlanDeps {
 	route: typeof routeGraphHopper;
 	landscape?: Landscape;
+	/** große Straßen – erkennt Radwege direkt daneben (scoring/roads.ts) */
+	roads?: RoadMask;
 	/** Orts- und Gewässernamen für verständliche Titel („Am Rhein entlang über Meerbusch“) */
 	names?: NameData;
 	signal?: AbortSignal;
@@ -243,7 +248,7 @@ async function planDirection(
 		// Wege über Zwischenpunkte ohne „Stummel“ (hin und gleich wieder zurück in eine Sackgasse)
 		.filter(({ path, vias }) => !vias.length || backtrackMeters(lineOf(path)) <= VIA_SEARCH.maxBacktrackM)
 		.map(({ path, vias, side }) => {
-			const stats = analyzeRoute(path, deps.landscape);
+			const stats = analyzeRoute(path, deps.landscape, deps.roads);
 			const beauty = beautyScore(stats);
 			const extraRatio = Math.max(0, path.distance / directDistance - 1);
 			return {
@@ -339,6 +344,26 @@ function namedPhrase(l: { name: string; kind: 'river' | 'lake' | 'forest' | 'par
 	return { feature, phrase: landmarkPhrase(l) };
 }
 
+/** Namen der Vorschläge nach ihrer Länge, vom längsten zum kürzesten */
+export function lengthLabels(count: number): string[] {
+	switch (count) {
+		case 0:
+			return [];
+		case 1:
+			return ['Direkte Tour'];
+		case 2:
+			return ['Längere Tour', 'Kürzere Tour'];
+		case 3:
+			return ['Längste Tour', 'Mittlere Tour', 'Kürzeste Tour'];
+		case 4:
+			return ['Längste Tour', 'Lange Tour', 'Kurze Tour', 'Kürzeste Tour'];
+		default:
+			return ['Längste Tour', 'Lange Tour', 'Mittlere Tour', 'Kurze Tour', 'Kürzeste Tour'].concat(
+				Array.from({ length: count - 5 }, (_, i) => `Weitere Tour ${i + 1}`)
+			);
+	}
+}
+
 /** Hauptfunktion: Vorschläge für eine Zieltour */
 export async function planTours(request: TourRequest, deps: PlanDeps): Promise<PlannedTour[]> {
 	const start = request.start.lngLat;
@@ -376,20 +401,21 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 	const best = combinations[0];
 	if (!best) throw new NoRouteError('Kein passender Weg gefunden');
 
-	// Vorschläge mit klarer Rolle. Der direkte Weg ist immer dabei (Wunsch Jan).
-	const chosen: Combination[] = [best];
-	const roles = new Map<Combination, string>();
+	// Vorschläge, benannt nach ihrer Länge (Entscheidung Jan, 06.10.2026): „Längste Tour“ … „Kürzeste Tour“.
+	// Der direkte Weg ist immer dabei; jeder weitere muss sich lohnen und spürbar anders lang sein.
+	const chosen: Combination[] = [];
+	const differentLength = (c: Combination) =>
+		chosen.every(
+			(p) =>
+				Math.abs(lengthOf(p) - lengthOf(c)) >=
+				Math.max(LENGTH_STEP.minM, LENGTH_STEP.ratio * Math.min(lengthOf(p), lengthOf(c)))
+		);
 	const direct = withReturn(outbound.direct);
-	const bestIsDirect = !!direct && sameTour(direct, best);
-	if (direct && !bestIsDirect) {
-		chosen.push(direct);
-		roles.set(direct, 'Direkt');
-	}
+	chosen.push(direct ?? best);
+	if (!chosen.some((c) => sameTour(best, c)) && differentLength(best)) chosen.push(best);
 	const compact = withReturn(outbound.compact);
-	if (compact && !chosen.some((c) => sameTour(compact, c)) && worthwhile(compact, chosen)) {
+	if (compact && !chosen.some((c) => sameTour(compact, c)) && differentLength(compact) && worthwhile(compact, chosen))
 		chosen.push(compact);
-		roles.set(compact, 'Fast direkt');
-	}
 	// Auffüllen: erst Wege, die sich in jedem Abschnitt unterscheiden; „gleicher Hinweg, anderer Rückweg“
 	// nur, wenn es sonst weniger als drei Vorschläge wären
 	const strict = (item: Combination, p: Combination) => item.legs.some((_, i) => sameLeg(item, p, i));
@@ -400,20 +426,12 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 		for (const item of combinations) {
 			if (chosen.length >= max) break;
 			if (chosen.includes(item) || chosen.some((p) => similar(item, p))) continue;
-			if (worthwhile(item, chosen)) chosen.push(item);
+			if (differentLength(item) && worthwhile(item, chosen)) chosen.push(item);
 		}
 	}
-	// Reihenfolge: die Empfehlung zuerst, dann vom längsten zum kürzesten – der direkte steht unten
-	// (der direkte genuss-Weg ist nicht immer der kürzeste – er steht trotzdem immer ganz unten)
-	const [first, ...rest] = chosen;
-	const others = rest.filter((c) => c !== direct).sort((a, b) => lengthOf(b) - lengthOf(a));
-	const ordered = [first, ...others, ...(direct && rest.includes(direct) ? [direct] : [])];
-	// Die Empfehlung (beste Abwägung aus Schönheit und Umweg) ist nicht immer der schönste Weg –
-	// ist ein längerer noch schöner, heißt der „Am schönsten“
-	const prettiest = ordered.reduce((a, b) => (beautyOf(b) > beautyOf(a) ? b : a));
-	const bestRole = prettiest === best ? 'Am schönsten' : 'Unsere Empfehlung';
-	roles.set(best, bestIsDirect ? `${bestRole} und direkt` : bestRole);
-	if (prettiest !== best && !roles.has(prettiest)) roles.set(prettiest, 'Am schönsten');
+	// vom längsten (größter Umweg) zum kürzesten
+	const ordered = [...chosen].sort((a, b) => lengthOf(b) - lengthOf(a));
+	const labels = lengthLabels(ordered.length);
 
 	const streets = ordered.map(streetLengths);
 	const named: (RouteNames | undefined)[] = ordered.map((c) =>
@@ -458,7 +476,7 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 		const title = candidates.find((t) => !usedTitles.has(t)) ?? `Weitere Möglichkeit ${index + 1}`;
 		usedTitles.add(title);
 
-		const label = roles.get(combo);
+		const label = labels[index];
 
 		const waypoints: Waypoint[] = [{ lngLat: start, kind: 'start', name: request.start.name }];
 		const [out, back] = combo.legs;

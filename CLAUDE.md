@@ -91,13 +91,18 @@ Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahr
   3. Wege mit „Stummel“ (über 50 m doppelt gefahren: hin und zurück in eine Sackgasse oder Lasso-Schleife um den Punkt) verwerfen
      (`backtrack.ts`, `VIA_SEARCH.maxBacktrackM`). Vorher Reparaturversuch: Hilfspunkt an die Abzweigung verlegen
      und neu rechnen – dann führt der Weg an der schönen Stelle vorbei, ohne Abstecher.
-  4. Nachbewertung (`score.ts`), Mehrweg-Grenze, Abzug je Mehrweg.
-  5. **Auswahl (Entscheidung Jan, 04.10.2026):** bis zu `MAX_SUGGESTIONS` = 5 Wege mit klarer Rolle: „Unsere Empfehlung“
-     (beste Abwägung) bzw. „Am schönsten“ (der schönste gezeigte), „Direkt“ (der direkte genuss-Weg, **immer dabei**,
-     steht unten), „Fast direkt“; weitere nur, wenn sie sich lohnen (`WORTHWHILE`: kein gezeigter Weg ist kürzer und
-     fast genauso schön) und sich unterscheiden (`DIVERSITY_MAX_OVERLAP`). Reihenfolge: Empfehlung, dann nach Länge.
+  4. Nachbewertung (`score.ts`), Mehrweg-Grenze, Abzug je Mehrweg. Radwege, die direkt neben einer großen Straße
+     verlaufen (eigener Weg in OSM, aber laut), zählen nicht als ruhig und bekommen Abzug (`SCORE.roadside`; Daten
+     `roads.bin`: Zellen ≤ 25 m an motorway…secondary, `scoring/roads.ts`, erst ab 150 m am Stück).
+  5. **Auswahl (Entscheidung Jan, 06.10.2026):** bis zu `MAX_SUGGESTIONS` = 5 Wege, **benannt nach der Länge**:
+     „Längste Tour“, „Lange Tour“, „Mittlere Tour“, „Kurze Tour“, „Kürzeste Tour“ (bei zwei: „Längere/Kürzere Tour“;
+     `lengthLabels` in `plan.ts`), sortiert vom längsten zum kürzesten. Keine Rollen wie „Am schönsten“ mehr.
+     Der direkte genuss-Weg ist **immer dabei**; dazu der beste (Schönheit gegen Umweg), „fast direkt“ und weitere,
+     wenn sie sich lohnen (`WORTHWHILE`: kein gezeigter Weg ist kürzer und fast genauso schön), sich unterscheiden
+     (`DIVERSITY_MAX_OVERLAP`) und spürbar anders lang sind (`LENGTH_STEP`: ≥ 5 % bzw. 500 m) – bei kurzen
+     Strecken bleiben so oft nur zwei. Die Wegkarte zeigt „Längste Tour“ groß, den beschreibenden Titel darunter.
   6. Fahrzeit: `rideMinutes` (`src/lib/tour/duration.ts`) = Strecke / 15 km/h + `CLIMB_MINUTES_PER_100M` je 100 Höhenmeter.
-- **„Fast direkt“ (Wunsch Jan, 04.10.2026):** der schönste Weg, der höchstens ca. 15 % länger ist als der direkte
+- **„Fast direkt“ (Wunsch Jan, 04.10.2026, intern):** der schönste Weg, der höchstens ca. 15 % länger ist als der direkte
   (`COMPACT` in `weights.ts`). Kandidaten dafür zusätzlich über Punkte
   knapp links/rechts der Luftlinie (`sideVias`) – die zählen nur für „Fast direkt“, nicht für die drei schönsten.
 - **Titel (04.10.2026):** zuerst benannter Höhepunkt und unterscheidende Orte („Am Rhein entlang über Nierst“,

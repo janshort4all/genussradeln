@@ -23,6 +23,8 @@ export interface ViewStop {
 export interface TourView {
 	id: string;
 	title: string;
+	/** nach der Länge, z. B. „Längste Tour“ (nur bei eigenen Vorschlägen, nicht bei geteilten) */
+	kind?: string;
 	/** z. B. „Von Ihr Standort zu Burg Linn“ */
 	subtitle?: string;
 	highlight?: string;
@@ -89,6 +91,7 @@ export function fromPlanned(t: PlannedTour): TourView {
 	return {
 		id: t.id,
 		title: t.title,
+		kind: t.shared ? undefined : t.label,
 		subtitle:
 			returnMode === 'other-way'
 				? `Von ${start.name} zu ${destination.name} und als Runde zurück`

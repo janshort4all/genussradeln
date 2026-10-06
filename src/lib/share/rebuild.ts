@@ -6,6 +6,7 @@ import { distance, type LngLat } from '$lib/geo/geo';
 import { highlightSentence } from '$lib/routing/describe';
 import { NoRouteError, type route as routeGraphHopper } from '$lib/routing/graphhopper';
 import type { Landscape } from '$lib/scoring/landscape';
+import type { RoadMask } from '$lib/scoring/roads';
 import { analyzeRoute, combineStats } from '$lib/scoring/score';
 import { rideMinutes } from '$lib/tour/duration';
 import { elevationProfile } from '$lib/tour/elevation';
@@ -106,7 +107,10 @@ export async function packVerified(tour: PlannedTour, route: Route): Promise<str
 	return packTour(tour);
 }
 
-export async function rebuildTour(spec: TourSpec, deps: { route: Route; landscape?: Landscape }): Promise<PlannedTour> {
+export async function rebuildTour(
+	spec: TourSpec,
+	deps: { route: Route; landscape?: Landscape; roads?: RoadMask }
+): Promise<PlannedTour> {
 	const legs = await Promise.all(
 		spec.g.map(async (encoded) => {
 			const anchors = decodePolyline(encoded);
@@ -115,7 +119,7 @@ export async function rebuildTour(spec: TourSpec, deps: { route: Route; landscap
 			return { anchors, path };
 		})
 	);
-	const stats = combineStats(legs.map(({ path }) => analyzeRoute(path, deps.landscape)));
+	const stats = combineStats(legs.map(({ path }) => analyzeRoute(path, deps.landscape, deps.roads)));
 	const [sName, sLon, sLat] = spec.s;
 	const [dName, dLon, dLat, settlement] = spec.d;
 	const start = { name: sName, lngLat: [sLon, sLat] as LngLat };

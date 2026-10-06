@@ -5,7 +5,7 @@ import { decodePolyline, encodePolyline, packTour, unpackTour } from './link';
 const tour: PlannedTour = {
 	id: 'abc12345',
 	title: 'Am Rhein entlang über Nierst',
-	label: 'Unsere Empfehlung',
+	label: 'Längste Tour',
 	highlight: 'Zur Hälfte am Wasser, kaum große Straßen.',
 	request: {
 		start: { name: 'Start', lngLat: [6.63286, 51.32997] },
@@ -33,7 +33,7 @@ const tour: PlannedTour = {
 			]
 		}
 	],
-	stats: { distance: 17234.6, water: 0.5, forest: 0.1, green: 0.2, fields: 0.1, nature: 0.8, network: 0.3, quiet: 0.6, major: 0.01, badSurface: 0, climb: 'flach' },
+	stats: { distance: 17234.6, water: 0.5, forest: 0.1, green: 0.2, fields: 0.1, nature: 0.8, network: 0.3, quiet: 0.6, major: 0.01, roadside: 0, badSurface: 0, climb: 'flach' },
 	extraDistance: 2100,
 	minutes: 70
 };

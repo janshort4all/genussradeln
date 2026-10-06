@@ -254,7 +254,10 @@
 	<div class="info-column">
 		<div class="title-row">
 			<span class="round-icon big" aria-hidden="true"><Bike size={30} strokeWidth={2} /></span>
-			<h1>{tour.title}</h1>
+			<div>
+				{#if tour.kind}<p class="kind">{tour.kind}</p>{/if}
+				<h1>{tour.title}</h1>
+			</div>
 		</div>
 		{#if tour.highlight}<p class="highlight">{tour.highlight}</p>{/if}
 
@@ -487,6 +490,12 @@
 
 	.title-row h1 {
 		margin: 0;
+	}
+
+	.kind {
+		margin: 0;
+		font-weight: 700;
+		color: var(--color-text-muted);
 	}
 
 	.round-icon {

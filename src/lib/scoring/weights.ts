@@ -28,6 +28,8 @@ export const SCORE = {
 	quiet: 0.5,
 	/** Abzug: Anteil auf großen Straßen (Bundes-, Landes-, Kreisstraßen) */
 	major: 1.5,
+	/** Abzug: Anteil auf Radwegen direkt neben großen Straßen (Lärm, Abgase – fast so schlecht wie auf der Straße) */
+	roadside: 1.2,
 	/** Abzug: Anteil auf schlechtem Belag (Sand, Schotter, Kopfsteinpflaster …) */
 	badSurface: 1.0,
 	/** Abzug: Anteil des Rückwegs, der auf dem Hinweg liegt („auf anderem Weg zurück“) */
@@ -151,6 +153,12 @@ export const MAX_SUGGESTIONS = 5;
  * Deshalb gibt es bei kurzen oder einfachen Strecken oft nur zwei oder drei Vorschläge.
  */
 export const WORTHWHILE = { lengthTolerance: 0.02, beautyMargin: 0.03 } as const;
+
+/**
+ * Die Vorschläge heißen nach ihrer Länge („Längste Tour“ … „Kürzeste Tour“). Damit das etwas aussagt,
+ * unterscheiden sich je zwei gezeigte Wege mindestens um ratio der Länge bzw. minM Meter.
+ */
+export const LENGTH_STEP = { ratio: 0.05, minM: 500 } as const;
 
 /** Stopps unterwegs (F9): so weit dürfen sie neben dem Weg liegen (Meter) */
 export const STOP_RADIUS_M = {

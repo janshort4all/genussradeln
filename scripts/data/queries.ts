@@ -26,3 +26,7 @@ export const POIS: OsmQuery = (t) =>
 /** Orte für Weg-Titel („über Meerbusch“) */
 export const PLACES: OsmQuery = (t, kind) =>
 	kind === 'node' && match(t.place, /^(city|town|village|suburb|quarter)$/) && !!t.name?.trim();
+
+/** Große Straßen – für „Radweg direkt neben der Straße“ (roads.ts) */
+export const MAJOR_ROADS: OsmQuery = (t, kind) =>
+	kind === 'way' && match(t.highway, /^(motorway|trunk|primary|secondary)(_link)?$/);

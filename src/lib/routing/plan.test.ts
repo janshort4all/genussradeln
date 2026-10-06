@@ -15,7 +15,7 @@ import {
 } from './describe';
 import { RoutingUnavailableError, type RouteOptions } from './graphhopper';
 import { backtrackMeters } from '$lib/scoring/backtrack';
-import { findScenicVias, planTours, sideVias } from './plan';
+import { findScenicVias, lengthLabels, planTours, sideVias } from './plan';
 
 const start: LngLat = [6.6, 51.33];
 const end: LngLat = offset(start, 90, 6000); // 6 km nach Osten
@@ -70,19 +70,24 @@ describe('findScenicVias', () => {
 	});
 });
 
+describe('lengthLabels', () => {
+	it('benennt die Vorschläge nach der Länge', () => {
+		expect(lengthLabels(2)).toEqual(['Längere Tour', 'Kürzere Tour']);
+		expect(lengthLabels(3)).toEqual(['Längste Tour', 'Mittlere Tour', 'Kürzeste Tour']);
+		expect(lengthLabels(5)[0]).toBe('Längste Tour');
+		expect(lengthLabels(5).at(-1)).toBe('Kürzeste Tour');
+	});
+});
+
 describe('planTours', () => {
-	it('schlägt verschiedene Wege vor: der schönste zuerst, der direkte immer dabei und unten', async () => {
+	it('schlägt verschiedene Wege vor, vom längsten zum kürzesten benannt, der direkte immer dabei', async () => {
 		const tours = await planTours(request(), { route: fakeRoute, landscape });
 		expect(tours.length).toBeGreaterThanOrEqual(2);
 		expect(tours.length).toBeLessThanOrEqual(5);
-		expect(tours[0].label).toBe('Am schönsten');
-		const direct = tours.find((t) => t.label === 'Direkt');
-		expect(direct).toBeDefined();
-		expect(tours.at(-1)).toBe(direct);
-		expect(direct!.waypoints.some((w) => w.kind === 'via')).toBe(false);
-		// danach vom längsten zum kürzesten (ohne den direkten Weg, der steht immer unten)
-		for (let i = 1; i + 2 < tours.length; i++) {
-			expect(tours[i].stats.distance).toBeGreaterThanOrEqual(tours[i + 1].stats.distance);
+		expect(tours.map((t) => t.label)).toEqual(lengthLabels(tours.length));
+		expect(tours.some((t) => !t.waypoints.some((w) => w.kind === 'via'))).toBe(true);
+		for (let i = 0; i + 1 < tours.length; i++) {
+			expect(tours[i].stats.distance).toBeGreaterThan(tours[i + 1].stats.distance);
 		}
 		expect(new Set(tours.map((t) => t.title)).size).toBe(tours.length);
 		// gemütlich: 15 km/h
@@ -181,7 +186,7 @@ describe('planTours', () => {
 });
 
 describe('describe', () => {
-	const base = { distance: 10000, water: 0, forest: 0, green: 0, fields: 0, nature: 0, network: 0, quiet: 0, major: 0, badSurface: 0, climb: 'flach' as const };
+	const base = { distance: 10000, water: 0, forest: 0, green: 0, fields: 0, nature: 0, network: 0, quiet: 0, major: 0, roadside: 0, badSurface: 0, climb: 'flach' as const };
 
 	it('benennt Wege nur nach einer Landschaft, die wirklich vorne liegt', () => {
 		// 44 % Wasser, 30 % Wald: kein „Durch den Wald“

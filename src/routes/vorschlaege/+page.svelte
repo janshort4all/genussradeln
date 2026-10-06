@@ -12,6 +12,7 @@
 	import { planTours } from '$lib/routing/plan';
 	import { loadNames } from '$lib/naming/names';
 	import { loadLandscape } from '$lib/scoring/landscape';
+	import { loadRoadMask } from '$lib/scoring/roads';
 	import { tourLine } from '$lib/tour/model';
 	import { session } from '$lib/tour/session.svelte';
 
@@ -98,7 +99,7 @@
 		if (!request) return;
 		status = 'loading';
 		// Landschaftskarte und Namen (Gewässer, Wälder, Orte) – ohne sie geht es auch, nur weniger schön benannt
-		const [landscape, names] = await Promise.all([
+		const [landscape, names, roads] = await Promise.all([
 			loadLandscape(asset('/data/landscape.json'), asset('/data/landscape.png')).catch((error) => {
 				console.warn('Landschaftskarte nicht verfügbar:', error);
 				return undefined;
@@ -106,10 +107,14 @@
 			loadNames(asset('/data/landmarks.json'), asset('/data/places.json')).catch((error) => {
 				console.warn('Namensdaten nicht verfügbar:', error);
 				return undefined;
+			}),
+			loadRoadMask(asset('/data/roads.json'), asset('/data/roads.bin')).catch((error) => {
+				console.warn('Straßenkarte nicht verfügbar:', error);
+				return undefined;
 			})
 		]);
 		try {
-			const result = await planTours(request, { route, landscape, names });
+			const result = await planTours(request, { route, landscape, names, roads });
 			session.setTours(request, result);
 			tours = result;
 			status = 'done';

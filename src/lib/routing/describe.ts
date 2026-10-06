@@ -118,9 +118,15 @@ export function highlightSentence(s: RouteStats, title?: string, named?: NamedPh
 	if (first > 0) ranked.unshift(...ranked.splice(first, 1));
 	// features() liefert nur Anteile ≥ 15 %, amountWord() hat dafür immer ein Wort
 	const parts = ranked.slice(0, 2).map((f) => `${amountWord(f.share)} ${f.phrase}`);
-	let sentence = parts.length ? parts.join(' und ') : 'Ein ruhiger Weg ohne viele Besonderheiten';
-	if (s.major < 0.03) sentence += ', kaum große Straßen';
-	else if (s.major > 0.15) sentence += ', aber ein Stück an größeren Straßen';
+	const traffic = trafficShare(s);
+	let sentence = parts.length
+		? parts.join(' und ')
+		: traffic > 0.15
+			? 'Ein Weg ohne viele Besonderheiten'
+			: 'Ein ruhiger Weg ohne viele Besonderheiten';
+	if (traffic < 0.03) sentence += ', kaum große Straßen';
+	else if ((s.roadside ?? 0) > 0.15) sentence += ', aber ein Stück auf dem Radweg neben einer großen Straße';
+	else if (traffic > 0.15) sentence += ', aber ein Stück an größeren Straßen';
 	sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
 	return `${sentence}.`;
 }
@@ -156,12 +162,17 @@ export function caveatOf(s: RouteStats): string | undefined {
 	return undefined;
 }
 
+/** Anteil an oder direkt neben großen Straßen (Radwege daneben sind genauso laut) */
+function trafficShare(s: RouteStats): number {
+	return s.major + (s.roadside ?? 0);
+}
+
 /** Kurze Pluspunkte zum Abhaken (höchstens drei), z. B. „Ruhige Radwege“, „Kaum Autoverkehr“, „Überwiegend flach“ */
 export function checksOf(s: RouteStats): string[] {
 	const checks: string[] = [];
 	if (s.quiet >= 0.5) checks.push('Ruhige Radwege');
-	if (s.major < 0.03) checks.push('Kaum Autoverkehr');
-	else if (s.major < 0.1) checks.push('Wenig Autoverkehr');
+	if (trafficShare(s) < 0.03) checks.push('Kaum Autoverkehr');
+	else if (trafficShare(s) < 0.1) checks.push('Wenig Autoverkehr');
 	if (s.climb === 'flach') checks.push('Überwiegend flach');
 	if (s.badSurface < 0.03) checks.push('Glatter Belag');
 	if (s.water >= 0.2) checks.push('Ein Stück am Wasser');

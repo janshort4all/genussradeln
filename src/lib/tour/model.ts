@@ -52,7 +52,7 @@ export interface PlannedTour {
 	id: string;
 	/** z. B. „Am Wasser entlang“ */
 	title: string;
-	/** z. B. „Am schönsten“ */
+	/** nach der Länge, z. B. „Längste Tour“ */
 	label?: string;
 	/** ein Satz zum Besonderen */
 	highlight: string;

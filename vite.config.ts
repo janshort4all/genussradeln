@@ -38,7 +38,7 @@ export default defineConfig({
 			workbox: {
 				globPatterns: [
 					'client/**/*.{js,css,ico,png,svg,webp,woff,woff2,webmanifest}',
-					'client/data/*.json',
+					'client/data/*.{json,bin}',
 					'prerendered/**/*.{html,json}'
 				]
 			},
