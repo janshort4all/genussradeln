@@ -19,7 +19,18 @@
 	onMount(async () => {
 		if (pwaInfo) {
 			const { registerSW } = await import('virtual:pwa-register');
-			registerSW({ immediate: true });
+			// neue Fassung sofort laden; eine offen gebliebene App fragt stündlich und beim Zurückholen nach Updates
+			registerSW({
+				immediate: true,
+				onRegisteredSW(_url, registration) {
+					if (!registration) return;
+					const check = () => void registration.update().catch(() => {});
+					setInterval(check, 60 * 60 * 1000);
+					document.addEventListener('visibilitychange', () => {
+						if (document.visibilityState === 'visible') check();
+					});
+				}
+			});
 		}
 	});
 </script>

@@ -188,7 +188,7 @@
 	{:else if tour.backHref === 'start'}
 		<BackLink href={resolve('/')} label="Zur Startseite" />
 	{:else}
-		<BackLink href={resolve('/runde/vorschlaege')} label="Zurück zu den Beispielen" />
+		<BackLink href={resolve('/')} label="Zur Startseite" />
 	{/if}
 	<div class="tools">
 		<button type="button" class="icon-button" aria-label="Tour merken" onclick={() => tell(SAVE_LATER)}>
