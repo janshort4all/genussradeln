@@ -108,6 +108,8 @@ export const NAMING = {
 	minWoodDepth: 0.2,
 	/** Höhepunkt nur, wenn so viel vom Weg daran vorbeiführt */
 	minLandmarkShare: 0.15,
+	/** Fluss „entlang“ im Titel erst ab diesem Anteil, darunter „Nahe am Rhein“ (Jan, 11.10.2026) */
+	alongShare: 0.4,
 	/** Ort im Titel nur, wenn so viel vom Weg dort verläuft */
 	minPlaceM: 1000
 } as const;
@@ -256,6 +258,8 @@ export const TARGET_SUGGESTIONS = 3;
  */
 export const ROUND = {
 	directions: 10,
+	/** mit Landschaftswunsch mehr Richtungen probieren (mehr Auswahl für den Wunsch) */
+	wishDirections: 16,
 	tolerance: 0.1,
 	suggestions: 5,
 	/** Kreisumfang × Faktor ≈ Länge auf Straßen (Startwert, wird nachgeregelt) */
@@ -269,8 +273,32 @@ export const ROUND = {
 	/** höchstens dieser Anteil der zweiten Hälfte darf auf der ersten liegen (nicht denselben Weg zurück) */
 	maxSelfOverlap: 0.3,
 	/** zwei Runden sind „gleich“, wenn jede zu mehr als diesem Anteil auf der anderen liegt */
-	maxSimilarity: 0.6
+	maxSimilarity: 0.6,
+	/** Wunsch „Worauf haben Sie Lust?“: Zusatzpunkte für den Anteil der Strecke, der zum Wunsch passt */
+	wishBonus: 0.8,
+	/** „Am Wasser“: Hilfspunkte werden bis zu diesem Anteil des Kreisradius ans Ufer gezogen */
+	shoreReach: 1.1,
+	/** Uferstreifen (nur „Am Wasser“): halbe Breite, Faktor für alles außerhalb, Abstand der Stützpunkte, höchste Zahl Streifen */
+	shoreBand: { enabled: false, halfWidthM: 400, outsideFactor: 0.25, stepM: 600, maxRings: 45 },
+	/**
+	 * „Am Wasser“: Hilfspunkte am Ufer eines Flusses (Verlauf aus streams.json). Lange Flüsse (Rhein) gehen vor kurzen
+	 * Bächen: Zuschlag bis `longRiverBonusM` Meter Abstand für Flüsse ab `longRiverM` Länge; der Punkt liegt `bankM` Meter
+	 * von der Flussmitte entfernt auf der Seite des gewünschten Punkts (dort verlaufen die Uferwege).
+	 */
+	river: { minLengthM: 10000, longRiverM: 30000, longRiverBonusM: 2000, bankM: 260 },
+	/** Wunschrichtung: so viele Richtungen im Fächer um die Wunschrichtung, Abstand in Grad */
+	headingSpreadDeg: 10
 } as const;
+
+/**
+ * Gewichte [Felder, Grün, Wald, Wasser] für die Suche nach schönen Stellen, je nach Wunsch „Worauf haben Sie Lust?“
+ * (Runde-Seite). Ohne Wunsch gilt BEAUTY_CLASS_WEIGHTS.
+ */
+export const WISH_WEIGHTS: Record<'water' | 'forest' | 'fields', [number, number, number, number]> = {
+	water: [0.05, 0.15, 0.2, 1.0],
+	forest: [0.05, 0.4, 1.0, 0.3],
+	fields: [1.0, 0.3, 0.1, 0.2]
+};
 
 /**
  * Der direkte Weg wird durch eine fast gleiche Variante ersetzt, wenn die höchstens maxExtraRatio länger und um mindestens

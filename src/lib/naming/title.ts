@@ -109,9 +109,14 @@ function isMasculineOrNeuter(name: string): boolean {
 }
 
 /** „Am Rhein entlang“, „An der Niers entlang“, „Am Elfrather See vorbei“, „Durch den Stadtwald“ … */
-export function landmarkTitle(l: { name: string; kind: LandmarkKind }): string {
+export function landmarkTitle(l: { name: string; kind: LandmarkKind; share?: number }): string {
 	const { name, kind } = l;
 	const alter = name.match(/^Alter (.+)$/);
+	// nur in der Nähe, nicht wirklich entlang (Jan, 11.10.2026): ehrlich „Nahe am Rhein“
+	if (kind === 'river' && l.share !== undefined && l.share < NAMING.alongShare) {
+		if (alter) return `Nahe am Alten ${alter[1]}`;
+		return isMasculineOrNeuter(name) ? `Nahe am ${name}` : `Nahe an der ${name}`;
+	}
 	if (kind === 'river') {
 		if (alter) return `Am Alten ${alter[1]} entlang`;
 		return isMasculineOrNeuter(name) ? `Am ${name} entlang` : `An der ${name} entlang`;
@@ -126,7 +131,7 @@ export function landmarkTitle(l: { name: string; kind: LandmarkKind }): string {
 }
 
 /** Für den Beschreibungssatz: „am Rhein“, „an der Niers“, „durch den Stadtwald“ … */
-export function landmarkPhrase(l: { name: string; kind: LandmarkKind }): string {
+export function landmarkPhrase(l: { name: string; kind: LandmarkKind; share?: number }): string {
 	const title = landmarkTitle(l).replace(/ (entlang|vorbei)$/, '');
 	return title.charAt(0).toLowerCase() + title.slice(1);
 }

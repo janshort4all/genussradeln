@@ -37,7 +37,7 @@ export class Landscape {
 	readonly meta: LandscapeMeta;
 	private readonly cells: Uint8Array;
 	/** Summenfelder für schnelle „Wie schön ist die Umgebung?“-Abfragen */
-	private beautySum?: Float64Array;
+	private readonly beautySums = new Map<string, Float64Array>();
 
 	constructor(meta: LandscapeMeta, cells: Uint8Array) {
 		if (cells.length !== meta.width * meta.height) throw new Error('Landschaftskarte: Größe passt nicht');
@@ -155,7 +155,9 @@ export class Landscape {
 	}
 
 	private ensureBeautySum([fields, green, forest, water]: [number, number, number, number]): Float64Array {
-		if (this.beautySum) return this.beautySum;
+		const key = [fields, green, forest, water].join(',');
+		const cached = this.beautySums.get(key);
+		if (cached) return cached;
 		const { width, height } = this.meta;
 		const weightOf = [0, fields, green, forest, water];
 		const sum = new Float64Array(width * height);
@@ -166,7 +168,7 @@ export class Landscape {
 				sum[r * width + c] = rowSum + (r > 0 ? sum[(r - 1) * width + c] : 0);
 			}
 		}
-		this.beautySum = sum;
+		this.beautySums.set(key, sum);
 		return sum;
 	}
 }

@@ -11,7 +11,7 @@
  *    ROUND.suggestions (5) zeigen. Die Richtungen beginnen bei einem zufälligen Winkel (`seed`) – so gibt es
  *    bei jeder neuen Suche andere Runden.
  */
-import { bearing, distance, offset, segmentLengths, type LngLat } from '$lib/geo/geo';
+import { band, bearing, distance, offset, resample, segmentLengths, type LngLat } from '$lib/geo/geo';
 import { distinctPlaces, highlightOf, landmarkPhrase, landmarkTitle, routeNames, viaPlaces, type RouteNames } from '$lib/naming/title';
 import { findBacktrack, findLoop, findSpur, separatedFrom } from '$lib/scoring/backtrack';
 import { overlapShare } from '$lib/scoring/overlap';
@@ -21,15 +21,17 @@ import {
 	BEAUTY_CLASS_WEIGHTS,
 	ROUND,
 	SCORE,
+	SHORE_CELLS_FINE,
 	TITLE_MIN_SHARE_OF_TOP,
 	VIA_SEARCH,
-	VIA_WOODLAND_BONUS
+	VIA_WOODLAND_BONUS,
+	WISH_WEIGHTS
 } from '$lib/scoring/weights';
 import { rideMinutes } from '$lib/tour/duration';
 import { elevationProfile } from '$lib/tour/elevation';
-import { legFromPath, newTourId, type PlannedTour, type TourRequest, type Waypoint } from '$lib/tour/model';
+import { legFromPath, newTourId, type PlannedTour, type RoundWish, type TourRequest, type Waypoint } from '$lib/tour/model';
 import { highlightSentence, honestTitles } from './describe';
-import { NoRouteError, type RoutePath } from './graphhopper';
+import { NoRouteError, type RouteOptions, type RoutePath } from './graphhopper';
 import type { PlanDeps } from './plan';
 
 /** Zufallszahlen mit festem Startwert (gleiche Suche → gleiche Runden, neue Suche → neue) */
@@ -48,7 +50,12 @@ const directionWord = (degrees: number) => DIRECTION_WORDS[Math.round((((degrees
  * Hilfspunkt an die schönste Stelle in der Umgebung schieben (Fenster ± `reach` Meter, Raster aus der
  * Landschaftskarte). Ohne Landschaftskarte bleibt er, wo er ist.
  */
-function scenicNear(point: LngLat, reach: number, deps: PlanDeps): LngLat {
+function scenicNear(
+	point: LngLat,
+	reach: number,
+	deps: PlanDeps,
+	weights: [number, number, number, number] = BEAUTY_CLASS_WEIGHTS
+): LngLat {
 	const landscape = deps.landscape;
 	if (!landscape) return point;
 	const row = landscape.rowOf(point[1]);
@@ -63,7 +70,7 @@ function scenicNear(point: LngLat, reach: number, deps: PlanDeps): LngLat {
 			// auf festem Boden, nicht mitten im See
 			if (landscape.cell(row + dr, col + dc) === WATER) continue;
 			const beauty =
-				landscape.beautyAround(row + dr, col + dc, VIA_SEARCH.windowRadiusCells, BEAUTY_CLASS_WEIGHTS) +
+				landscape.beautyAround(row + dr, col + dc, VIA_SEARCH.windowRadiusCells, weights) +
 				VIA_WOODLAND_BONUS * (landscape.woodDepthAtCell(row + dr, col + dc)?.depth ?? 0);
 			// leicht die Mitte bevorzugen, damit die Runde ihre Form behält
 			const score = beauty - 0.05 * Math.hypot(dr, dc) / r;
@@ -76,12 +83,126 @@ function scenicNear(point: LngLat, reach: number, deps: PlanDeps): LngLat {
 	return best;
 }
 
+/** Nur Wasser zählt (für die Suche nach einem Ufer) */
+const WATER_ONLY: [number, number, number, number] = [0, 0, 0, 1];
+
+/**
+ * Ein Punkt am Ufer eines größeren Gewässers (Rhein, See) in der Nähe von `point` (Wunsch „Am Wasser“, Jan, 11.10.2026):
+ * Land direkt am Wasser, mit viel Wasser in der Umgebung (kein Teich), möglichst nah am gewünschten Punkt.
+ * `undefined`, wenn in Reichweite kein solches Ufer liegt.
+ */
+export function shoreNear(point: LngLat, reach: number, deps: PlanDeps): LngLat | undefined {
+	const landscape = deps.landscape;
+	if (!landscape) return undefined;
+	const row = landscape.rowOf(point[1]);
+	const col = landscape.colOf(point[0]);
+	const cellM = landscape.meta.cellLat * 110_540;
+	const r = Math.max(1, Math.round(reach / cellM));
+	const step = Math.max(1, Math.round(r / 12));
+	let best: LngLat | undefined;
+	let bestScore = -Infinity;
+	for (let dr = -r; dr <= r; dr += step) {
+		for (let dc = -r; dc <= r; dc += step) {
+			if (landscape.cell(row + dr, col + dc) === WATER) continue;
+			const around = landscape.beautyAround(row + dr, col + dc, 2, WATER_ONLY);
+			if (around < 0.1) continue;
+			const centre = landscape.cellCenter(row + dr, col + dc);
+			if (deps.fine && !deps.fine.nearWater(centre, SHORE_CELLS_FINE)) continue;
+			const score = around - (0.5 * Math.hypot(dr, dc)) / r;
+			if (score > bestScore) {
+				bestScore = score;
+				best = centre;
+			}
+		}
+	}
+	return best;
+}
+
+/** Länge der Gewässerverläufe (einmal gerechnet) */
+const courseLengths = new WeakMap<object, number>();
+function courseLength(course: { line: LngLat[] }): number {
+	let length = courseLengths.get(course);
+	if (length === undefined) {
+		length = 0;
+		for (let i = 1; i < course.line.length; i++) length += distance(course.line[i - 1], course.line[i]);
+		courseLengths.set(course, length);
+	}
+	return length;
+}
+
+/**
+ * Punkt am Ufer eines Flusses in Reichweite von `point` (Wunsch „Am Wasser“): der nächste Punkt auf dem Flusslauf –
+ * lange Flüsse wie der Rhein bevorzugt –, von der Flussmitte ans Ufer gerückt, auf die Seite des gewünschten Punkts.
+ */
+function riverBank(point: LngLat, reach: number, deps: PlanDeps): LngLat | undefined {
+	if (!deps.streams?.length) return undefined;
+	const R = ROUND.river;
+	let best: LngLat | undefined;
+	let bestScore = -Infinity;
+	for (const course of deps.streams) {
+		// nur richtige Flüsse – ein Bach am Weg macht noch keine Runde „am Wasser“
+		if (courseLength(course) < R.minLengthM) continue;
+		const bonus = (Math.min(courseLength(course), R.longRiverM) / R.longRiverM) * R.longRiverBonusM;
+		for (const p of resample(course.line, 150)) {
+			const d = distance(point, p);
+			if (d > reach) continue;
+			const score = bonus - d;
+			if (score > bestScore) {
+				bestScore = score;
+				best = p;
+			}
+		}
+	}
+	return best && offset(best, bearing(best, point), Math.min(R.bankM, distance(best, point)));
+}
+
+/**
+ * Uferstreifen für „Am Wasser“: Streifen um die benannten Gewässer (Rhein, Niers, Bäche …) in der Umgebung des
+ * Kreises. GraphHopper bleibt dort bevorzugt in den Streifen (alles außerhalb wird unattraktiver) – so führt der Weg
+ * zwischen den Hilfspunkten nicht quer über Land, sondern am Wasser entlang.
+ */
+export function shoreCorridor(center: LngLat, reach: number, deps: PlanDeps): LngLat[][] | undefined {
+	if (!deps.streams?.length || !ROUND.shoreBand.enabled) return undefined;
+	const B = ROUND.shoreBand;
+	const rings: { ring: LngLat[]; d: number }[] = [];
+	for (const course of deps.streams) {
+		const pts = resample(course.line, B.stepM);
+		for (let i = 0; i + 1 < pts.length; i++) {
+			const d = distance(center, pts[i]);
+			if (d <= reach) rings.push({ ring: band(pts[i], pts[i + 1], B.halfWidthM), d });
+		}
+	}
+	if (!rings.length) return undefined;
+	return rings.sort((a, b) => a.d - b.d).slice(0, B.maxRings).map((r) => r.ring);
+}
+
 /** Drei Hilfspunkte auf einem Kreis durch den Start, Mittelpunkt in Richtung `heading` */
-function loopVias(start: LngLat, heading: number, radius: number, deps: PlanDeps): LngLat[] {
+export function loopVias(
+	start: LngLat,
+	heading: number,
+	radius: number,
+	deps: PlanDeps,
+	wish?: RoundWish
+): LngLat[] {
 	const center = offset(start, heading, radius);
-	return [heading - 90, heading, heading + 90].map((angle) =>
-		scenicNear(offset(center, angle, radius), radius * ROUND.scenicReach, deps)
-	);
+	const weights = wish ? WISH_WEIGHTS[wish] : BEAUTY_CLASS_WEIGHTS;
+	return [heading - 90, heading, heading + 90].map((angle) => {
+		const ideal = offset(center, angle, radius);
+		return (
+			(wish === 'water'
+				? (riverBank(ideal, radius * ROUND.shoreReach, deps) ?? shoreNear(ideal, radius * ROUND.shoreReach, deps))
+				: undefined) ??
+			scenicNear(ideal, radius * ROUND.scenicReach, deps, weights)
+		);
+	});
+}
+
+/** Anteil der Strecke, der zum Wunsch passt (für die Zusatzpunkte) */
+function wishShare(stats: RouteStats, wish?: RoundWish): number {
+	if (wish === 'water') return stats.shoreWater ?? stats.water;
+	if (wish === 'forest') return stats.forestThrough ?? stats.forest;
+	if (wish === 'fields') return stats.fields;
+	return 0;
 }
 
 /**
@@ -168,22 +289,34 @@ export async function planRound(request: TourRequest, deps: PlanDeps): Promise<P
 	const options = { effort: request.effort, signal: deps.signal };
 	const rnd = random(round.seed);
 	const base = rnd() * 360;
-	const headings = Array.from({ length: ROUND.directions }, (_, k) => base + (k * 360) / ROUND.directions);
+	const wish = round.wish;
+	// Wunschrichtung: ein Fächer um diese Richtung; sonst rundherum ab einem zufälligen Winkel
+	const wanted = round.heading;
+	const count = wish ? ROUND.wishDirections : ROUND.directions;
+	const headings =
+		wanted !== undefined
+			? Array.from({ length: count }, (_, k) => wanted + (k - (count - 1) / 2) * ROUND.headingSpreadDeg)
+			: Array.from({ length: count }, (_, k) => base + (k * 360) / count);
 
 	const found = await mapLimited(headings, 4, async (heading): Promise<RoundCandidate | undefined> => {
 		// Kreisumfang × Umwegfaktor der Straßen ≈ gewünschte Länge
 		let radius = target / (2 * Math.PI * ROUND.roadFactor);
 		for (let attempt = 0; attempt < ROUND.lengthAttempts; attempt++) {
-			const vias = loopVias(start, heading, radius, deps);
+			const vias = loopVias(start, heading, radius, deps, wish);
+			// „Am Wasser“: der Weg zwischen den Hilfspunkten bleibt bevorzugt in Uferstreifen
+			const rings = wish === 'water' ? shoreCorridor(offset(start, heading, radius), radius * 1.5, deps) : undefined;
+			const attemptOptions: RouteOptions = rings
+				? { ...options, preferAreas: { rings, outsideFactor: ROUND.shoreBand.outsideFactor } }
+				: options;
 			let path: RoutePath | undefined;
 			try {
-				[path] = await deps.route([start, ...vias, start], options);
+				[path] = await deps.route([start, ...vias, start], attemptOptions);
 				// Stummel/Kreis/Zipfel an einem Hilfspunkt: Punkt an den Anfang des Abstechers verlegen, neu rechnen
 				for (let repair = 0; path && repair < ROUND.repairs; repair++) {
 					const problem = roundShapeProblem(path, vias);
 					if (!problem?.at) break;
 					vias[problem.via] = problem.at;
-					[path] = await deps.route([start, ...vias, start], options);
+					[path] = await deps.route([start, ...vias, start], attemptOptions);
 				}
 			} catch (error) {
 				if (error instanceof NoRouteError) return undefined;
@@ -202,7 +335,8 @@ export async function planRound(request: TourRequest, deps: PlanDeps): Promise<P
 			if (overlap > ROUND.maxSelfOverlap) continue;
 			const stats = analyzeRoute(path, deps.landscape, deps.roads, deps.fine);
 			const beauty = beautyScore(stats);
-			return { path, line, vias, heading, stats, beauty, overlap, score: beauty - SCORE.returnOverlap * overlap };
+			const score = beauty + ROUND.wishBonus * wishShare(stats, wish) - SCORE.returnOverlap * overlap;
+			return { path, line, vias, heading, stats, beauty, overlap, score };
 		}
 		return undefined;
 	});

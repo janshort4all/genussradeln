@@ -11,6 +11,10 @@ describe('landmarkTitle', () => {
 		expect(landmarkTitle({ name: 'Alter Rhein', kind: 'river' })).toBe('Am Alten Rhein entlang');
 		expect(landmarkTitle({ name: 'Elfrather See', kind: 'lake' })).toBe('Am Elfrather See vorbei');
 		expect(landmarkTitle({ name: 'Stadtwald', kind: 'forest' })).toBe('Durch den Stadtwald');
+		// „entlang“ erst ab größerem Anteil, sonst ehrlich „Nahe am …“
+		expect(landmarkTitle({ name: 'Rhein', kind: 'river', share: 0.26 })).toBe('Nahe am Rhein');
+		expect(landmarkTitle({ name: 'Niers', kind: 'river', share: 0.2 })).toBe('Nahe an der Niers');
+		expect(landmarkTitle({ name: 'Rhein', kind: 'river', share: 0.5 })).toBe('Am Rhein entlang');
 		expect(landmarkTitle({ name: 'Hülser Bruch', kind: 'forest' })).toBe('Durchs Hülser Bruch');
 		expect(landmarkTitle({ name: 'Linner Heide', kind: 'park' })).toBe('Durch die Linner Heide');
 	});

@@ -18,6 +18,9 @@ export interface Place {
 
 export type ReturnMode = 'one-way' | 'other-way';
 
+/** Wunsch bei Rundtouren: „Worauf haben Sie Lust?“ (ohne Wunsch: überrasche mich) */
+export type RoundWish = 'water' | 'forest' | 'fields';
+
 /** Wunsch für eine Zieltour */
 export interface TourRequest {
 	start: Place;
@@ -26,7 +29,14 @@ export interface TourRequest {
 	effort: Effort;
 	returnMode: ReturnMode;
 	/** Rundtour („Einfach eine schöne Runde drehen“): gewünschte Länge und Zufallswert (neue Suche → neue Runden) */
-	round?: { km: number; seed: number };
+	round?: {
+		km: number;
+		seed: number;
+		/** Landschaftswunsch (fehlt = überrasche mich) */
+		wish?: RoundWish;
+		/** Wunschrichtung in Grad ab Norden (fehlt = egal) */
+		heading?: number;
+	};
 }
 
 /**

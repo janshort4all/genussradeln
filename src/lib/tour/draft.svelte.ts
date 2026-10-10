@@ -2,7 +2,7 @@
  * Was gerade auf den Eingabeseiten steht („Von A nach B“ und „Eine Runde drehen“). Beide Seiten teilen sich den Start;
  * beim Hin- und Herschalten geht nichts verloren. Startwerte kommen aus dem letzten Wunsch der Sitzung.
  */
-import type { Place, ReturnMode } from './model';
+import type { Place, ReturnMode, RoundWish } from './model';
 import { session } from './session.svelte';
 
 const last = session.request;
@@ -15,10 +15,16 @@ export const draft: {
 	returnMode: ReturnMode;
 	/** gewünschte Länge der Runde in km (als Text für die Auswahl) */
 	km: string;
+	/** Runde: Landschaftswunsch („any“ = überrasche mich) */
+	wish: RoundWish | 'any';
+	/** Runde: Wunschrichtung in Grad ab Norden als Text („any“ = egal) */
+	direction: string;
 } = $state({
 	startMode: ownStart ? 'address' : 'here',
 	startPlace: ownStart ? last.start : undefined,
 	destination: last && !last.round ? last.destination : undefined,
 	returnMode: last && !last.round ? last.returnMode : 'one-way',
-	km: String(last?.round?.km ?? 20)
+	km: String(last?.round?.km ?? 20),
+	wish: last?.round?.wish ?? 'any',
+	direction: last?.round?.heading !== undefined ? String(last.round.heading) : 'any'
 });
