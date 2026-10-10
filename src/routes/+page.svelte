@@ -57,13 +57,13 @@
 		<li>
 			<a class="card round" href={resolve('/runde')}>
 				<svg class="art" viewBox="0 0 96 96" aria-hidden="true">
-					<g fill="none" stroke="#4b5a22" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+					<g fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
 						<path d="M30 18c10-8 26-6 34 4" />
 						<path d="M58 14l8 9-11 3" />
 						<path d="M70 62c-6 12-22 18-36 10" />
 						<path d="M38 82l-9-8 11-4" />
 					</g>
-					<g fill="#5f6e33">
+					<g fill="#e8ebd6">
 						<path d="M16 30l-11 22h7L7 66h18l-5-14h7z" />
 						<rect x="14" y="66" width="4" height="9" />
 						<path d="M82 24l-10 20h6L69 58h17l-4-14h6z" />
@@ -238,13 +238,13 @@
 		color: #fff;
 	}
 
-	/* „Eine Runde“: hellgrün mit Hügeln, dunkle Schrift */
+	/* „Eine Runde“: Olivgrün (abgedunkelt, weiße Schrift 5,9 : 1) – klar als Knopf zu erkennen und vom Dunkelgrün zu unterscheiden */
 	.round {
 		background:
-			radial-gradient(120% 60% at 80% 125%, rgb(118 134 65 / 0.3) 0 55%, transparent 56%),
-			radial-gradient(100% 55% at 10% 130%, rgb(118 134 65 / 0.22) 0 55%, transparent 56%),
-			var(--color-green-light);
-		color: var(--color-text);
+			radial-gradient(120% 60% at 80% 125%, rgb(232 235 214 / 0.22) 0 55%, transparent 56%),
+			radial-gradient(100% 55% at 10% 130%, rgb(232 235 214 / 0.14) 0 55%, transparent 56%),
+			#5f6e33;
+		color: #fff;
 	}
 
 	/* ganz schmale Handys und große Systemschrift: Pfeil und Bild werden kleiner, der Text behält den Platz */

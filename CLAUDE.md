@@ -142,6 +142,12 @@ ganze Strecke – 2 km am See bei 19 km ändern ihn kaum. Idee: Zusatzpunkte je 
   ausgeschnitten, Creme durchsichtig), Zahnrad → `/mehr`, darunter zwei große Felder „Zu einem Ziel“ (`/ziel`) und „Eine Runde“
   (`/runde`). Die frühere Umschaltung oben auf den Eingabeseiten (`ModeSwitch`) entfiel – beide Eingabeseiten haben stattdessen „Zur
   Startseite“. Untere Leiste: Startseite / Meine Touren / Mehr; `/mehr` enthält „Selbst planen“ (`/planen`) und den Datenschutz-Hinweis.
+  **Stil auf allen Seiten (Jan, 10.10.2026):** `PageHeader.svelte` = schmaler Streifen mit dem Titelbild, links in die Seitenfarbe
+  ausgeblendet, darauf Zurück-Weg (≥ 48 px), Überschrift (28 px) und ein Satz – auf /ziel, /runde, /mehr, /planen, /meine-touren,
+  /vorschlaege, /geteilt und der Fehlerseite. Eingaben stehen in einer Karte (`.sheet` in `app.css`: helle Fläche, Rundung 1,5 rem,
+  weicher Schatten). Nicht verwendet im Tourdetail (Karte zuerst) und in der Navigation (dunkel, nur die Strecke zählt).
+  Die Felder der Startseite: „Zu einem Ziel“ Dunkelgrün `#283C30`, „Eine Runde“ Olivgrün `#5F6E33` (beide weiße Schrift ≥ 5,5 : 1; das
+  helle Grün erschien Jan zu blass, man sah kaum einen Knopf).
   Die Eingaben liegen in `tour/draft.svelte.ts` und bleiben beim Wechseln erhalten. Bilder neu erzeugen: Skript wie in der Sitzung vom
   10.10.2026 (System.Drawing; `sharp` ist unter Windows blockiert).
 - `ROUND.directions` (10) Richtungen ab einem zufälligen Winkel (`request.round.seed`, neue Suche bzw. Knopf

@@ -6,9 +6,9 @@
 	import MapPin from '@lucide/svelte/icons/map-pin';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import Undo2 from '@lucide/svelte/icons/undo-2';
-	import BackLink from '$lib/components/BackLink.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import ChoiceGroup from '$lib/components/ChoiceGroup.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
 	import { distance } from '$lib/geo/geo';
 	import { currentPosition, PositionError } from '$lib/geo/position';
@@ -76,14 +76,14 @@
 	<title>Genuss-Radeln – Zu einem Ziel</title>
 </svelte:head>
 
-<BackLink href={resolve('/')} label="Zur Startseite" />
+<PageHeader
+	title="Wohin möchten Sie?"
+	lead="Wir bauen Ihnen den schönsten Weg dorthin."
+	backHref={resolve('/')}
+	backLabel="Zur Startseite"
+/>
 
-<header class="intro">
-	<h1>Wohin möchten Sie?</h1>
-	<p class="lead">Wir bauen Ihnen den schönsten Weg dorthin.</p>
-</header>
-
-<form onsubmit={submit} novalidate>
+<form class="sheet" onsubmit={submit} novalidate>
 	<PlaceSearch
 		label="Ihr Ziel"
 		placeholder="z. B. Burg Linn oder eine Adresse"
@@ -124,15 +124,6 @@
 </form>
 
 <style>
-	.intro {
-		margin-bottom: 1.5rem;
-	}
-
-	.lead {
-		color: var(--color-text-muted);
-		margin: 0;
-	}
-
 	.problem {
 		margin: 0 0 1rem;
 		color: var(--color-orange-dark);

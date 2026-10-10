@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import Heart from '@lucide/svelte/icons/heart';
 	import Search from '@lucide/svelte/icons/search';
-	import BackLink from '$lib/components/BackLink.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Button from '$lib/components/Button.svelte';
 </script>
 
@@ -10,9 +10,7 @@
 	<title>Genuss-Radeln – Meine Touren</title>
 </svelte:head>
 
-<BackLink href={resolve('/')} label="Zur Startseite" />
-
-<h1>Meine Touren</h1>
+<PageHeader title="Meine Touren" lead="Ihre gemerkten Touren." backHref={resolve('/')} backLabel="Zur Startseite" />
 
 <div class="empty">
 	<span class="empty-icon"><Heart size={44} strokeWidth={2} aria-hidden="true" /></span>

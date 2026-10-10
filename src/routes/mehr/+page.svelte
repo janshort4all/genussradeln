@@ -3,16 +3,14 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Lock from '@lucide/svelte/icons/lock';
 	import MapPinPlus from '@lucide/svelte/icons/map-pin-plus';
-	import BackLink from '$lib/components/BackLink.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 </script>
 
 <svelte:head>
 	<title>Genuss-Radeln – Mehr</title>
 </svelte:head>
 
-<BackLink href={resolve('/')} label="Zur Startseite" />
-
-<h1>Mehr</h1>
+<PageHeader title="Mehr" lead="Weitere Funktionen und Hinweise." backHref={resolve('/')} backLabel="Zur Startseite" />
 
 <ul class="list">
 	<li>
@@ -27,7 +25,7 @@
 	</li>
 </ul>
 
-<section class="info">
+<section class="info sheet">
 	<h2 class="section-title">
 		<span class="round-icon" aria-hidden="true"><Lock size={24} strokeWidth={2.25} /></span>
 		Ihre Daten bleiben bei Ihnen
@@ -53,9 +51,10 @@
 		gap: 0.875rem;
 		min-height: 4.5rem;
 		padding: 0.75rem 1rem;
-		border: 2px solid var(--color-border);
-		border-radius: 1rem;
+		border: 1px solid var(--color-border);
+		border-radius: 1.5rem;
 		background: var(--color-surface);
+		box-shadow: 0 4px 14px rgb(36 53 57 / 0.1);
 		color: var(--color-green);
 		text-decoration: none;
 	}
@@ -96,6 +95,10 @@
 		display: flex;
 		align-items: center;
 		gap: 0.625rem;
+	}
+
+	.info {
+		margin-bottom: 0;
 	}
 
 	.info p {

@@ -5,9 +5,9 @@
 	import MapPin from '@lucide/svelte/icons/map-pin';
 	import Route from '@lucide/svelte/icons/route';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import BackLink from '$lib/components/BackLink.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import ChoiceGroup from '$lib/components/ChoiceGroup.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
 	import { currentPosition, PositionError } from '$lib/geo/position';
 	import { inRegion } from '$lib/geocode/photon';
@@ -75,14 +75,14 @@
 	<title>Genuss-Radeln – Eine Runde drehen</title>
 </svelte:head>
 
-<BackLink href={resolve('/')} label="Zur Startseite" />
+<PageHeader
+	title="Eine schöne Runde drehen"
+	lead="Wir schlagen Ihnen bis zu fünf Runden vor – bei jeder Suche neue."
+	backHref={resolve('/')}
+	backLabel="Zur Startseite"
+/>
 
-<header class="intro">
-	<h1>Eine schöne Runde drehen</h1>
-	<p class="lead">Wir schlagen Ihnen bis zu fünf schöne Runden vor – bei jeder Suche neue.</p>
-</header>
-
-<form onsubmit={submit} novalidate>
+<form class="sheet" onsubmit={submit} novalidate>
 	<ChoiceGroup
 		legend="Wo starten Sie?"
 		name="start"
@@ -107,15 +107,6 @@
 </form>
 
 <style>
-	.intro {
-		margin-bottom: 1.5rem;
-	}
-
-	.lead {
-		color: var(--color-text-muted);
-		margin: 0;
-	}
-
 	.duration {
 		margin: -0.5rem 0 1.5rem;
 	}

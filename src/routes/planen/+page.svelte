@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import MapPinPlus from '@lucide/svelte/icons/map-pin-plus';
-	import BackLink from '$lib/components/BackLink.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import TourScene from '$lib/components/illustrations/TourScene.svelte';
 </script>
 
@@ -9,10 +9,12 @@
 	<title>Genuss-Radeln – Selbst planen</title>
 </svelte:head>
 
-<BackLink href={resolve('/mehr')} label="Zurück zu „Mehr“" />
-
-<h1>Selbst planen</h1>
-<p>Tippen Sie Punkte auf der Karte an. Die App verbindet sie über schöne Wege.</p>
+<PageHeader
+	title="Selbst planen"
+	lead="Tippen Sie Punkte auf der Karte an. Die App verbindet sie über schöne Wege."
+	backHref={resolve('/mehr')}
+	backLabel="Zurück zu „Mehr“"
+/>
 
 <div class="plan-map" role="img" aria-label="Karte zum Planen (folgt in einem späteren Schritt)">
 	<TourScene kind="fields" />

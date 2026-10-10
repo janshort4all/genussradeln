@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import Bike from '@lucide/svelte/icons/bike';
 	import Button from '$lib/components/Button.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import { route, RoutingUnavailableError } from '$lib/routing/graphhopper';
 	import { loadLandscape } from '$lib/scoring/landscape';
 	import { loadFineMap } from '$lib/scoring/fine';
@@ -47,14 +48,15 @@
 </svelte:head>
 
 {#if problem === 'offline'}
-	<h1>Die Tour lässt sich gerade nicht öffnen</h1>
+	<PageHeader title="Die Tour lässt sich gerade nicht öffnen" backHref={resolve('/')} backLabel="Zur Startseite" />
 	<p>Die Wegberechnung ist nicht erreichbar. Bitte prüfen Sie die Internetverbindung und tippen Sie den Link gleich noch einmal an.</p>
 	<Button variant="primary" href={resolve('/')}>Zur Startseite</Button>
 {:else if problem === 'broken'}
-	<h1>Diese Tour lässt sich nicht öffnen</h1>
+	<PageHeader title="Diese Tour lässt sich nicht öffnen" backHref={resolve('/')} backLabel="Zur Startseite" />
 	<p>Der Link ist vermutlich unvollständig. Bitte lassen Sie sich die Tour noch einmal schicken.</p>
 	<Button variant="primary" href={resolve('/')}>Zur Startseite</Button>
 {:else}
+	<PageHeader title="Die Tour wird geöffnet" />
 	<div class="loading" role="status">
 		<Bike size={40} aria-hidden="true" />
 		<p><strong>Die Tour wird geöffnet …</strong><br />Der Weg wird gerade berechnet.</p>

@@ -3,7 +3,7 @@
 	import Bike from '@lucide/svelte/icons/bike';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import { onMount } from 'svelte';
-	import BackLink from '$lib/components/BackLink.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import RouteCard from '$lib/components/RouteCard.svelte';
 	import RouteMap from '$lib/map/RouteMap.svelte';
@@ -170,22 +170,19 @@
 	<title>Genuss-Radeln – {isRound ? 'Ihre Runden' : 'Ihre Wege'}</title>
 </svelte:head>
 
-<BackLink href={isRound ? resolve('/runde') : resolve('/ziel')} label="Wunsch ändern" />
-
 {#if status === 'missing' || !request}
-	<h1>Noch kein Ziel gewählt</h1>
+	<PageHeader title="Noch kein Ziel gewählt" backHref={resolve('/ziel')} backLabel="Wunsch ändern" />
 	<p>Bitte sagen Sie uns zuerst, wohin Sie möchten.</p>
 	<Button variant="primary" href={resolve('/ziel')}>Ziel wählen</Button>
 {:else}
-	<h1>{heading}</h1>
-	<p class="summary muted">
-		{#if request.round}
-			Rundkurs · ca. {request.round.km} km
-		{:else}
-			ab {request.start.name} ·
-			{request.returnMode === 'one-way' ? 'nur hin' : 'hin und zurück als Runde'}
-		{/if}
-	</p>
+	<PageHeader
+		title={heading}
+		lead={request.round
+			? `Rundkurs · ca. ${request.round.km} km`
+			: `ab ${request.start.name} · ${request.returnMode === 'one-way' ? 'nur hin' : 'hin und zurück als Runde'}`}
+		backHref={isRound ? resolve('/runde') : resolve('/ziel')}
+		backLabel="Wunsch ändern"
+	/>
 
 	{#if status === 'loading'}
 		<div class="message" role="status">
@@ -292,10 +289,6 @@
 <style>
 	.more {
 		margin: 0 0 1.5rem;
-	}
-
-	.summary {
-		margin-bottom: 1rem;
 	}
 
 	/* Handy: Karte bleibt beim Scrollen oben stehen, die Vorschläge laufen darunter durch */
