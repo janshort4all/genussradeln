@@ -17,6 +17,12 @@ export interface RouteStats {
 	green: number;
 	/** Anteil an Feldern / offener Landschaft */
 	fields: number;
+	/**
+	 * Anteil, der MITTEN durch Wald bzw. Grünes (Park, Wiese, Heide) führt – nicht nur daneben entlang
+	 * (siehe Landscape.woodDepthAtCell). Fehlt bei älteren gespeicherten Touren.
+	 */
+	forestThrough?: number;
+	greenThrough?: number;
 	/** Anteil mit Wasser, Wald, Grün oder Feldern in der Nähe */
 	nature: number;
 	network: number;
@@ -135,6 +141,8 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape, roads?: Roa
 	let green = 0;
 	let fields = 0;
 	let nature = 0;
+	let forestThrough = 0;
+	let greenThrough = 0;
 	const samples = resample(line, SAMPLE_STEP_M);
 	if (landscape && samples.length) {
 		for (const p of samples) {
@@ -144,12 +152,16 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape, roads?: Roa
 			if (s.green) green++;
 			if (s.fields) fields++;
 			if (s.water || s.forest || s.green || s.fields) nature++;
+			const wood = landscape.woodDepth(p);
+			if (wood) (wood.kind === 'forest' ? (forestThrough += wood.depth) : (greenThrough += wood.depth));
 		}
 		water /= samples.length;
 		forest /= samples.length;
 		green /= samples.length;
 		fields /= samples.length;
 		nature /= samples.length;
+		forestThrough /= samples.length;
+		greenThrough /= samples.length;
 	}
 
 	const { share: roadside, noise: roadsideNoise } = roads ? roadsideStats(path, roads, landscape) : { share: 0, noise: 0 };
@@ -159,6 +171,8 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape, roads?: Roa
 		forest,
 		green,
 		fields,
+		forestThrough,
+		greenThrough,
 		nature,
 		network: detailShare(d.bike_network, lengths, total, (v) => !!v && v !== 'missing'),
 		// Radwege direkt neben großen Straßen sind nicht ruhig
@@ -181,6 +195,7 @@ export function beautyScore(s: RouteStats): number {
 		SCORE.forest * s.forest +
 		SCORE.green * s.green +
 		SCORE.fields * s.fields +
+		SCORE.through * ((s.forestThrough ?? 0) + (s.greenThrough ?? 0)) +
 		SCORE.network * s.network +
 		SCORE.quiet * s.quiet -
 		SCORE.major * s.major -
@@ -201,6 +216,8 @@ export function combineStats(parts: RouteStats[]): RouteStats {
 		forest: avg('forest'),
 		green: avg('green'),
 		fields: avg('fields'),
+		forestThrough: avg('forestThrough'),
+		greenThrough: avg('greenThrough'),
 		nature: avg('nature'),
 		network: avg('network'),
 		quiet: avg('quiet'),

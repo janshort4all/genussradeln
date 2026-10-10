@@ -92,7 +92,7 @@ Maßstab: Die Testperson kommt beim ersten Versuch allein vom Wunsch bis zum Los
 | B9 | Am PC dieselbe Bedienung, nur mit größerer Karte |
 
 Mockup-Screens:
-1. **Start:** „Wohin möchten Sie?“ – Ziel, Startpunkt, „Und zurück?“, Knopf „Schönsten Weg finden“; daneben „Kein bestimmtes Ziel?“ zur Rundtour (Dauer oder km, Anstrengung, Landschaft), später Feld „Oder sagen Sie es in eigenen Worten“; unten Leiste „Tour finden / Meine Touren / Selbst planen“.
+1. **Start:** „Wohin möchten Sie?“ – Ziel, Startpunkt, „Und zurück?“, Knopf „Schönsten Weg finden“; ganz oben die Umschaltung „Zu einem Ziel“ / „Eine Runde“ (Rundtour: Start und Länge in km, bis zu fünf Vorschläge, jede Suche neue), später Feld „Oder sagen Sie es in eigenen Worten“; unten Leiste „Tour finden / Meine Touren / Selbst planen“.
 2. **Vorschläge:** „4 Wege nach Kempen“; Karte bleibt oben stehen und zeigt den Weg, bei dem man in der Liste ist (mit Fahrtrichtungspfeilen), darunter Knöpfe „Weg: 1 2 3 …“; Wegkarten mit Länge („Längste Tour“) als Überschrift, darunter Name, km/Dauer/Steigung, ein Satz zum Besonderen, Mehrweg.
 3. **Tourdetail:** Karte mit Stopps, Titel, Beschreibungssatz, Kacheln Strecke / Fahrzeit / Steigungen, grüner Kasten mit Pluspunkten und Hinweisen, „Tour starten“, „Tour anpassen“, „Als GPX-Datei speichern“, „Einkehren unterwegs“; oben Herz (Merken) und Menü „…“ (Teilen).
 4. **Schönere Strecke:** Karte mit bisheriger Strecke (orange, an der Hauptstraße) und grün gestrichelter, leicht leuchtender Umfahrung mit Schild „Durchs Grüne · +1,8 km“; unten Karte „Schönere Strecke gefunden“ mit Bisher/Neu, „Nein, danke“ und „Übernehmen“.

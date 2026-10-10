@@ -31,6 +31,7 @@ import {
 	TARGET_SUGGESTIONS,
 	TITLE_MIN_SHARE_OF_TOP,
 	VIA_PAIRS,
+	VIA_WOODLAND_BONUS,
 	VIA_SEARCH,
 	WORTHWHILE
 } from '$lib/scoring/weights';
@@ -180,8 +181,10 @@ export function findScenicVias(
 			const dEnd = distance(point, end);
 			if (dStart + dEnd > maxSum) continue;
 			if (Math.min(dStart, dEnd) < minFromEnds) continue;
-			const beauty = landscape.beautyAround(row, col, VIA_SEARCH.windowRadiusCells, BEAUTY_CLASS_WEIGHTS);
-			if (beauty < VIA_SEARCH.minBeauty) continue;
+			const around = landscape.beautyAround(row, col, VIA_SEARCH.windowRadiusCells, BEAUTY_CLASS_WEIGHTS);
+			if (around < VIA_SEARCH.minBeauty) continue;
+			// mitten im Wald/Grünen liegende Stellen bevorzugen: der Weg soll hindurch führen, nicht daran vorbei
+			const beauty = around + VIA_WOODLAND_BONUS * (landscape.woodDepthAtCell(row, col)?.depth ?? 0);
 			found.push({ point, beauty });
 		}
 	}

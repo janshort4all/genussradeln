@@ -81,9 +81,19 @@ Zweistufig, damit kein eigener Rechen-Server nötig ist:
 
 Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahrten leicht justierbar sind.
 
+**Durch Wald und Parks, nicht daneben (Wunsch Jan, 10.10.2026):** Die Landschaftskarte (Zellen ≈ 100 m) kennt nur „in der Nähe“;
+ein Weg am Waldrand zählte wie einer mitten im Wald. Jetzt misst `Landscape.woodDepthAtCell` die **Tiefe** (Zelle selbst Wald/Grün,
+dazu Nachbarzellen: Rand ≈ 0,25, ganz drin 1). `RouteStats.forestThrough/greenThrough` + Zusatzpunkte `SCORE.through`;
+die Suche nach schönen Hilfspunkten bevorzugt Stellen mitten im Wald (`VIA_WOODLAND_BONUS`); Titel/Beschreibung sagen ehrlich
+„Durch den Wald“ (Tiefe) bzw. „Am Wald entlang“ (nur daneben), benannte Wälder/Parks im Titel nur bei echter Tiefe
+(`NAMING.minWoodDepth`). Probiert und verworfen: Waldflächen als `areas` an GraphHopper schicken (langsam, 2–4 s, ohne Wirkung).
+
 ### Rundtouren (F2, F4 Rundtour – umgesetzt 06.10.2026, `src/lib/routing/round.ts`)
 
 - Eingabe (`/runde`): Start (Standort oder Adresse) und Länge in km (10–50). Gerechnet wird „gemütlich“.
+  Ganz oben auf `/` und `/runde` steht die Umschaltung **„Zu einem Ziel“ / „Eine Runde“** (`ModeSwitch.svelte`, zwei echte Links,
+  bewusst nicht fest stehend: die untere Leiste ist schon fest, oben würde sie am Handy mit Tastatur Platz fressen). Die
+  Eingaben liegen in `tour/draft.svelte.ts` und bleiben beim Wechseln erhalten.
 - `ROUND.directions` (10) Richtungen ab einem zufälligen Winkel (`request.round.seed`, neue Suche bzw. Knopf
   „Andere Runden vorschlagen“ → neue Runden, Wunsch Jan): je drei Hilfspunkte auf einem Kreis durch den Start, jeder an die
   schönste Stelle seiner Umgebung geschoben; Kreis nachregeln, bis die Länge höchstens **10 %** abweicht (Wunsch Jan).

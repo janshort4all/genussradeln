@@ -48,8 +48,10 @@ export function routeNames(line: LngLat[], data: NameData, landscape?: Landscape
 			landmarkVotes.set(hit.name, v);
 		};
 		if (!landscape || around?.water) vote(['river', 'lake'], landscape ? NAMING.waterRadiusM : NAMING.nearRadiusM);
-		if (!landscape || around?.forest) vote(['forest'], NAMING.nearRadiusM);
-		if (!landscape || around?.green) vote(['park'], NAMING.nearRadiusM);
+		// „Durch den Stadtwald“ nur, wenn der Weg wirklich im Wald verläuft – nicht am Waldrand entlang
+		const wood = landscape?.woodDepth(p);
+		if (!landscape || (wood?.kind === 'forest' && wood.depth > NAMING.minWoodDepth)) vote(['forest'], NAMING.nearRadiusM);
+		if (!landscape || (wood?.kind === 'green' && wood.depth > NAMING.minWoodDepth)) vote(['park'], NAMING.nearRadiusM);
 
 		const place = data.places.nearest(p, NAMING.placeRadiusM);
 		if (place) {

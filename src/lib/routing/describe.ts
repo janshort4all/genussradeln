@@ -72,10 +72,16 @@ export interface NamedPhrase {
 function features(s: RouteStats, named?: NamedPhrase): Feature[] {
 	const phrase = (feature: NamedPhrase['feature'], fallback: string) =>
 		named?.feature === feature ? named.phrase : fallback;
+	// „Durch den Wald“ nur für den Teil, der wirklich mitten im Wald liegt; der Rest führt daran entlang
+	// (ältere gespeicherte Touren kennen die Tiefe nicht – dann zählt alles als „durch“)
+	const forestThrough = Math.min(s.forest, s.forestThrough ?? s.forest);
+	const greenThrough = Math.min(s.green, s.greenThrough ?? s.green);
 	return [
 		{ share: s.water, title: 'Am Wasser entlang', phrase: phrase('water', 'am Wasser') },
-		{ share: s.forest, title: 'Durch den Wald', phrase: phrase('forest', 'durch den Wald') },
-		{ share: s.green, title: 'Durchs Grüne', phrase: phrase('green', 'durchs Grüne') },
+		{ share: forestThrough, title: 'Durch den Wald', phrase: phrase('forest', 'durch den Wald') },
+		{ share: s.forest - forestThrough, title: 'Am Wald entlang', phrase: 'am Wald entlang' },
+		{ share: greenThrough, title: 'Durchs Grüne', phrase: phrase('green', 'durchs Grüne') },
+		{ share: s.green - greenThrough, title: 'Am Grünen entlang', phrase: 'am Grünen entlang' },
 		{ share: s.fields, title: 'Durch die Felder', phrase: 'durch die Felder' },
 		{ share: s.quiet, title: QUIET_TITLE, phrase: 'auf ruhigen Radwegen' }
 	]

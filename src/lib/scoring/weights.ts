@@ -22,6 +22,11 @@ export const SCORE = {
 	green: 0.6,
 	/** Anteil durch Felder / offene Landschaft (schön, aber weniger als Wald und Wasser) */
 	fields: 0.35,
+	/**
+	 * Zusatzpunkte für den Anteil, der MITTEN durch Wald oder Grünes (Park, Wiese, Heide) führt (Wunsch Jan,
+	 * 10.10.2026: durch Wälder und Parks fahren, nicht nur daneben entlang). Kommt zu forest/green dazu.
+	 */
+	through: 0.8,
 	/** Anteil auf ausgeschilderten Radnetzen (Knotenpunktnetz) */
 	network: 0.4,
 	/** Anteil auf Radwegen, Wirtschaftswegen, Spielstraßen */
@@ -38,6 +43,12 @@ export const SCORE = {
 	/** Abzug: Anteil des Rückwegs, der auf dem Hinweg liegt („auf anderem Weg zurück“) */
 	returnOverlap: 1.2
 } as const;
+
+/**
+ * Suche nach schönen Hilfspunkten: Stellen mitten im Wald bzw. Grünen (Tiefe 0..1, siehe Landscape.woodDepthAtCell)
+ * bekommen diesen Zuschlag auf die Schönheit der Umgebung – dann führen die Umwege hinein statt daran vorbei.
+ */
+export const VIA_WOODLAND_BONUS = 0.25;
 
 /**
  * Radweg neben großer Straße, abgestuft (Wunsch Jan, 06.10.2026): mit Wald oder Wasser direkt am Weg nur ein
@@ -82,6 +93,8 @@ export const NAMING = {
 	nearRadiusM: 400,
 	/** ein Abschnitt gehört zum nächstgelegenen Ort in diesem Umkreis */
 	placeRadiusM: 2500,
+	/** Wald/Park im Titel nur an Stellen, die mindestens so tief drin liegen (0..1, Rand ≈ 0,25) */
+	minWoodDepth: 0.2,
 	/** Höhepunkt nur, wenn so viel vom Weg daran vorbeiführt */
 	minLandmarkShare: 0.15,
 	/** Ort im Titel nur, wenn so viel vom Weg dort verläuft */

@@ -117,3 +117,28 @@ describe('roadsideShare', () => {
 		expect(roadsideShare(makePath(line, { roadClass: 'cycleway' }), roads)).toBe(0);
 	});
 });
+
+describe('mitten durch Wald statt daneben entlang', () => {
+	const path = makePath(east(2000));
+	// der Weg liegt in Zeile 55: „drin“ = überall Wald, „daneben“ = Wald nur nördlich davon (bis Zeile 54)
+	const inside = makeLandscape(() => FOREST);
+	const beside = makeLandscape((row) => (row <= 54 ? FOREST : NONE));
+
+	it('misst die Tiefe: Rand ≈ 0,25, mittendrin 1, draußen nichts', () => {
+		expect(beside.woodDepthAtCell(54, 100)?.depth).toBeCloseTo(0.25);
+		expect(beside.woodDepthAtCell(30, 100)?.depth).toBe(1);
+		expect(beside.woodDepthAtCell(55, 100)).toBeUndefined();
+	});
+
+	it('ein Weg mitten im Wald zählt als „durch“, am Waldrand nur als „entlang“', () => {
+		const through = analyzeRoute(path, inside);
+		const along = analyzeRoute(path, beside);
+		expect(through.forestThrough).toBeGreaterThan(0.9);
+		expect(along.forest).toBeGreaterThan(0.9);
+		expect(along.forestThrough).toBeLessThan(0.05);
+	});
+
+	it('mitten durch ist schöner als daneben entlang', () => {
+		expect(beautyScore(analyzeRoute(path, inside))).toBeGreaterThan(beautyScore(analyzeRoute(path, beside)) + 0.5);
+	});
+});

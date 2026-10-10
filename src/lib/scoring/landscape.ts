@@ -113,6 +113,31 @@ export class Landscape {
 	}
 
 	/**
+	 * Wie mitten im Wald oder Grünen (Park, Wiese, Heide) liegt die Zelle? Die Zelle selbst (≈ 100 m) muss Wald/Grün
+	 * sein; die Tiefe steigt mit den Nachbarzellen (8), die ebenfalls Wald/Grün sind: am Rand eines Waldstücks
+	 * (höchstens 5 von 8) ist sie ≈ 0,25 – ein Weg dort führt „daneben entlang“ –, ganz drin (8 von 8) ist sie 1.
+	 * `undefined`, wenn die Zelle selbst weder Wald noch Grün ist.
+	 */
+	woodDepthAtCell(row: number, col: number): { kind: 'forest' | 'green'; depth: number } | undefined {
+		const own = this.cell(row, col);
+		if (own !== FOREST && own !== GREEN) return undefined;
+		let neighbours = 0;
+		for (let dr = -1; dr <= 1; dr++) {
+			for (let dc = -1; dc <= 1; dc++) {
+				if (!dr && !dc) continue;
+				const v = this.cell(row + dr, col + dc);
+				if (v === FOREST || v === GREEN) neighbours++;
+			}
+		}
+		return { kind: own === FOREST ? 'forest' : 'green', depth: Math.max(0, (neighbours - 4) / 4) };
+	}
+
+	/** Wie mitten im Wald/Grünen liegt der Punkt? Siehe woodDepthAtCell. */
+	woodDepth([lon, lat]: LngLat): { kind: 'forest' | 'green'; depth: number } | undefined {
+		return this.woodDepthAtCell(this.rowOf(lat), this.colOf(lon));
+	}
+
+	/**
 	 * Schönheit der Umgebung (0..1): gewichteter Anteil schöner Zellen im Quadrat ±`radius` Zellen.
 	 * Gewichte je Klasse (Felder, Grün, Wald, Wasser) siehe weights.ts.
 	 */

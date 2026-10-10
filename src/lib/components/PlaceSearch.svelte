@@ -44,7 +44,8 @@
 	 * verdeckt. Daher das Feld nach oben rollen, sobald man hineintippt und sobald Vorschläge da sind.
 	 */
 	function scrollIntoReach() {
-		if (!box || !window.matchMedia('(pointer: coarse)').matches) return;
+		// nach der Auswahl braucht das Feld keinen Platz mehr (verspätete Antworten der Suche dürfen ihn nicht zurückholen)
+		if (value || !box || !window.matchMedia('(pointer: coarse)').matches) return;
 		clearTimeout(blurTimer);
 		active = true;
 		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -92,7 +93,7 @@
 		const q = query.trim();
 		// sofort: Orte und Straßen aus den eigenen Verzeichnissen (der Suchdienst braucht 2–4 s)
 		const local = await localMatches(q);
-		if (q !== query.trim()) return; // inzwischen weitergetippt
+		if (q !== query.trim() || value) return; // inzwischen weitergetippt oder schon gewählt
 		results = local;
 		status = 'idle';
 		if (local.length) scrollIntoReach();
@@ -103,6 +104,7 @@
 			if (!local.length) status = 'searching';
 			try {
 				const remote = await searchPlaces(q, near, controller.signal);
+				if (value || q !== query.trim()) return;
 				results = merge(local, remote);
 				status = results.length ? 'idle' : 'empty';
 				scrollIntoReach();
@@ -120,6 +122,10 @@
 	}
 
 	function choose(place: Place) {
+		// laufende Suche und Aufräum-Zeitgeber beenden – sonst meldet sich die Suche nach der Auswahl noch einmal
+		clearTimeout(timer);
+		clearTimeout(blurTimer);
+		controller?.abort();
 		active = false;
 		value = place;
 		query = place.name;
@@ -135,7 +141,7 @@
 	}
 </script>
 
-<div class="place-search" class:prominent class:active bind:this={box}>
+<div class="place-search" class:prominent class:active={active && !value} bind:this={box}>
 	<label class="field-label" for="{id}-input">{label}</label>
 	<div class="input-row">
 		<input

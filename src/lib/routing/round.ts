@@ -17,7 +17,14 @@ import { findBacktrack, findLoop, findSpur, separatedFrom } from '$lib/scoring/b
 import { overlapShare } from '$lib/scoring/overlap';
 import { WATER } from '$lib/scoring/landscape';
 import { analyzeRoute, beautyScore, lineOf, type RouteStats } from '$lib/scoring/score';
-import { BEAUTY_CLASS_WEIGHTS, ROUND, SCORE, TITLE_MIN_SHARE_OF_TOP, VIA_SEARCH } from '$lib/scoring/weights';
+import {
+	BEAUTY_CLASS_WEIGHTS,
+	ROUND,
+	SCORE,
+	TITLE_MIN_SHARE_OF_TOP,
+	VIA_SEARCH,
+	VIA_WOODLAND_BONUS
+} from '$lib/scoring/weights';
 import { rideMinutes } from '$lib/tour/duration';
 import { elevationProfile } from '$lib/tour/elevation';
 import { newTourId, type PlannedTour, type TourRequest, type Waypoint } from '$lib/tour/model';
@@ -55,7 +62,9 @@ function scenicNear(point: LngLat, reach: number, deps: PlanDeps): LngLat {
 		for (let dc = -r; dc <= r; dc += step) {
 			// auf festem Boden, nicht mitten im See
 			if (landscape.cell(row + dr, col + dc) === WATER) continue;
-			const beauty = landscape.beautyAround(row + dr, col + dc, VIA_SEARCH.windowRadiusCells, BEAUTY_CLASS_WEIGHTS);
+			const beauty =
+				landscape.beautyAround(row + dr, col + dc, VIA_SEARCH.windowRadiusCells, BEAUTY_CLASS_WEIGHTS) +
+				VIA_WOODLAND_BONUS * (landscape.woodDepthAtCell(row + dr, col + dc)?.depth ?? 0);
 			// leicht die Mitte bevorzugen, damit die Runde ihre Form behält
 			const score = beauty - 0.05 * Math.hypot(dr, dc) / r;
 			if (score > bestBeauty) {
