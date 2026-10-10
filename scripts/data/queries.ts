@@ -36,6 +36,9 @@ export const STREET_NAMES: OsmQuery = (t, kind) =>
 	!!t.name &&
 	match(t.highway, /^(residential|living_street|unclassified|tertiary|secondary|primary|pedestrian|road|service|track|cycleway|path|footway|bridleway)$/);
 
+/** Benannte Bäche, Flüsse und Kanäle als Linien – damit die Planung einem Gewässer folgen kann (streams.ts) */
+export const WATERWAYS: OsmQuery = (t, kind) => kind === 'way' && !!t.name && match(t.waterway, /^(river|stream|canal)$/);
+
 /** Große Straßen – für „Radweg direkt neben der Straße“ (roads.ts) */
 export const MAJOR_ROADS: OsmQuery = (t, kind) =>
 	kind === 'way' && match(t.highway, /^(motorway|trunk|primary|secondary)(_link)?$/);

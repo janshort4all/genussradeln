@@ -5,6 +5,7 @@
  *   static/data/places.json             Ortsnamen für Weg-Titel
  *   static/data/landmarks.json          Gewässer-, Wald- und Parknamen für Weg-Titel
  *   static/data/roads.bin + .json       große Straßen (für Radwege direkt daneben)
+ *   static/data/streams.json            Verläufe benannter Bäche, Flüsse, Kanäle (zum Folgen)
  *   static/data/fine.bin + .json        feine Karte von Wald, Parks und Wasser (für „mitten durch“)
  *   static/data/search/                 Straßen und Hausnummern für die Sofort-Suche beim Tippen
  *
@@ -20,7 +21,8 @@ import { buildLandscape } from './data/landscape.ts';
 import { buildPlaces } from './data/places.ts';
 import { buildPois } from './data/pois.ts';
 import { buildRoads } from './data/roads.ts';
-import { ADDRESSES, FIELDS, LANDSCAPE, MAJOR_ROADS, PLACES, POIS, STREET_NAMES } from './data/queries.ts';
+import { buildStreams } from './data/streams.ts';
+import { ADDRESSES, FIELDS, LANDSCAPE, MAJOR_ROADS, PLACES, POIS, STREET_NAMES, WATERWAYS } from './data/queries.ts';
 import { osmFileBounds, osmFilePath, readOsm } from './lib/osm-file.ts';
 
 const started = Date.now();
@@ -36,7 +38,8 @@ const osm = await readOsm(
 		places: PLACES,
 		roads: MAJOR_ROADS,
 		addresses: ADDRESSES,
-		streets: STREET_NAMES
+		streets: STREET_NAMES,
+		waterways: WATERWAYS
 	},
 	{ path }
 );
@@ -47,6 +50,7 @@ await buildPois(osm.pois, osm.landscape);
 await buildPlaces(osm.places);
 await buildLandmarks(osm.landscape, bounds);
 await buildRoads(osm.roads, bounds);
+await buildStreams(osm.waterways, bounds);
 const places = JSON.parse(await readFile(new URL('../static/data/places.json', import.meta.url), 'utf8')).places;
 await buildAddresses(osm.addresses, osm.streets, places);
 

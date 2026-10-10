@@ -115,3 +115,21 @@ export function boundsOf(lines: LngLat[][]): Bounds {
 export function contains(bounds: Bounds, [lon, lat]: LngLat): boolean {
 	return lon >= bounds.west && lon <= bounds.east && lat >= bounds.south && lat <= bounds.north;
 }
+
+/** Band (Rechteck) der halben Breite `halfWidth` Meter um die Strecke a → b, etwas über die Enden hinaus */
+export function band(a: LngLat, b: LngLat, halfWidth: number): LngLat[] {
+	const kx = 111_320 * Math.cos((a[1] * Math.PI) / 180);
+	const ky = 110_540;
+	const dx = (b[0] - a[0]) * kx;
+	const dy = (b[1] - a[1]) * ky;
+	const length = Math.hypot(dx, dy) || 1;
+	const ux = (dx / length) * halfWidth;
+	const uy = (dy / length) * halfWidth;
+	const corner = (x: number, y: number): LngLat => [a[0] + x / kx, a[1] + y / ky];
+	return [
+		corner(-ux - uy, -uy + ux),
+		corner(dx + ux - uy, dy + uy + ux),
+		corner(dx + ux + uy, dy + uy - ux),
+		corner(-ux + uy, -uy - ux)
+	];
+}

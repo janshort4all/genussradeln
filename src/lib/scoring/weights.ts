@@ -69,7 +69,7 @@ export const ROADSIDE = { greenFactor: 0.35, motorwayFactor: 1.3 } as const;
  */
 export const DETOUR = {
 	/** höchstens so viel länger als der direkte genuss-Weg (Anteil) … */
-	maxExtraRatio: 0.6,
+	maxExtraRatio: 1.0,
 	/** … mindestens aber so viele km Spielraum (bei kurzen Wegen) */
 	minExtraKm: 3,
 	/** GraphHopper-Alternativen: max. Gewichtsfaktor gegenüber dem besten Weg */
@@ -144,7 +144,7 @@ export const VIA_SEARCH = {
 	/** Mindestabstand zum direkten Weg (sonst bringt der Umweg nichts) */
 	minFromDirectM: 250,
 	/** Gewässer-Ufer als Hilfspunkte: höchstens so viele, nur Gewässer ab so vielen Zellen (≈ 1 ha je Zelle) */
-	shoreVias: 6,
+	shoreVias: 4,
 	minWaterCells: 12,
 	/** Umweg-Schätzung: Straßenweg ≈ Luftlinie × Faktor */
 	roadFactor: 1.25,
@@ -157,7 +157,7 @@ export const VIA_SEARCH = {
 	/** so nah an Start und Ziel wird nicht auf Stummel/Kreis/Zipfel geprüft (dort muss man manchmal wenden) */
 	endpointFreeM: 500,
 	/** … dafür werden so viele Zwischenpunkte zusätzlich ausprobiert */
-	spareVias: 3,
+	spareVias: 0,
 	/**
 	 * Brücken und Fähren ab dieser Länge (Meter) gelten als Querung eines großen Flusses o. Ä. Ein Vorschlag darf
 	 * nicht mehr davon nehmen als der direkte Weg – sonst führt ein schöner Zwischenpunkt auf der anderen Flussseite
@@ -184,6 +184,34 @@ export const COMPACT = {
 } as const;
 
 /**
+ * Einem Bach oder Fluss folgen (Wunsch Jan, 10.10.2026): Abschnitte benannter Gewässer ab minStretchM Länge, die im
+ * erlaubten Umweg liegen; der Weg bleibt im Streifen (halfWidthM zu jeder Seite), alles außerhalb zählt für GraphHopper nur
+ * mit outsideFactor. Höchstens `count` Abschnitte, nicht näher als minSpacingM beieinander.
+ */
+export const STREAMS = {
+	minStretchM: 1500,
+	/** längere Abschnitte werden auf das Stück mit dem kleinsten Umweg gekürzt */
+	maxStretchM: 5000,
+	stepM: 100,
+	corridorStepM: 400,
+	halfWidthM: 400,
+	/** stark: Der Bogen eines Bachs ist länger als die Straße daneben; bei 0,5 wählt GraphHopper die kürzere Straße (getestet) */
+	outsideFactor: 0.12,
+	count: 3,
+	minSpacingM: 1500,
+	/** Anteil des Abschnitts, der mindestens minFromDirectM von der direkten Strecke entfernt liegen muss (sonst folgt sie ihm schon) */
+	minFromDirectM: 100,
+	minAwayShare: 0.5,
+	/** Abstand zu Start und Ziel, ab dem ein Abschnitt zählt */
+	minFromEndsM: 300,
+	/** Umweg-Schätzung wie VIA_SEARCH.roadFactor */
+	roadFactor: 1.25,
+	/** Touren über zwei Abschnitte nacheinander: so viele Kombinationen, so viel länger als sonst erlaubt */
+	combos: 2,
+	comboLengthFactor: 1.3
+} as const;
+
+/**
  * Angebot aus kurzer, mittellanger und langer Tour (Wunsch Jan, 10.10.2026): Die lange ist mindestens longMinRatio ×
  * so lang wie die kurze (der direkte Weg), die mittlere liegt mindestens `gap` über der kurzen und unter der langen.
  */
@@ -194,7 +222,7 @@ export const TIERS = { longMinRatio: 1.15, mediumMinRatio: 1.06, gap: 0.06 } as 
  * berechnet, der deren Korridor meidet (Streifen halfWidthM breit, Abstand spacingM, Anfang und Ende bleiben frei).
  * Wege im Streifen zählen für GraphHopper nur noch mit factor.
  */
-export const ALTERNATIVES = { count: 3, halfWidthM: 250, spacingM: 900, freeEndsM: 1000, factor: 0.3 } as const;
+export const ALTERNATIVES = { count: 2, halfWidthM: 250, spacingM: 900, freeEndsM: 1000, factor: 0.3 } as const;
 
 /**
  * Umweg als Korridor (statt festem Punkt): Band Start → schöne Stelle → Ziel mit halfWidthM Metern zu jeder Seite;
@@ -206,7 +234,7 @@ export const CORRIDOR = { halfWidthM: 600, outsideFactor: 0.15 } as const;
  * Wege über zwei schöne Stellen nacheinander: Paare aus den fromBest schönsten Einzel-Umwegen
  * (5 → höchstens 10 zusätzliche Anfragen je Richtung), die Punkte mindestens minApartM auseinander.
  */
-export const VIA_PAIRS = { fromBest: 5, minApartM: 1000 } as const;
+export const VIA_PAIRS = { fromBest: 4, minApartM: 1000 } as const;
 
 /** Vorschläge dürfen sich höchstens so stark überdecken (Anteil gemeinsamer Strecke) */
 export const DIVERSITY_MAX_OVERLAP = 0.6;

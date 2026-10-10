@@ -96,6 +96,17 @@ Freizeitpark: 2–3 Zellen) nicht sagen, ob ein Weg drin oder daneben liegt. `wo
 (getestet: 2–4 s, keine Wirkung). `npm run data` schreibt PNGs ohne das native `sharp` (`scripts/lib/png.ts`) – Windows-
 Anwendungssteuerung (Smart App Control) blockiert unsignierte .node/.dll-Dateien, das traf auch Git (libcurl).
 
+**Gewässern folgen (Wunsch Jan, 10.10.2026: „links dem Moersbach folgen“):** `scripts/data/streams.ts` → `static/data/streams.json`
+(97 KB): geordnete Verläufe aller benannten Bäche/Flüsse/Kanäle ≥ 2 km (Wege gleichen Namens an den Enden verbunden, auf 8 m
+vereinfacht, Polylinie). `routing/streams.ts`: `findStretches` sucht Abschnitte (≥ 1,5 km, höchstens 5 km – längere werden auf das
+Stück mit dem kleinsten Umweg gekürzt), die im erlaubten Umweg liegen und nicht ohnehin an der direkten Strecke verlaufen;
+`planDirection` rechnet je Abschnitt Start → Eingang → Ausgang → Ziel mit Streifen ± 400 m um den Bach (`STREAMS`, alles außerhalb
+nur ×0,12 – bei ×0,5 nimmt GraphHopper die kürzere Straße, getestet) sowie Kombinationen aus zwei Abschnitten (`STREAMS.combos`,
+dürfen `comboLengthFactor` länger sein). Direkt am Bach gibt es oft nur Fußwege; die befahrbaren Parkwege liegen ca. 300 m davon –
+deshalb der breite Streifen. Obergrenze für Umwege jetzt `DETOUR.maxExtraRatio` 1,0 (die längste Tour darf alles Schöne mitnehmen).
+Die lokale GraphHopper braucht je Anfrage ca. 240 ms (Windows/ARM), der Oracle-Server ca. 80 ms – am PC wirkt die Planung also
+dreimal langsamer als online.
+
 **Angebot kurz / mittel / lang (Wunsch Jan, 10.10.2026):** Der direkte (bzw. schönere direkte) Weg ist die kurze Tour; dazu die schönste
 lange (≥ `TIERS.longMinRatio` × so lang) und die schönste mittlere, klar dazwischen (`TIERS`). Gibt es solche Längen nicht, wird mit
 verschiedenen Wegen aufgefüllt (`TARGET_SUGGESTIONS` 3, gleich lang ist dann in Ordnung).
