@@ -1,154 +1,278 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { asset, resolve } from '$app/paths';
-	import ArrowRight from '@lucide/svelte/icons/arrow-right';
-	import LocateFixed from '@lucide/svelte/icons/locate-fixed';
-	import MapPin from '@lucide/svelte/icons/map-pin';
-	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import Undo2 from '@lucide/svelte/icons/undo-2';
-	import Button from '$lib/components/Button.svelte';
-	import ChoiceGroup from '$lib/components/ChoiceGroup.svelte';
-	import ModeSwitch from '$lib/components/ModeSwitch.svelte';
-	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
-	import { distance } from '$lib/geo/geo';
-	import { currentPosition, PositionError } from '$lib/geo/position';
-	import { inRegion } from '$lib/geocode/photon';
-	import type { Effort } from '$lib/routing/graphhopper';
-	import type { Place, ReturnMode } from '$lib/tour/model';
-	import { draft } from '$lib/tour/draft.svelte';
-	import { session } from '$lib/tour/session.svelte';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Settings from '@lucide/svelte/icons/settings';
 
-	// Zieltour-Wunsch (F1, F3). Die Eingaben liegen im gemeinsamen Zwischenspeicher (draft) – beim Wechsel zu
-	// „Eine Runde“ und zurück bleiben Start und Ziel stehen.
-	// Anstrengung fragen wir nicht mehr (Wunsch Jan): Länge und Steigung zeigen die Vorschläge.
-	// Gerechnet wird gemütlich – 15 km/h für die Fahrzeit, steile Stücke werden gemieden.
-	const effort: Effort = 'easy';
-
-	let busy = $state(false);
-	let problem = $state('');
-
-	async function submit(event: SubmitEvent) {
-		event.preventDefault();
-		problem = '';
-		const destination = $state.snapshot(draft.destination);
-		const startMode = draft.startMode;
-		const returnMode = draft.returnMode;
-		if (!destination) {
-			problem = 'Bitte suchen Sie zuerst Ihr Ziel und tippen Sie es in der Liste an.';
-			return;
-		}
-		let start: Place;
-		if (startMode === 'address') {
-			const startPlace = $state.snapshot(draft.startPlace);
-			if (!startPlace) {
-				problem = 'Bitte suchen Sie Ihren Startpunkt und tippen Sie ihn in der Liste an.';
-				return;
-			}
-			start = startPlace;
-		} else {
-			busy = true;
-			try {
-				start = { name: 'Ihr Standort', lngLat: await currentPosition() };
-			} catch (error) {
-				problem = error instanceof PositionError ? error.message : 'Ihr Standort ließ sich nicht bestimmen.';
-				draft.startMode = 'address';
-				return;
-			} finally {
-				busy = false;
-			}
-			if (!inRegion(start.lngLat)) {
-				problem =
-					'Sie sind gerade außerhalb der Testregion (Niederrhein / Düsseldorf). Bitte geben Sie einen Startpunkt in der Region ein.';
-				draft.startMode = 'address';
-				return;
-			}
-		}
-		if (distance(start.lngLat, destination.lngLat) < 300) {
-			problem = 'Start und Ziel liegen sehr nah beieinander. Bitte wählen Sie ein anderes Ziel.';
-			return;
-		}
-		session.setRequest({ start, destination, effort, returnMode });
-		goto(resolve('/vorschlaege'));
-	}
+	/**
+	 * Startseite: Was möchten Sie tun? Zwei große Felder – „Zu einem Ziel“ oder „Eine Runde“ (Entwurf von Jan, 10.10.2026).
+	 * Die Eingaben liegen auf eigenen Seiten (/ziel, /runde); Start und Ziel bleiben beim Wechsel erhalten (tour/draft.svelte.ts).
+	 */
 </script>
 
 <svelte:head>
-	<title>Genuss-Radeln – Wohin möchten Sie?</title>
+	<title>Genuss-Radeln – Was möchten Sie tun?</title>
 </svelte:head>
 
-<ModeSwitch />
-
-<header class="intro">
-	<img class="logo" src={asset('/logo.webp')} alt="Genuss-Radeln" width="640" height="640" />
-	<h1>Wohin möchten Sie?</h1>
-	<p class="lead">Wir bauen Ihnen den schönsten Weg dorthin.</p>
+<header class="hero">
+	<img class="photo" src={asset('/hero.jpg')} alt="" width="1200" height="600" fetchpriority="high" />
+	<div class="fade" aria-hidden="true"></div>
+	<img class="wordmark" src={asset('/wordmark.png')} alt="Genuss-Radeln" width="480" height="247" />
+	<a class="settings" href={resolve('/mehr')} aria-label="Mehr und Einstellungen">
+		<Settings size={28} strokeWidth={2.25} aria-hidden="true" />
+	</a>
+	<div class="welcome">
+		<h1>Schön, dass Sie da sind!</h1>
+		<p>Entdecken Sie die schönsten Radrouten in Ihrer Region.</p>
+		<svg class="stroke" viewBox="0 0 240 24" aria-hidden="true">
+			<path d="M4 18 C 50 6, 130 6, 236 10" fill="none" stroke="#5f6e33" stroke-width="5" stroke-linecap="round" />
+		</svg>
+	</div>
 </header>
 
-<form onsubmit={submit} novalidate>
-	<PlaceSearch
-		label="Ihr Ziel"
-		placeholder="z. B. Burg Linn oder eine Adresse"
-		hint="Ort, Ausflugsziel oder Adresse eingeben und dann in der Liste antippen."
-		bind:value={draft.destination}
-		near={draft.startPlace?.lngLat}
-		prominent
-	/>
+<section aria-labelledby="choose">
+	<h2 id="choose">Was möchten Sie tun?</h2>
 
-	<ChoiceGroup
-		legend="Wo starten Sie?"
-		name="start"
-		bind:value={draft.startMode}
-		choices={[
-			{ value: 'here', label: 'Hier, wo ich bin', icon: LocateFixed },
-			{ value: 'address', label: 'An einer Adresse', icon: MapPin }
-		]}
-	/>
-	{#if draft.startMode === 'address'}
-		<PlaceSearch label="Startpunkt" placeholder="z. B. Ihre Straße und Hausnummer" bind:value={draft.startPlace} />
-	{/if}
-
-	<ChoiceGroup
-		legend="Und zurück?"
-		name="return"
-		bind:value={draft.returnMode}
-		choices={[
-			{ value: 'one-way', label: 'Nur hin', icon: ArrowRight },
-			{ value: 'other-way', label: 'Hin und zurück als Runde', icon: Undo2 }
-		]}
-	/>
-
-	<p class="problem" role="alert">{problem}</p>
-
-	<Button variant="primary" type="submit" icon={Sparkles} disabled={busy}>
-		{busy ? 'Standort wird bestimmt …' : 'Schönsten Weg finden'}
-	</Button>
-</form>
+	<ul class="cards">
+		<li>
+			<a class="card goal" href={resolve('/ziel')}>
+				<svg class="art" viewBox="0 0 96 96" aria-hidden="true">
+					<g fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M30 14c-9 0-16 7-16 16 0 12 16 28 16 28s16-16 16-28c0-9-7-16-16-16z" />
+						<circle cx="30" cy="30" r="5.5" />
+						<path d="M64 8c-8 0-14 6-14 14 0 10 14 24 14 24s14-14 14-24c0-8-6-14-14-14z" />
+						<circle cx="64" cy="22" r="4.5" />
+						<path d="M52 56c10 0 12 10 26 8" stroke-dasharray="1 9" />
+						<path d="M16 78c10 0 12-8 22-8" stroke-dasharray="1 9" />
+					</g>
+					<circle cx="16" cy="78" r="5" fill="#fff" />
+					<circle cx="80" cy="64" r="5" fill="#fff" />
+				</svg>
+				<span class="text">
+					<strong>Zu einem Ziel</strong>
+					<span>Start und Ziel eingeben und Route finden.</span>
+				</span>
+				<span class="go" aria-hidden="true"><ChevronRight size={30} strokeWidth={3} /></span>
+			</a>
+		</li>
+		<li>
+			<a class="card round" href={resolve('/runde')}>
+				<svg class="art" viewBox="0 0 96 96" aria-hidden="true">
+					<g fill="none" stroke="#4b5a22" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M30 18c10-8 26-6 34 4" />
+						<path d="M58 14l8 9-11 3" />
+						<path d="M70 62c-6 12-22 18-36 10" />
+						<path d="M38 82l-9-8 11-4" />
+					</g>
+					<g fill="#5f6e33">
+						<path d="M16 30l-11 22h7L7 66h18l-5-14h7z" />
+						<rect x="14" y="66" width="4" height="9" />
+						<path d="M82 24l-10 20h6L69 58h17l-4-14h6z" />
+						<rect x="76" y="58" width="4" height="8" />
+					</g>
+				</svg>
+				<span class="text">
+					<strong>Eine Runde</strong>
+					<span>Schöne Rundtouren in Ihrer Umgebung.</span>
+				</span>
+				<span class="go" aria-hidden="true"><ChevronRight size={30} strokeWidth={3} /></span>
+			</a>
+		</li>
+	</ul>
+</section>
 
 <style>
-	.intro {
-		margin-bottom: 1.5rem;
+	/* Titelbild über die ganze Breite (bis an den Rand), Text links auf aufgehelltem Himmel und Wasser */
+	.hero {
+		position: relative;
+		isolation: isolate;
+		height: clamp(19rem, 60vw, 24rem);
+		margin: -0.5rem -1rem 1.5rem;
+		overflow: hidden;
+		background: var(--color-bg);
 	}
 
-	/* Logo-Hintergrund ist dieselbe Creme-Farbe wie die Seite → wirkt randlos */
-	.logo {
-		display: block;
-		width: min(9rem, 45%);
+	.photo {
+		position: absolute;
+		inset: 0;
+		z-index: -2;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		/* die beiden Radfahrer stehen rechts im Bild – sie bleiben sichtbar, auch wenn das Bild beschnitten wird */
+		object-position: 100% 50%;
+	}
+
+	/* links in die Seitenfarbe ausblenden: Schrift bleibt gut lesbar (Kontrast ≥ 4,5 : 1) */
+	.fade {
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		background:
+			linear-gradient(90deg, rgb(247 242 229 / 0.94) 0%, rgb(247 242 229 / 0.84) 38%, rgb(247 242 229 / 0) 72%),
+			linear-gradient(0deg, var(--color-bg) 0%, rgb(247 242 229 / 0) 18%);
+	}
+
+	.wordmark {
+		position: absolute;
+		top: 0.875rem;
+		left: 1rem;
+		width: min(8.5rem, 36%);
 		height: auto;
-		margin: 0 auto 0.5rem;
 	}
 
-	.lead {
-		color: var(--color-text-muted);
+	.settings {
+		position: absolute;
+		top: 0.875rem;
+		right: 1rem;
+		display: grid;
+		place-items: center;
+		width: 3.5rem;
+		height: 3.5rem;
+		border-radius: 50%;
+		background: var(--color-surface);
+		color: var(--color-green);
+		box-shadow: 0 2px 8px rgb(36 53 57 / 0.25);
+	}
+
+	.settings:focus-visible {
+		outline: 3px solid var(--color-orange);
+		outline-offset: 2px;
+	}
+
+	.welcome {
+		position: absolute;
+		left: 1rem;
+		right: 46%;
+		bottom: 1.25rem;
+	}
+
+	h1 {
+		margin: 0 0 0.5rem;
+		font-size: clamp(var(--text-h2), 7.5vw, 2.5rem);
+		line-height: 1.1;
+	}
+
+	.welcome p {
 		margin: 0;
+		color: var(--color-text);
+		font-size: var(--text-base);
+		line-height: 1.35;
 	}
 
-	.problem {
+	.stroke {
+		display: block;
+		width: 7.5rem;
+		height: 1.5rem;
+		margin-top: 0.375rem;
+	}
+
+	h2 {
 		margin: 0 0 1rem;
-		color: var(--color-orange-dark);
-		font-weight: 700;
 	}
 
-	.problem:empty {
-		display: none;
+	.cards {
+		display: grid;
+		gap: 1rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.card {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		min-height: 8.5rem;
+		padding: 1.25rem 1rem;
+		border-radius: 1.5rem;
+		overflow: hidden;
+		text-decoration: none;
+		box-shadow: 0 4px 14px rgb(36 53 57 / 0.16);
+	}
+
+	.card:focus-visible {
+		outline: 3px solid var(--color-orange);
+		outline-offset: 3px;
+	}
+
+	.art {
+		flex: none;
+		width: 5rem;
+		height: 5rem;
+	}
+
+	.text {
+		display: grid;
+		flex: 1;
+		gap: 0.25rem;
+		min-width: 0;
+		font-size: var(--text-base);
+		line-height: 1.3;
+	}
+
+	.text strong {
+		font-family: var(--font-title);
+		font-size: var(--text-h2);
+		line-height: 1.15;
+	}
+
+	.go {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 3.5rem;
+		height: 3.5rem;
+		border-radius: 50%;
+		background: var(--color-surface);
+		color: var(--color-text);
+		box-shadow: 0 1px 4px rgb(36 53 57 / 0.25);
+	}
+
+	/* „Zu einem Ziel“: dunkelgrün mit sanften Hügeln, weiße Schrift (11 : 1) */
+	.goal {
+		background:
+			radial-gradient(120% 70% at 30% 120%, rgb(118 134 65 / 0.35) 0 55%, transparent 56%),
+			radial-gradient(110% 80% at 90% 130%, rgb(118 134 65 / 0.28) 0 55%, transparent 56%),
+			var(--color-green);
+		color: #fff;
+	}
+
+	/* „Eine Runde“: hellgrün mit Hügeln, dunkle Schrift */
+	.round {
+		background:
+			radial-gradient(120% 60% at 80% 125%, rgb(118 134 65 / 0.3) 0 55%, transparent 56%),
+			radial-gradient(100% 55% at 10% 130%, rgb(118 134 65 / 0.22) 0 55%, transparent 56%),
+			var(--color-green-light);
+		color: var(--color-text);
+	}
+
+	/* ganz schmale Handys und große Systemschrift: Pfeil und Bild werden kleiner, der Text behält den Platz */
+	@media (max-width: 24rem) {
+		.art {
+			width: 3.5rem;
+			height: 3.5rem;
+		}
+
+		.go {
+			width: 3rem;
+			height: 3rem;
+		}
+	}
+
+	/* größere Fenster: Titelbild mit runden Ecken innerhalb der Seite */
+	@media (min-width: 40rem) {
+		.hero {
+			margin: 0.5rem 0 2rem;
+			border-radius: 1.5rem;
+		}
+
+		.photo {
+			object-position: 78% 50%;
+		}
+
+		.welcome {
+			right: 45%;
+		}
 	}
 </style>

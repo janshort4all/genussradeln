@@ -2,25 +2,27 @@
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import Heart from '@lucide/svelte/icons/heart';
-	import MapPinPlus from '@lucide/svelte/icons/map-pin-plus';
-	import Search from '@lucide/svelte/icons/search';
+	import House from '@lucide/svelte/icons/house';
+	import Menu from '@lucide/svelte/icons/menu';
 
-	/** Untere Leiste: Tour finden / Meine Touren / Selbst planen */
+	/** Untere Leiste: Startseite / Meine Touren / Mehr (Entwurf von Jan, 10.10.2026) */
 	const items = [
-		{ href: resolve('/'), label: 'Tour finden', icon: Search },
+		{ href: resolve('/'), label: 'Startseite', icon: House },
 		{ href: resolve('/meine-touren'), label: 'Meine Touren', icon: Heart },
-		{ href: resolve('/planen'), label: 'Selbst planen', icon: MapPinPlus }
+		{ href: resolve('/mehr'), label: 'Mehr', icon: Menu }
 	];
 
 	const home = resolve('/');
+	const myTours = resolve('/meine-touren');
+	/** Seiten unter „Mehr“ */
+	const moreSection = [resolve('/mehr'), resolve('/planen')];
 
 	function isActive(href: string): boolean {
 		const path = page.url.pathname;
-		if (href === home) {
-			// „Tour finden“ umfasst auch die Vorschläge und das Tourdetail
-			return !items.some((item) => item.href !== home && path.startsWith(item.href));
-		}
-		return path.startsWith(href);
+		const inMore = moreSection.some((p) => path.startsWith(p));
+		if (href === home) return !inMore && !path.startsWith(myTours); // auch Eingabe, Vorschläge und Tourdetail
+		if (href === myTours) return path.startsWith(myTours);
+		return inMore;
 	}
 </script>
 

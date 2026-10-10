@@ -10,7 +10,7 @@
 	<title>Genuss-Radeln – Meine Touren</title>
 </svelte:head>
 
-<BackLink href={resolve('/')} label="Zur Tourensuche" />
+<BackLink href={resolve('/')} label="Zur Startseite" />
 
 <h1>Meine Touren</h1>
 
@@ -22,7 +22,7 @@
 	</p>
 </div>
 
-<Button variant="primary" icon={Search} href={resolve('/')}>Eine Tour finden</Button>
+<Button variant="primary" icon={Search} href={resolve('/ziel')}>Eine Tour finden</Button>
 
 <style>
 	.empty {

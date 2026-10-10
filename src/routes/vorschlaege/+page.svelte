@@ -170,12 +170,12 @@
 	<title>Genuss-Radeln – {isRound ? 'Ihre Runden' : 'Ihre Wege'}</title>
 </svelte:head>
 
-<BackLink href={isRound ? resolve('/runde') : resolve('/')} label="Wunsch ändern" />
+<BackLink href={isRound ? resolve('/runde') : resolve('/ziel')} label="Wunsch ändern" />
 
 {#if status === 'missing' || !request}
 	<h1>Noch kein Ziel gewählt</h1>
 	<p>Bitte sagen Sie uns zuerst, wohin Sie möchten.</p>
-	<Button variant="primary" href={resolve('/')}>Ziel wählen</Button>
+	<Button variant="primary" href={resolve('/ziel')}>Ziel wählen</Button>
 {:else}
 	<h1>{heading}</h1>
 	<p class="summary muted">
@@ -217,7 +217,7 @@
 				<strong>Zu diesem Ziel haben wir keinen Radweg gefunden.</strong><br />
 				Liegt es vielleicht außerhalb der Testregion Niederrhein / Düsseldorf? Bitte wählen Sie ein anderes Ziel.
 			</p>
-			<Button variant="primary" href={resolve('/')}>Anderes Ziel wählen</Button>
+			<Button variant="primary" href={resolve('/ziel')}>Anderes Ziel wählen</Button>
 		</div>
 	{:else if status === 'tooclose'}
 		<div class="message" role="alert">
@@ -225,7 +225,7 @@
 				<strong>Start und Ziel liegen fast am selben Ort.</strong><br />
 				Bitte wählen Sie ein anderes Ziel – oder drehen Sie einfach eine schöne Runde ab hier.
 			</p>
-			<Button variant="primary" href={resolve('/')}>Anderes Ziel wählen</Button>
+			<Button variant="primary" href={resolve('/ziel')}>Anderes Ziel wählen</Button>
 		</div>
 	{:else if status === 'error'}
 		<div class="message" role="alert">

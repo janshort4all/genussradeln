@@ -138,9 +138,12 @@ ganze Strecke – 2 km am See bei 19 km ändern ihn kaum. Idee: Zusatzpunkte je 
 ### Rundtouren (F2, F4 Rundtour – umgesetzt 06.10.2026, `src/lib/routing/round.ts`)
 
 - Eingabe (`/runde`): Start (Standort oder Adresse) und Länge in km (10–50). Gerechnet wird „gemütlich“.
-  Ganz oben auf `/` und `/runde` steht die Umschaltung **„Zu einem Ziel“ / „Eine Runde“** (`ModeSwitch.svelte`, zwei echte Links,
-  bewusst nicht fest stehend: die untere Leiste ist schon fest, oben würde sie am Handy mit Tastatur Platz fressen). Die
-  Eingaben liegen in `tour/draft.svelte.ts` und bleiben beim Wechseln erhalten.
+  **Startseite (Entwurf von Jan, 10.10.2026, `/`):** Titelbild `static/hero.jpg` + Wortmarke `static/wordmark.png` (aus dem Logo
+  ausgeschnitten, Creme durchsichtig), Zahnrad → `/mehr`, darunter zwei große Felder „Zu einem Ziel“ (`/ziel`) und „Eine Runde“
+  (`/runde`). Die frühere Umschaltung oben auf den Eingabeseiten (`ModeSwitch`) entfiel – beide Eingabeseiten haben stattdessen „Zur
+  Startseite“. Untere Leiste: Startseite / Meine Touren / Mehr; `/mehr` enthält „Selbst planen“ (`/planen`) und den Datenschutz-Hinweis.
+  Die Eingaben liegen in `tour/draft.svelte.ts` und bleiben beim Wechseln erhalten. Bilder neu erzeugen: Skript wie in der Sitzung vom
+  10.10.2026 (System.Drawing; `sharp` ist unter Windows blockiert).
 - `ROUND.directions` (10) Richtungen ab einem zufälligen Winkel (`request.round.seed`, neue Suche bzw. Knopf
   „Andere Runden vorschlagen“ → neue Runden, Wunsch Jan): je drei Hilfspunkte auf einem Kreis durch den Start, jeder an die
   schönste Stelle seiner Umgebung geschoben; Kreis nachregeln, bis die Länge höchstens **10 %** abweicht (Wunsch Jan).
@@ -303,7 +306,10 @@ genuss-radeln/
 │   │   ├── gpx/                # GPX-Export
 │   │   └── battery/            # Akku-Einschätzung
 │   └── routes/
-│       ├── +page.svelte        # Start: Tourwunsch (F1, F2, F3, F5)
+│       ├── +page.svelte        # Startseite: Titelbild + „Zu einem Ziel“ / „Eine Runde“
+│       ├── ziel/               # Eingabe Zieltour (F1, F3, F5)
+│       ├── runde/              # Eingabe Rundtour (F2)
+│       ├── mehr/               # Mehr: Selbst planen, Datenschutz-Hinweis
 │       ├── vorschlaege/        # F4
 │       ├── tour/[id]/          # F6, F7, F8, F9, F12, F13, F14, F15
 │       ├── navigation/[id]/    # F10, F11

@@ -174,7 +174,7 @@
 		<div class="screen">
 			<BackLink href={resolve('/tour/[id]', { id: tour.id })} label="Zurück zur Tour" dark />
 			<h1>Navigation</h1>
-			<p>Für Beispieltouren gibt es keine Navigation. Bitte planen Sie einen echten Weg über „Tour finden“.</p>
+			<p>Für Beispieltouren gibt es keine Navigation. Bitte planen Sie einen echten Weg über die Startseite.</p>
 		</div>
 	{:else if phase === 'ready'}
 		<div class="screen">

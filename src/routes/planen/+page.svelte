@@ -9,7 +9,7 @@
 	<title>Genuss-Radeln – Selbst planen</title>
 </svelte:head>
 
-<BackLink href={resolve('/')} label="Zur Tourensuche" />
+<BackLink href={resolve('/mehr')} label="Zurück zu „Mehr“" />
 
 <h1>Selbst planen</h1>
 <p>Tippen Sie Punkte auf der Karte an. Die App verbindet sie über schöne Wege.</p>

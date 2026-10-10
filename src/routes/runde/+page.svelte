@@ -5,9 +5,9 @@
 	import MapPin from '@lucide/svelte/icons/map-pin';
 	import Route from '@lucide/svelte/icons/route';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
+	import BackLink from '$lib/components/BackLink.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import ChoiceGroup from '$lib/components/ChoiceGroup.svelte';
-	import ModeSwitch from '$lib/components/ModeSwitch.svelte';
 	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
 	import { currentPosition, PositionError } from '$lib/geo/position';
 	import { inRegion } from '$lib/geocode/photon';
@@ -75,7 +75,7 @@
 	<title>Genuss-Radeln – Eine Runde drehen</title>
 </svelte:head>
 
-<ModeSwitch />
+<BackLink href={resolve('/')} label="Zur Startseite" />
 
 <header class="intro">
 	<h1>Eine schöne Runde drehen</h1>
