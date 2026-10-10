@@ -40,6 +40,11 @@ export const SCORE = {
 	/** Abzug: Anteil auf großen Straßen (Bundes-, Landes-, Kreisstraßen) */
 	major: 1.5,
 	/**
+	 * Abzug: Anteil auf größeren Nebenstraßen – Kreisstraßen und Straßen mit Tempo über 30 (Wunsch Jan, 10.10.2026:
+	 * „alles über 30 km/h ist meistens schon eine größere Straße, die wir möglichst meiden wollen“)
+	 */
+	busy: 1.2,
+	/**
 	 * Abzug: Anteil auf Radwegen direkt neben großen Straßen (Lärm, Abgase – fast so schlecht wie auf der Straße);
 	 * abgestuft nach ROADSIDE
 	 */

@@ -61,6 +61,29 @@ describe('analyzeRoute', () => {
 		expect(beautyScore(nice)).toBeGreaterThan(beautyScore(ugly));
 	});
 
+	it('wertet größere Straßen ab: Tempo über 30 und Kreisstraßen, nicht Tempo-30-Zonen, Rad- und Feldwege', () => {
+		const busy = (roadClass: string, maxSpeed: number | null) =>
+			analyzeRoute(makePath(east(2000), { roadClass, maxSpeed })).busy;
+		expect(busy('residential', 50)).toBe(1);
+		expect(busy('unclassified', 70)).toBe(1);
+		expect(busy('tertiary', null)).toBe(1);
+		expect(busy('tertiary', 50)).toBe(1);
+		expect(busy('residential', 30)).toBe(0);
+		expect(busy('residential', null)).toBe(0);
+		expect(busy('tertiary', 30)).toBe(0);
+		expect(busy('cycleway', null)).toBe(0);
+		expect(busy('track', 50)).toBe(0);
+		const calm = analyzeRoute(makePath(east(2000), { roadClass: 'residential', maxSpeed: 30 }));
+		const loud = analyzeRoute(makePath(east(2000), { roadClass: 'residential', maxSpeed: 50 }));
+		expect(beautyScore(calm)).toBeGreaterThan(beautyScore(loud));
+	});
+
+	it('bewertet glatten Belag nicht besser als Schotter', () => {
+		const smooth = analyzeRoute(makePath(east(2000), { roadClass: 'cycleway', surface: 'asphalt' }));
+		const gravel = analyzeRoute(makePath(east(2000), { roadClass: 'cycleway', surface: 'fine_gravel' }));
+		expect(beautyScore(gravel)).toBe(beautyScore(smooth));
+	});
+
 	it('kombiniert Hin- und Rückweg längengewichtet', () => {
 		const landscape = makeLandscape((row) => (row >= 50 && row <= 60 ? FOREST : NONE));
 		const a = analyzeRoute(makePath(east(1000)), landscape);

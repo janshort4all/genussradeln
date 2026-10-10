@@ -24,6 +24,8 @@ export interface RouteDetails {
 	average_slope: DetailInterval<number>[];
 	/** „bridge“, „ferry“, „tunnel“, „road“ … (fehlt bei älteren gespeicherten Touren) */
 	road_environment?: DetailInterval<string>[];
+	/** erlaubtes Tempo in km/h; `null` = nicht eingetragen (Feld-/Waldwege, viele Wohnstraßen) */
+	max_speed?: DetailInterval<number | null>[];
 }
 
 /**
@@ -68,7 +70,8 @@ const DETAILS: (keyof RouteDetails)[] = [
 	'smoothness',
 	'street_name',
 	'average_slope',
-	'road_environment'
+	'road_environment',
+	'max_speed'
 ];
 
 /** GraphHopper ist nicht erreichbar (z. B. am Handy im Testbetrieb) */

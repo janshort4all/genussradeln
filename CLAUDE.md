@@ -81,6 +81,17 @@ Zweistufig, damit kein eigener Rechen-Server nötig ist:
 
 Gewichte als Konstanten in `src/lib/scoring/weights.ts`, damit sie nach Testfahrten leicht justierbar sind.
 
+**Größere Straßen meiden (Wunsch Jan, 10.10.2026: „alles über 30 km/h ist meistens schon eine größere Straße“):** Profil `genuss`
+und Nachbewertung kennen jetzt auch die Straßen unterhalb der Hauptstraßen. `genuss.json`: trunk/primary ×0,15, secondary ×0,3,
+tertiary ×0,5 (bei Tempo ≤ 30 ×0,85), unclassified/residential/service mit `max_speed` über 30 ×0,5 (fehlendes Tempo =
+„unendlich“, zählt nicht); Rad-, Feld- und Fußwege haben eine eigene Straßenklasse und bleiben unberührt. `RouteStats.busy`
+(`busyShare` in `score.ts`, `SCORE.busy`; `max_speed` wird als Detail angefragt) zieht Punkte ab. **Belag:** Asphalt zählt weder im
+Profil noch in der Bewertung besser als Schotter/Feinkies/Erde; im Profil bekommen diese Beläge ×1,4 auf die Geschwindigkeit
+(GraphHopper rechnet sie sonst mit 12 statt 18 km/h und zieht Asphalt vor). Gemessen an 3 Strecken: Anteil auf Rad-/Feldwegen
+46 % → 58 %, Straßen mit Tempo 40–50 von ca. 12 % auf ca. 2 %. Eine Profiländerung braucht neuen Graphen: lokal
+`routing/data/graph-cache` löschen und neu starten, online `npm run server -- deploy`. Noch nicht berücksichtigt: Radwege neben
+Kreisstraßen (`roads.bin` enthält nur secondary und größer), Straßen ohne Tempoangabe.
+
 **Durch Wald und Parks, nicht daneben (Wunsch Jan, 10.10.2026):** Die Landschaftskarte (Zellen ≈ 100 m) kennt nur „in der Nähe“;
 ein Weg am Waldrand zählte wie einer mitten im Wald. Jetzt misst `Landscape.woodDepthAtCell` die **Tiefe** (Zelle selbst Wald/Grün,
 dazu Nachbarzellen: Rand ≈ 0,25, ganz drin 1). `RouteStats.forestThrough/greenThrough` + Zusatzpunkte `SCORE.through`;

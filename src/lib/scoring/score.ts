@@ -31,6 +31,8 @@ export interface RouteStats {
 	network: number;
 	quiet: number;
 	major: number;
+	/** Anteil auf größeren Straßen unterhalb der Hauptstraßen (siehe busyShare). Fehlt bei älteren gespeicherten Touren. */
+	busy?: number;
 	/** Anteil auf Rad-/Fußwegen direkt neben einer großen Straße (laut, obwohl „Radweg“) */
 	roadside: number;
 	/**
@@ -43,7 +45,8 @@ export interface RouteStats {
 }
 
 const MAJOR_ROADS = new Set(['trunk', 'primary', 'secondary']);
-const QUIET_WAYS = new Set(['cycleway', 'track', 'living_street', 'path']);
+const BUSY_SIDE_ROADS = new Set(['unclassified', 'residential', 'service']);
+const QUIET_WAYS =new Set(['cycleway', 'track', 'living_street', 'path']);
 /**
  * Wirklich schlechter Belag. Schotter-, Erd- und Feldwege gehören nicht dazu – mit dem E-Bike gut fahrbar und
  * gleichwertig zu Asphalt (Entscheidung Jan, 06.10.2026).
@@ -111,6 +114,31 @@ export function roadsideStats(path: RoutePath, roads: RoadMask, landscape?: Land
 	}
 	endRun();
 	return { share: Math.min(1, sum / total), noise: Math.min(1, noise / total) };
+}
+
+/**
+ * Anteil der Strecke auf „größeren“ Straßen unterhalb der Hauptstraßen (Wunsch Jan, 10.10.2026: „alles über 30 km/h ist
+ * meistens schon eine größere Straße“): Kreis-/Landstraßen (tertiary) ab Tempo 40 oder ohne Tempoangabe sowie Neben- und
+ * Anliegerstraßen (unclassified, residential, service) mit Tempolimit über 30. Rad- und Feldwege haben eine eigene
+ * Straßenklasse und zählen nie dazu. Hauptstraßen zählt `major`.
+ */
+export function busyShare(path: RoutePath, lengths: number[], total: number): number {
+	if (total <= 0) return 0;
+	const classOf: string[] = [];
+	const speedOf: (number | null | undefined)[] = [];
+	for (const [from, to, value] of path.details.road_class ?? []) for (let i = from; i < to; i++) classOf[i] = value;
+	for (const [from, to, value] of path.details.max_speed ?? []) for (let i = from; i < to; i++) speedOf[i] = value;
+	let sum = 0;
+	for (let i = 0; i < lengths.length; i++) {
+		const speed = speedOf[i];
+		const limited = speed !== null && speed !== undefined;
+		const busy =
+			classOf[i] === 'tertiary'
+				? !limited || speed > 30
+				: BUSY_SIDE_ROADS.has(classOf[i]) && limited && speed > 30;
+		if (busy) sum += lengths[i];
+	}
+	return Math.min(1, sum / total);
 }
 
 /** Anteil der Strecke (nach Länge), deren Detailwert die Bedingung erfüllt */
@@ -188,6 +216,7 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape, roads?: Roa
 		// Radwege direkt neben großen Straßen sind nicht ruhig
 		quiet: Math.max(0, detailShare(d.road_class, lengths, total, (v) => QUIET_WAYS.has(v)) - roadside),
 		major: detailShare(d.road_class, lengths, total, (v) => MAJOR_ROADS.has(v)),
+		busy: busyShare(path, lengths, total),
 		roadside,
 		roadsideNoise,
 		badSurface: Math.max(
@@ -210,6 +239,7 @@ export function beautyScore(s: RouteStats): number {
 		SCORE.network * s.network +
 		SCORE.quiet * s.quiet -
 		SCORE.major * s.major -
+		SCORE.busy * (s.busy ?? 0) -
 		SCORE.roadside * (s.roadsideNoise ?? s.roadside ?? 0) -
 		SCORE.badSurface * s.badSurface
 	);
@@ -234,6 +264,7 @@ export function combineStats(parts: RouteStats[]): RouteStats {
 		network: avg('network'),
 		quiet: avg('quiet'),
 		major: avg('major'),
+		busy: avg('busy'),
 		roadside: avg('roadside'),
 		// ältere gespeicherte Touren kennen roadsideNoise nicht → dort zählt roadside
 		roadsideNoise: parts.reduce((s, p) => s + (p.roadsideNoise ?? p.roadside ?? 0) * p.distance, 0) / total,
