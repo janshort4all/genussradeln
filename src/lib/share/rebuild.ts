@@ -11,7 +11,7 @@ import type { RoadMask } from '$lib/scoring/roads';
 import { analyzeRoute, combineStats } from '$lib/scoring/score';
 import { rideMinutes } from '$lib/tour/duration';
 import { elevationProfile } from '$lib/tour/elevation';
-import type { PlannedTour, Waypoint } from '$lib/tour/model';
+import { legFromPath, type PlannedTour, type Waypoint } from '$lib/tour/model';
 import { ANCHOR_SPACING_M, decodePolyline, packShort, packTour, roundPoint, type TourSpec } from './link';
 
 type Route = typeof routeGraphHopper;
@@ -153,14 +153,7 @@ export async function rebuildTour(
 			...(spec.k ? { round: { km: spec.k, seed: 0 } } : {})
 		},
 		waypoints,
-		legs: legs.map(({ path }) => ({
-			coordinates: path.coordinates,
-			distance: path.distance,
-			instructions: path.instructions,
-			bridges: (path.details.road_environment ?? [])
-				.filter(([, , v]) => v === 'bridge' || v === 'tunnel')
-				.map(([from, to]) => [from, to] as [number, number])
-		})),
+		legs: legs.map(({ path }) => legFromPath(path)),
 		stats,
 		extraDistance: spec.x,
 		minutes: rideMinutes(

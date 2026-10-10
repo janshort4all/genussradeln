@@ -240,6 +240,25 @@ was erfahrene Radler mit Kartenblick tun, und bietet es als Ja/Nein-Frage an.
    Übernehmen ändert nur die Wegpunkt-Liste (siehe F6), daher immer rückgängig zu machen.
 5. **Nie während der Navigation** einblenden – nur beim Planen und im Tourdetail.
 
+**Umgesetzt am 10.10.2026 (M4b, `src/lib/improve/`, Karte „Noch schöner fahren?“ im Tourdetail, `ImproveOffers.svelte`):**
+Statt „Schwachstellen = nur Hauptstraßen“ bewertet die App **Abschnitte** der gewählten Tour (1,5 und 3 km, alle 500 m verschoben,
+`OFFERS` in `weights.ts`) mit derselben Schönheitsrechnung wie die Erstvorschläge (`analyzeRoute`/`beautyScore` auf dem
+zugeschnittenen Stück, `slicePath`). Dafür speichert jede Teilstrecke jetzt ihre Wegangaben (`TourLeg.details`: Straßenklasse, Tempo,
+Belag …, `legFromPath`/`pathOfLeg` in `tour/model.ts`). Für die schwächsten Abschnitte (nicht in den ersten/letzten 300 m, ohne lange
+Brücken/Fähren) ruft `findOffers` die vorhandene Planung auf (`planDirection` mit `limits`: höchste Länge, `light` = weniger
+Anfragen) von Anfang zu Ende des Abschnitts – Seeufer, Wald, Parks, Bäche, Alternativen. Angeboten wird nur, was
+(a) um `minGain` schöner ist, (b) höchstens min(3 km, 20 % + 2 km) länger ist, (c) eine **echte Umfahrung** ist
+(Wunsch Jan, 10.10.2026: keine 100-m-Hüpfer; `deviation`: mindestens 300 m Abstand und 700 m Strecke weiter als 80 m vom alten Weg),
+(d) nicht auf dem Rest der Tour zurückfährt und (e) nach dem Austausch keinen Zipfel/Kreis ergibt (`shapeProblem`).
+Höchstens 3 Vorschläge, sortiert nach Gewinn je Mehr-Kilometer, nicht zwei an derselben Stelle. Anzeige: kleine Karte
+(`OfferMap.svelte`: Tour blass, ersetztes Stück orange „Bisher“, neuer Weg grün gestrichelt „Neu · +1,8 km“), Strecke und Fahrzeit groß
+in Worten, „Danach: x km, ca. y Std. (jetzt …)“, Knöpfe „Übernehmen“ / „Nein, danke“, Zähler „Vorschlag 1 von 3“, nach dem
+Übernehmen „Rückgängig“. **Übernehmen rechnet nichts neu:** `spliceLeg` setzt Koordinaten, Wegangaben und Abbiegehinweise zusammen
+(an den zwei Nahtstellen kommt ein Hinweis aus der Geometrie dazu); danach `session.replaceTour` (gleiche Nummer – Navigation, Teilen
+und GPX nehmen die neue Strecke). Die Suche läuft automatisch beim Öffnen (am PC ca. 6 s, online ca. 2 s). Der Versuch, den Weg
+nach dem Austausch mit `verifiedAnchors` exakt nachzurechnen, scheiterte schon bei unveränderten Touren (dasselbe Problem hat der
+Teilen-Link und fällt dort auf den langen Link zurück) – deshalb das Zusammensetzen. Anders als im ersten Entwurf trägt die Karte nur „Bisher“/„Neu“ (kein Schild „Hauptstraße“).
+
 Hinweis: Die Erstvorschläge (F4) sollen bereits möglichst schön sein. F7 fängt ab, was das Routing
 wegen der Längenvorgabe in Kauf genommen hat, und macht den Tausch „etwas länger, dafür schöner“
 für den Nutzer sichtbar und entscheidbar.
@@ -314,6 +333,7 @@ Jeder Meilenstein endet mit etwas, das man auf dem Handy ausprobieren kann.
 - **M4 Anpassen & Selbst planen (F6, F16):** Wegpunkt-Modell, Zwischenziele, kürzer/länger, Stopp hinzufügen,
   Abschnitt meiden, Rückgängig; Punkte setzen und Strecke ziehen (PC).
 - **M4b Schönere Strecke (F7):** Schwachstellen finden, Umfahrungen berechnen, grüne Variante anzeigen, Übernehmen/Nein danke.
+  ✔ umgesetzt 10.10.2026 (siehe F7; der Knopf „Tour anpassen“ im Tourdetail ist dafür entfallen, der Rest von M4 steht noch aus).
 - **M5 Rundtouren & Freitext (F2, F4 Rundtour, F3 Ortsart, F5):** Rundtour-Vorschläge nach Dauer/km, Ziel als Ortsart
   („ein Biergarten“), Worterkennung mit Tests. Rundtouren nach km ✔ vorgezogen 06.10.2026 (siehe „Rundtouren“).
 - **M6 Navigation (F10):** Positionsverfolgung, Abbiegeanzeige, Sprachansagen, Off-Route-Hinweis, Wake Lock, dunkle Ansicht.

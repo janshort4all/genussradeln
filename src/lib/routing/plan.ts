@@ -44,7 +44,7 @@ import {
 } from '$lib/scoring/weights';
 import { rideMinutes } from '$lib/tour/duration';
 import { elevationProfile } from '$lib/tour/elevation';
-import { newTourId, type PlannedTour, type TourRequest, type Waypoint } from '$lib/tour/model';
+import { legFromPath, newTourId, type PlannedTour, type TourRequest, type Waypoint } from '$lib/tour/model';
 import { highlightSentence, honestTitles, sideOf, sideTitle, viaStreetTitle, withSide, type NamedPhrase } from './describe';
 import type { NameData } from '$lib/naming/names';
 import { distinctPlaces, highlightOf, landmarkPhrase, landmarkTitle, routeNames, viaPlaces, type RouteNames } from '$lib/naming/title';
@@ -65,7 +65,7 @@ export interface PlanDeps {
 }
 
 /** Ein möglicher Weg für eine Richtung (Hin- oder Rückweg) */
-interface LegCandidate {
+export interface LegCandidate {
 	path: RoutePath;
 	line: LngLat[];
 	stats: RouteStats;
@@ -93,7 +93,7 @@ export function sideVias(start: LngLat, end: LngLat): LngLat[] {
 	return out;
 }
 
-interface DirectionResult {
+export interface DirectionResult {
 	candidates: LegCandidate[];
 	/** Länge des direkten genuss-Wegs */
 	directDistance: number;
@@ -330,7 +330,7 @@ export function findShoreVias(
  * Fährt der Weg einen Stummel, einen Kreis oder einen Zipfel? Kreuzungen auf Brücken/in Tunneln zählen nicht
  * (Spiralrampen der Rheinbrücken). Liefert den Fund, damit er ggf. repariert werden kann.
  */
-function shapeProblem(path: RoutePath): { kind: 'backtrack' | 'loop' | 'spur'; at?: LngLat } | undefined {
+export function shapeProblem(path: RoutePath): { kind: 'backtrack' | 'loop' | 'spur'; at?: LngLat } | undefined {
 	const line = lineOf(path);
 	const bridges = separatedFrom(path.details.road_environment);
 	// Am Start und am Ziel muss der Routenplaner manchmal wenden (Einbahnstraße, Punkt auf der anderen
@@ -451,12 +451,21 @@ async function viaPairs(
 	return found.filter((p): p is NonNullable<typeof p> => !!p);
 }
 
+/** Einschränkungen für die Suche nach Wegen für ein kurzes Stück einer Tour (siehe improve/) */
+export interface DirectionLimits {
+	/** höchste Länge in Metern (sonst: direkter Weg + DETOUR) */
+	maxLength?: number;
+	/** weniger Anfragen: ohne Wege knapp neben der Luftlinie, ohne Paare und Kombinationen */
+	light?: boolean;
+}
+
 /** Alle Wege für eine Richtung berechnen und bewerten */
-async function planDirection(
+export async function planDirection(
 	from: LngLat,
 	to: LngLat,
-	request: TourRequest,
-	deps: PlanDeps
+	request: Pick<TourRequest, 'effort'>,
+	deps: PlanDeps,
+	limits: DirectionLimits = {}
 ): Promise<DirectionResult> {
 	const level = DETOUR;
 	const options = { effort: request.effort, signal: deps.signal };
@@ -467,7 +476,10 @@ async function planDirection(
 	});
 	if (!direct.length) throw new NoRouteError('Kein Weg gefunden');
 	const directDistance = direct[0].distance;
-	const maxLength = directDistance * (1 + level.maxExtraRatio) + level.minExtraKm * 1000;
+	const maxLength = Math.max(
+		directDistance,
+		limits.maxLength ?? directDistance * (1 + level.maxExtraRatio) + level.minExtraKm * 1000
+	);
 
 	// side = Weg knapp neben der Luftlinie: nur Kandidat für „Fast direkt“, nicht für die schönsten Vorschläge
 	// detour = Umweg der App (über Hilfspunkt oder Korridor) → muss die Prüfungen auf Stummel, Kreis, Zipfel bestehen
@@ -480,12 +492,19 @@ async function planDirection(
 	const shore = deps.landscape ? findShoreVias(deps.landscape, from, to, maxLength, directLine, VIA_SEARCH.shoreVias) : [];
 	const vias = [
 		...(deps.landscape && level.scenicVias > 0
-			? findScenicVias(deps.landscape, from, to, maxLength, directLine, level.scenicVias + VIA_SEARCH.spareVias)
+			? findScenicVias(
+					deps.landscape,
+					from,
+					to,
+					maxLength,
+					directLine,
+					(limits.light ? Math.min(level.scenicVias, 5) : level.scenicVias) + VIA_SEARCH.spareVias
+				)
 			: []
 		).map((point) => ({ point, side: false })),
 		// Ufer von Seen und Flüssen: eigene Punkte, damit sie nicht von den anderen verdrängt werden
 		...shore.map((point) => ({ point, side: false })),
-		...sideVias(from, to).map((point) => ({ point, side: true }))
+		...(limits.light ? [] : sideVias(from, to).map((point) => ({ point, side: true })))
 	];
 	const viaPaths = await mapLimited(vias, 4, async ({ point, side }): Promise<Found | undefined> => {
 		try {
@@ -564,7 +583,7 @@ async function planDirection(
 				combos.push([a, b]);
 			}
 		}
-		const combined = await mapLimited(combos.slice(0, STREAMS.combos), 3, async ([a, b]): Promise<Found | undefined> => {
+		const combined = await mapLimited(combos.slice(0, limits.light ? 0 : STREAMS.combos), 3, async ([a, b]): Promise<Found | undefined> => {
 			const points = [from, a.line[0], a.line[a.line.length - 1], b.line[0], b.line[b.line.length - 1], to];
 			try {
 				const [path] = await deps.route(points, {
@@ -588,7 +607,8 @@ async function planDirection(
 
 	// Wege über zwei schöne Stellen nacheinander (z. B. erst am Rhein, dann am See): aus den Hilfspunkten, deren
 	// Weg schon allein am schönsten war, Paare bilden – in Fahrtrichtung geordnet (Wunsch Jan, 06.10.2026)
-	for (const p of await viaPairs(from, to, viaPaths, maxLength, deps, options)) paths.push({ ...p, detour: true });
+	if (!limits.light)
+		for (const p of await viaPairs(from, to, viaPaths, maxLength, deps, options)) paths.push({ ...p, detour: true });
 
 	// keine zusätzlichen Fluss-Querungen gegenüber dem direkten Weg (über die Brücke hin, woanders zurück)
 	const directCrossing = longCrossingMeters(direct[0]);
@@ -988,14 +1008,7 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 			highlight: highlightSentence(stats, title, highlight ? namedPhrase(highlight) : undefined),
 			request,
 			waypoints,
-			legs: combo.legs.map((l) => ({
-				coordinates: l.path.coordinates,
-				distance: l.path.distance,
-				instructions: l.path.instructions,
-				bridges: (l.path.details.road_environment ?? [])
-					.filter(([, , v]) => v === 'bridge' || v === 'tunnel')
-					.map(([from, to]) => [from, to] as [number, number])
-			})),
+			legs: combo.legs.map((l) => legFromPath(l.path)),
 			stats,
 			extraDistance: Math.max(0, total - directTotal),
 			minutes: rideMinutes(

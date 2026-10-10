@@ -27,7 +27,7 @@ import {
 } from '$lib/scoring/weights';
 import { rideMinutes } from '$lib/tour/duration';
 import { elevationProfile } from '$lib/tour/elevation';
-import { newTourId, type PlannedTour, type TourRequest, type Waypoint } from '$lib/tour/model';
+import { legFromPath, newTourId, type PlannedTour, type TourRequest, type Waypoint } from '$lib/tour/model';
 import { highlightSentence, honestTitles } from './describe';
 import { NoRouteError, type RoutePath } from './graphhopper';
 import type { PlanDeps } from './plan';
@@ -254,16 +254,7 @@ export async function planRound(request: TourRequest, deps: PlanDeps): Promise<P
 			),
 			request,
 			waypoints,
-			legs: [
-				{
-					coordinates: c.path.coordinates,
-					distance: c.path.distance,
-					instructions: c.path.instructions,
-					bridges: (c.path.details.road_environment ?? [])
-						.filter(([, , v]) => v === 'bridge' || v === 'tunnel')
-						.map(([from, to]) => [from, to] as [number, number])
-				}
-			],
+			legs: [legFromPath(c.path)],
 			stats: c.stats,
 			extraDistance: 0,
 			minutes: rideMinutes(c.path.distance, elevationProfile(c.path.coordinates).ascent, request.effort)

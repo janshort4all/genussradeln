@@ -3,7 +3,7 @@
  * Anpassungen (ab M4) ändern nur die Wegpunkte und berechnen den Weg neu.
  */
 import type { LngLat } from '$lib/geo/geo';
-import type { Effort, RouteInstruction } from '$lib/routing/graphhopper';
+import type { Effort, RouteDetails, RouteInstruction, RoutePath } from '$lib/routing/graphhopper';
 import type { RouteStats } from '$lib/scoring/score';
 
 /** Ein Ort, z. B. aus der Suche oder der eigene Standort */
@@ -51,6 +51,47 @@ export interface TourLeg {
 	instructions?: RouteInstruction[];
 	/** Brücken und Tunnel: Wegstücke [von, bis) (Index wie `coordinates`) */
 	bridges?: [number, number][];
+	/**
+	 * Beschaffenheit je Abschnitt (Straßenklasse, Tempo, Belag …) – damit sich einzelne Abschnitte bewerten lassen
+	 * (schönere Umwege vorschlagen). Fehlt bei älteren gespeicherten Touren und alten Links.
+	 */
+	details?: Partial<RouteDetails>;
+}
+
+/** Was von einem berechneten Weg in der Tour bleibt */
+export function legFromPath(path: RoutePath): TourLeg {
+	const { road_class, bike_network, surface, smoothness, max_speed } = path.details;
+	return {
+		coordinates: path.coordinates,
+		distance: path.distance,
+		instructions: path.instructions,
+		bridges: (path.details.road_environment ?? [])
+			.filter(([, , v]) => v === 'bridge' || v === 'tunnel')
+			.map(([from, to]) => [from, to] as [number, number]),
+		details: { road_class, bike_network, surface, smoothness, max_speed }
+	};
+}
+
+/** Der Weg einer Teilstrecke als RoutePath (für die Bewertung); fehlende Angaben bleiben leer */
+export function pathOfLeg(leg: TourLeg): RoutePath {
+	return {
+		distance: leg.distance,
+		time: 0,
+		ascend: 0,
+		descend: 0,
+		coordinates: leg.coordinates,
+		instructions: leg.instructions,
+		details: {
+			road_class: [],
+			bike_network: [],
+			surface: [],
+			smoothness: [],
+			street_name: [],
+			average_slope: [],
+			road_environment: (leg.bridges ?? []).map(([from, to]) => [from, to, 'bridge'] as [number, number, string]),
+			...leg.details
+		}
+	};
 }
 
 export interface PlannedTour {

@@ -63,6 +63,12 @@ export const session = {
 	findTour(id: string): PlannedTour | undefined {
 		return data.tours.find((t) => t.id === id) ?? data.shared?.find((t) => t.id === id);
 	},
+	/** Eine angepasste Tour (z. B. mit einem schöneren Umweg) an die Stelle der alten setzen – gleiche Nummer */
+	replaceTour(tour: PlannedTour) {
+		data.tours = data.tours.map((t) => (t.id === tour.id ? tour : t));
+		if (data.shared) data.shared = data.shared.map((t) => (t.id === tour.id ? tour : t));
+		save($state.snapshot(data));
+	},
 	addShared(tour: PlannedTour) {
 		data.shared = [tour, ...(data.shared ?? []).filter((t) => t.id !== tour.id)].slice(0, 5);
 		save($state.snapshot(data));

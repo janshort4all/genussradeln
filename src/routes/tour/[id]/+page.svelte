@@ -14,10 +14,10 @@
 	import MapIcon from '@lucide/svelte/icons/map';
 	import MountainSnow from '@lucide/svelte/icons/mountain-snow';
 	import Share2 from '@lucide/svelte/icons/share-2';
-	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import BatteryHint from '$lib/components/BatteryHint.svelte';
 	import ElevationProfile from '$lib/components/ElevationProfile.svelte';
+	import ImproveOffers from '$lib/components/ImproveOffers.svelte';
 	import StopCards from '$lib/components/StopCards.svelte';
 	import TourScene from '$lib/components/illustrations/TourScene.svelte';
 	import RouteMap from '$lib/map/RouteMap.svelte';
@@ -29,10 +29,25 @@
 	import { shareUrlFor } from '$lib/share/link';
 	import { packVerified } from '$lib/share/rebuild';
 	import { route } from '$lib/routing/graphhopper';
-	import type { ViewStop } from '$lib/tour/view';
+	import type { PlannedTour } from '$lib/tour/model';
+	import { session } from '$lib/tour/session.svelte';
+	import { fromPlanned, type ViewStop } from '$lib/tour/view';
 
 	let { data } = $props();
-	const tour = $derived(data.tour);
+	// Wurde ein schönerer Umweg übernommen (oder zurückgenommen), gilt die geänderte Tour statt der geladenen
+	let changed: PlannedTour | undefined = $state();
+	const planned = $derived(changed ?? data.planned);
+	const tour = $derived(changed ? fromPlanned(changed) : data.tour);
+	// eine andere Tour geöffnet → wieder die geladene
+	$effect(() => {
+		void data.planned;
+		changed = undefined;
+	});
+
+	function changeTour(next: PlannedTour) {
+		session.replaceTour(next);
+		changed = next;
+	}
 
 	// Kurze Rückmeldung unten am Bildschirm (für Knöpfe, deren Funktion erst später kommt)
 	let notice = $state('');
@@ -78,16 +93,16 @@
 	 */
 	let preparing: Promise<string> | undefined;
 	$effect(() => {
-		const planned = data.planned;
+		const current = planned;
 		preparing = undefined;
 		shareLink = '';
-		if (!planned) return;
-		preparing = packVerified(planned, route).then((packed) => (shareLink = shareUrlFor(packed, resolve('/geteilt'))));
+		if (!current) return;
+		preparing = packVerified(current, route).then((packed) => (shareLink = shareUrlFor(packed, resolve('/geteilt'))));
 		preparing.catch(() => {});
 	});
 
 	async function prepareShare(): Promise<boolean> {
-		if (!data.planned || !preparing) {
+		if (!planned || !preparing) {
 			tell('Beispieltouren lassen sich nicht teilen.');
 			return false;
 		}
@@ -307,15 +322,18 @@
 				<span>Tour starten</span>
 				<ChevronRight size={26} strokeWidth={2.5} aria-hidden="true" />
 			</a>
-			<button type="button" class="adjust-button" onclick={() => tell('Anpassen kommt in einem späteren Schritt.')}>
-				<SlidersHorizontal size={22} strokeWidth={2.25} aria-hidden="true" /> Tour anpassen
-			</button>
 			{#if tour.map.kind === 'route'}
 				<button type="button" class="adjust-button" onclick={saveGpx}>
 					<Download size={22} strokeWidth={2.25} aria-hidden="true" /> Als GPX-Datei speichern
 				</button>
 			{/if}
 		</div>
+
+		{#if planned && tour.map.kind === 'route'}
+			{#key planned.id}
+				<ImproveOffers tour={planned} onchange={changeTour} />
+			{/key}
+		{/if}
 
 		<section class="stops">
 			<h2 class="section-title">
