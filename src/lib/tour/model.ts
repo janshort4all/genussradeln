@@ -112,6 +112,8 @@ export interface PlannedTour {
 	minutes: number;
 	/** über einen Link geöffnet (nicht hier geplant) */
 	shared?: boolean;
+	/** aus „Meine Touren“ geöffnet (wird beim Laden gesetzt, nicht mitgespeichert) */
+	saved?: boolean;
 	/** Hinweis zur Tour, z. B. „Kartendaten wurden seit dem Teilen erneuert“ */
 	note?: string;
 }

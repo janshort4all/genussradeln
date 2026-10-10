@@ -27,6 +27,7 @@
 	import { STOP_LABELS } from '$lib/stops/kinds';
 	import { downloadGpx } from '$lib/gpx/gpx';
 	import { shareUrlFor } from '$lib/share/link';
+	import { getTour, removeTour, saveTour } from '$lib/storage/tours';
 	import { packVerified } from '$lib/share/rebuild';
 	import { route } from '$lib/routing/graphhopper';
 	import type { PlannedTour } from '$lib/tour/model';
@@ -47,6 +48,8 @@
 	function changeTour(next: PlannedTour) {
 		session.replaceTour(next);
 		changed = next;
+		// eine gemerkte Tour bleibt mit dem übernommenen Umweg gemerkt
+		if (isSaved) saveTour(next).catch(() => {});
 	}
 
 	// Kurze Rückmeldung unten am Bildschirm (für Knöpfe, deren Funktion erst später kommt)
@@ -57,7 +60,40 @@
 		clearTimeout(noticeTimer);
 		noticeTimer = setTimeout(() => (notice = ''), 5000);
 	}
-	const SAVE_LATER = 'Touren merken kommt in einem späteren Schritt – bis dahin wird noch nichts gespeichert.';
+
+	// Merken (Herz): die Tour bleibt auf diesem Gerät gespeichert und steht unter „Meine Touren“
+	let isSaved = $state(false);
+	$effect(() => {
+		const id = planned?.id;
+		isSaved = false;
+		if (!id) return;
+		let current = true;
+		getTour(id)
+			.then((found) => current && (isSaved = !!found))
+			.catch(() => {});
+		return () => (current = false);
+	});
+
+	async function toggleSaved() {
+		if (!planned) {
+			tell('Beispieltouren lassen sich nicht merken.');
+			return;
+		}
+		try {
+			if (isSaved) {
+				await removeTour(planned.id);
+				isSaved = false;
+				tell('Die Tour ist nicht mehr gemerkt.');
+			} else {
+				await saveTour(planned);
+				isSaved = true;
+				tell('Tour gemerkt. Sie finden sie unter „Meine Touren“.');
+			}
+		} catch (error) {
+			console.warn('Merken fehlgeschlagen:', error);
+			tell('Das Merken hat auf diesem Gerät leider nicht geklappt.');
+		}
+	}
 
 	// Menü „Teilen“ (am PC; am Handy öffnet sich gleich das Teilen-Menü des Handys)
 	let menuOpen = $state(false);
@@ -200,14 +236,23 @@
 <div class="topbar">
 	{#if tour.backHref === 'vorschlaege'}
 		<BackLink href={resolve('/vorschlaege')} label="Zurück zu den Wegen" />
+	{:else if tour.backHref === 'meine-touren'}
+		<BackLink href={resolve('/meine-touren')} label="Zu „Meine Touren“" />
 	{:else if tour.backHref === 'start'}
 		<BackLink href={resolve('/')} label="Zur Startseite" />
 	{:else}
 		<BackLink href={resolve('/')} label="Zur Startseite" />
 	{/if}
 	<div class="tools">
-		<button type="button" class="icon-button" aria-label="Tour merken" onclick={() => tell(SAVE_LATER)}>
-			<Heart size={26} strokeWidth={2.25} aria-hidden="true" />
+		<button
+			type="button"
+			class="icon-button"
+			class:saved={isSaved}
+			aria-label={isSaved ? 'Tour gemerkt – antippen zum Entfernen' : 'Tour merken'}
+			aria-pressed={isSaved}
+			onclick={toggleSaved}
+		>
+			<Heart size={26} strokeWidth={2.25} fill={isSaved ? 'currentColor' : 'none'} aria-hidden="true" />
 		</button>
 		<div class="more" bind:this={menuBox}>
 			<button
@@ -418,6 +463,11 @@
 
 	.icon-button:hover {
 		background: var(--color-green-light);
+	}
+
+	/* gemerkt: Herz gefüllt in Terrakotta (abgedunkelt, 5 : 1 auf Creme) */
+	.icon-button.saved {
+		color: var(--color-orange);
 	}
 
 	.more {

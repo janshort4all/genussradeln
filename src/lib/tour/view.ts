@@ -42,7 +42,7 @@ export interface TourView {
 	stops: ViewStop[];
 	/** Akku-Einschätzung kommt mit M8 – bis dahin nur bei Beispieltouren */
 	battery?: BatteryLevel;
-	backHref: 'vorschlaege' | 'runde' | 'start';
+	backHref: 'vorschlaege' | 'runde' | 'start' | 'meine-touren';
 	map:
 		| { kind: 'scene'; scene: SceneKind }
 		| {
@@ -106,7 +106,7 @@ export function fromPlanned(t: PlannedTour): TourView {
 		checks: checksOf(t.stats),
 		tags: tagsFromStats(t.stats),
 		stops: [],
-		backHref: t.shared ? 'start' : 'vorschlaege',
+		backHref: t.saved ? 'meine-touren' : t.shared ? 'start' : 'vorschlaege',
 		map: {
 			kind: 'route',
 			coordinates: coordinates.map(([lon, lat]) => [lon, lat]),

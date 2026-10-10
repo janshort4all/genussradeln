@@ -1,4 +1,5 @@
 import { error } from '@sveltejs/kit';
+import { getTour } from '$lib/storage/tours';
 import { session } from '$lib/tour/session.svelte';
 import { fromPlanned } from '$lib/tour/view';
 import type { PageLoad } from './$types';
@@ -8,8 +9,13 @@ import type { PageLoad } from './$types';
 export const ssr = false;
 export const prerender = false;
 
-export const load: PageLoad = ({ params }) => {
-	const planned = session.findTour(params.id);
+export const load: PageLoad = async ({ params }) => {
+	let planned = session.findTour(params.id);
+	if (!planned) {
+		// nicht in dieser Sitzung geplant → vielleicht gemerkt (Meine Touren)
+		planned = await getTour(params.id).catch(() => undefined);
+		if (planned) session.addShared(planned);
+	}
 	if (planned) return { tour: fromPlanned(planned), planned };
 	error(404, 'Diese Tour ist nicht mehr da.');
 };

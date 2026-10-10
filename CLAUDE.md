@@ -216,6 +216,15 @@ ganze Strecke – 2 km am See bei 19 km ändern ihn kaum. Idee: Zusatzpunkte je 
 - **Karte:** `src/lib/map/RouteMap.svelte` (MapLibre 6, nur ESM; Worker per `?worker&url` + `setWorkerUrl`,
   `worker.format: 'es'` in `vite.config.ts`), Stil OpenFreeMap „liberty“.
 
+### Merken (F13/F14 – vorgezogen, 11.10.2026)
+
+Das Herz im Tourdetail merkt die Tour auf dem Gerät (`src/lib/storage/tours.ts`, rohes IndexedDB ohne zusätzliche Bibliothek,
+Datenbank „genuss-radeln“, Speicher „tours“; gespeichert wird die ganze `PlannedTour` als einfache Daten). Das Herz ist gefüllt und
+terrakottafarben, wenn die Tour gemerkt ist; erneut tippen entfernt sie. Ein übernommener Umweg (F7) aktualisiert die gemerkte Tour.
+„Meine Touren“ listet sie (neueste zuerst) mit Länge, Fahrzeit, Steigung; „Entfernen“ lässt sich sofort rückgängig machen. Gemerkte
+Touren öffnen sich auch in einer neuen Sitzung (`tour/[id]/+page.ts` liest sie nach, `PlannedTour.saved`, Zurück-Weg „Zu Meine Touren“).
+Noch offen aus M8: Akku-Einschätzung; Teilen-Link gibt es schon.
+
 ### Tour anpassen (F6)
 
 Eine Tour wird intern als Liste von Wegpunkten gespeichert (Start, Zwischenpunkte, Stopps, Ziel).
