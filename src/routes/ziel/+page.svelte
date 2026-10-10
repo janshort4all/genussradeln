@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import LocateFixed from '@lucide/svelte/icons/locate-fixed';
 	import MapPin from '@lucide/svelte/icons/map-pin';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
@@ -118,7 +119,7 @@
 
 	<p class="problem" role="alert">{problem}</p>
 
-	<Button variant="primary" type="submit" icon={Sparkles} disabled={busy}>
+	<Button variant="brand" type="submit" icon={Sparkles} trailing={ChevronRight} disabled={busy}>
 		{busy ? 'Standort wird bestimmt …' : 'Schönsten Weg finden'}
 	</Button>
 </form>

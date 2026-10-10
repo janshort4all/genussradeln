@@ -5,6 +5,8 @@
 		value: string;
 		label: string;
 		icon?: LucideIcon;
+		/** füllt eine ganze Zeile */
+		wide?: boolean;
 	}
 </script>
 
@@ -25,6 +27,8 @@
 		multiple?: boolean;
 		/** Legende nur für Screenreader (wenn eine Überschrift schon darüber steht) */
 		hideLegend?: boolean;
+		/** feste Spaltenzahl (sonst so viele, wie nebeneinander passen) */
+		columns?: number;
 	}
 
 	let {
@@ -33,7 +37,8 @@
 		choices,
 		value = $bindable(),
 		multiple = false,
-		hideLegend = false
+		hideLegend = false,
+		columns
 	}: Props = $props();
 
 	function isChecked(choice: string): boolean {
@@ -52,9 +57,13 @@
 
 <fieldset class="choice-group">
 	<legend class:visually-hidden={hideLegend}>{legend}</legend>
-	<div class="options" class:many={choices.length > 3}>
+	<div
+		class="options"
+		class:many={choices.length > 3}
+		style:grid-template-columns={columns ? `repeat(${columns}, minmax(0, 1fr))` : undefined}
+	>
 		{#each choices as choice (choice.value)}
-			<label class="option" class:with-icon={choice.icon}>
+			<label class="option" class:with-icon={choice.icon} style:grid-column={choice.wide ? '1 / -1' : undefined}>
 				<input
 					type={multiple ? 'checkbox' : 'radio'}
 					{name}

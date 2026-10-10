@@ -14,13 +14,17 @@
 		/** sichtbarer Zurück-Weg (Pflicht auf jedem Screen außer der Startseite) */
 		backHref?: string;
 		backLabel?: string;
+		/** anderes Bild (Pfad unter static/), sonst das Titelbild */
+		image?: string;
+		/** großer Kopf (Eingabeseiten): höher, die erste Karte darunter ragt ins Bild */
+		large?: boolean;
 	}
 
-	let { title, lead, backHref, backLabel }: Props = $props();
+	let { title, lead, backHref, backLabel, image = '/hero.jpg', large = false }: Props = $props();
 </script>
 
-<header class="page-header">
-	<img class="photo" src={asset('/hero.jpg')} alt="" width="1200" height="600" />
+<header class="page-header" class:large>
+	<img class="photo" src={asset(image)} alt="" width="1200" height="600" />
 	<div class="fade" aria-hidden="true"></div>
 	{#if backHref}
 		<div class="back"><BackLink href={backHref} label={backLabel} /></div>
@@ -28,6 +32,11 @@
 	<div class="text">
 		<h1>{title}</h1>
 		{#if lead}<p>{lead}</p>{/if}
+		{#if large}
+			<svg class="stroke" viewBox="0 0 240 24" aria-hidden="true">
+				<path d="M4 18 C 50 6, 130 6, 236 10" fill="none" stroke="#5f6e33" stroke-width="5" stroke-linecap="round" />
+			</svg>
+		{/if}
 	</div>
 </header>
 
@@ -83,6 +92,34 @@
 		line-height: 1.35;
 	}
 
+	/* großer Kopf: viel Bild, die Karte darunter schiebt sich über den unteren Rand (Entwurf von Jan, 10.10.2026) */
+	.large {
+		min-height: 17rem;
+		padding-bottom: 4.25rem;
+		margin-bottom: -3rem;
+	}
+
+	.large .photo {
+		object-position: 100% 50%;
+	}
+
+	.large .fade {
+		background:
+			linear-gradient(90deg, rgb(247 242 229 / 0.9) 0%, rgb(247 242 229 / 0.7) 40%, rgb(247 242 229 / 0) 78%),
+			linear-gradient(0deg, rgb(247 242 229 / 0.55) 0%, rgb(247 242 229 / 0) 22%);
+	}
+
+	.large .text {
+		max-width: 72%;
+	}
+
+	.stroke {
+		display: block;
+		width: 7.5rem;
+		height: 1.5rem;
+		margin-top: 0.25rem;
+	}
+
 	@media (min-width: 40rem) {
 		.page-header {
 			margin: 0.5rem 0 1.75rem;
@@ -96,6 +133,15 @@
 
 		.text {
 			max-width: 60%;
+		}
+
+		.large {
+			min-height: 19rem;
+			margin-bottom: -3.5rem;
+		}
+
+		.large .photo {
+			object-position: 85% 50%;
 		}
 	}
 </style>

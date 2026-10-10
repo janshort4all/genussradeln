@@ -9,11 +9,13 @@
 	 * `dark` für die schwarze Navigationsansicht.
 	 */
 	interface Props extends HTMLButtonAttributes {
-		variant?: 'primary' | 'secondary';
+		variant?: 'primary' | 'secondary' | 'brand';
 		href?: string;
 		dark?: boolean;
 		/** Symbol links vom Text */
 		icon?: LucideIcon;
+		/** Symbol am rechten Rand (z. B. Pfeil „weiter“) */
+		trailing?: LucideIcon;
 		children: Snippet;
 	}
 
@@ -22,6 +24,7 @@
 		href,
 		dark = false,
 		icon: Icon,
+		trailing: Trailing,
 		type = 'button',
 		children,
 		...rest
@@ -33,6 +36,9 @@
 		<Icon size={24} strokeWidth={2.25} aria-hidden="true" />
 	{/if}
 	<span>{@render children()}</span>
+	{#if Trailing}
+		<span class="trailing" aria-hidden="true"><Trailing size={26} strokeWidth={2.5} /></span>
+	{/if}
 {/snippet}
 
 {#if href}
@@ -47,6 +53,7 @@
 
 <style>
 	.button {
+		position: relative;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -77,6 +84,24 @@
 
 	.primary:hover {
 		background: var(--color-orange-dark);
+	}
+
+	.trailing {
+		position: absolute;
+		right: 1rem;
+		display: grid;
+		place-items: center;
+	}
+
+	/* Hauptaktion auf den Eingabeseiten: dunkelgrün wie „Tour starten“ (weiße Schrift 11 : 1) */
+	.brand {
+		background: var(--color-green);
+		color: var(--color-surface);
+		box-shadow: 0 3px 0 #18241d;
+	}
+
+	.brand:hover {
+		background: #1d2c23;
 	}
 
 	.secondary {
