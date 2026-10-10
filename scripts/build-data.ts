@@ -5,6 +5,7 @@
  *   static/data/places.json             Ortsnamen für Weg-Titel
  *   static/data/landmarks.json          Gewässer-, Wald- und Parknamen für Weg-Titel
  *   static/data/roads.bin + .json       große Straßen (für Radwege direkt daneben)
+ *   static/data/fine.bin + .json        feine Karte von Wald, Parks und Wasser (für „mitten durch“)
  *   static/data/search/                 Straßen und Hausnummern für die Sofort-Suche beim Tippen
  *
  * Aufruf: npm run data   (vorher einmalig npm run routing:setup – lädt die Regionsdatei)
@@ -13,6 +14,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import { buildAddresses } from './data/addresses.ts';
+import { buildFine } from './data/fine.ts';
 import { buildLandmarks } from './data/landmarks.ts';
 import { buildLandscape } from './data/landscape.ts';
 import { buildPlaces } from './data/places.ts';
@@ -40,6 +42,7 @@ const osm = await readOsm(
 );
 
 await buildLandscape([...osm.landscape, ...osm.fields], bounds);
+await buildFine(osm.landscape, bounds);
 await buildPois(osm.pois, osm.landscape);
 await buildPlaces(osm.places);
 await buildLandmarks(osm.landscape, bounds);

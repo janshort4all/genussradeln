@@ -5,6 +5,7 @@
 import { distance, type LngLat } from '$lib/geo/geo';
 import { highlightSentence } from '$lib/routing/describe';
 import { NoRouteError, type route as routeGraphHopper } from '$lib/routing/graphhopper';
+import type { FineMap } from '$lib/scoring/fine';
 import type { Landscape } from '$lib/scoring/landscape';
 import type { RoadMask } from '$lib/scoring/roads';
 import { analyzeRoute, combineStats } from '$lib/scoring/score';
@@ -109,7 +110,7 @@ export async function packVerified(tour: PlannedTour, route: Route): Promise<str
 
 export async function rebuildTour(
 	spec: TourSpec,
-	deps: { route: Route; landscape?: Landscape; roads?: RoadMask }
+	deps: { route: Route; landscape?: Landscape; roads?: RoadMask; fine?: FineMap }
 ): Promise<PlannedTour> {
 	const legs = await Promise.all(
 		spec.g.map(async (encoded) => {
@@ -119,7 +120,7 @@ export async function rebuildTour(
 			return { anchors, path };
 		})
 	);
-	const stats = combineStats(legs.map(({ path }) => analyzeRoute(path, deps.landscape, deps.roads)));
+	const stats = combineStats(legs.map(({ path }) => analyzeRoute(path, deps.landscape, deps.roads, deps.fine)));
 	const [sName, sLon, sLat] = spec.s;
 	const [dName, dLon, dLat, settlement] = spec.d;
 	const start = { name: sName, lngLat: [sLon, sLat] as LngLat };

@@ -14,6 +14,7 @@ import { lengthLabels, planTours, TooCloseError } from '$lib/routing/plan';
 import { planRound, roundShapeProblem } from '$lib/routing/round';
 import { NoRouteError, route, type RoutePath } from '$lib/routing/graphhopper';
 import { findBacktrack, findLoop, findSpur, separatedFrom } from '$lib/scoring/backtrack';
+import { loadFineMap } from '$lib/scoring/fine';
 import { loadLandscape } from '$lib/scoring/landscape';
 import { overlapShare } from '$lib/scoring/overlap';
 import { loadRoadMask } from '$lib/scoring/roads';
@@ -235,10 +236,11 @@ function checkRounds(c: Case, tours: PlannedTour[], problems: CheckProblem[]) {
 export async function runPlanCheck(
 	options: { pairs?: number; seed?: number; onProgress?: (done: number, total: number) => void } = {}
 ): Promise<CheckResult> {
-	const [landscape, names, roads] = await Promise.all([
+	const [landscape, names, roads, fine] = await Promise.all([
 		loadLandscape('/data/landscape.json', '/data/landscape.png'),
 		loadNames('/data/landmarks.json', '/data/places.json'),
-		loadRoadMask('/data/roads.json', '/data/roads.bin')
+		loadRoadMask('/data/roads.json', '/data/roads.bin'),
+		loadFineMap('/data/fine.json', '/data/fine.bin')
 	]);
 	const cases = await makeCases(options.pairs ?? 30, options.seed ?? 1);
 	const problems: CheckProblem[] = [];
@@ -257,7 +259,7 @@ export async function runPlanCheck(
 		};
 		const t0 = performance.now();
 		try {
-			const deps = { route, landscape, names, roads };
+			const deps = { route, landscape, names, roads, fine };
 			const tours = c.roundKm ? await planRound(request, deps) : await planTours(request, deps);
 			times.push({ case: `${c.name} [${c.returnMode}]`, ms: performance.now() - t0 });
 			plans++;

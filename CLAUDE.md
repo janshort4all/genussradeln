@@ -88,6 +88,22 @@ die Suche nach schönen Hilfspunkten bevorzugt Stellen mitten im Wald (`VIA_WOOD
 „Durch den Wald“ (Tiefe) bzw. „Am Wald entlang“ (nur daneben), benannte Wälder/Parks im Titel nur bei echter Tiefe
 (`NAMING.minWoodDepth`). Probiert und verworfen: Waldflächen als `areas` an GraphHopper schicken (langsam, 2–4 s, ohne Wirkung).
 
+**Feine Karte (10.10.2026, `static/data/fine.bin`, `scoring/fine.ts`, Bau `scripts/data/fine.ts`):** Wald, Grün (Parks, Wiesen, Heide)
+und Wasser in ≈ 21-m-Zellen als Bits (1 MB gepackt, 10 MB im Speicher). Die grobe Karte (≈ 100 m) konnte bei schmalen Parks (Moerser
+Freizeitpark: 2–3 Zellen) nicht sagen, ob ein Weg drin oder daneben liegt. `woodDepth` (0…1: Zelle selbst, dazu die vier Nachbarn in 2 und
+4 Zellen Abstand), `nearWater(p, SHORE_CELLS_FINE)` (≈ 130 m: Seerundwege liegen 100–150 m vom Ufer). Ohne feine Karte gilt die grobe.
+`SCORE.shore` = Zusatzpunkte für den Anteil am Wasser. Wald/Park/Wasser werden **nicht** als `areas` an GraphHopper geschickt
+(getestet: 2–4 s, keine Wirkung). `npm run data` schreibt PNGs ohne das native `sharp` (`scripts/lib/png.ts`) – Windows-
+Anwendungssteuerung (Smart App Control) blockiert unsignierte .node/.dll-Dateien, das traf auch Git (libcurl).
+
+**Warum Park und See nicht gewählt wurden (Analyse 10.10.2026, Crusestraße → Krefeld):** (1) Die Suche nach Hilfspunkten schloss alles
+unter 400 m zur direkten Straße und unter 15 % der Luftlinie (2,6 km) zu Start/Ziel aus – Seeufer und Park hinter der Startstraße kamen nie
+infrage; jetzt `minFromDirectM` 250, `minFromEndsM` 600, Auswahl auf `VIA_SEARCH.bins` Abschnitte verteilt, zusätzlich Ufer-Hilfspunkte
+(`findShoreVias`). (2) Die Bewertung kannte nur „in der Nähe“ → Tiefe und Ufer-Anteil. (3) Die Regel „spürbar anders lang“
+(`LENGTH_STEP`) sortierte Varianten mit kleinem Abstecher (0,2–1 km länger) aus, obwohl schöner → jetzt ersetzt eine fast gleiche, höchstens
+12 % längere und um 0,04 schönere Variante den direkten Weg (`IMPROVE_DIRECT`). (4) Offen: Die Schönheit ist ein Durchschnitt über die
+ganze Strecke – 2 km am See bei 19 km ändern ihn kaum. Idee: Zusatzpunkte je benanntem Höhepunkt (See/Wald/Park ≥ 1 km).
+
 ### Rundtouren (F2, F4 Rundtour – umgesetzt 06.10.2026, `src/lib/routing/round.ts`)
 
 - Eingabe (`/runde`): Start (Standort oder Adresse) und Länge in km (10–50). Gerechnet wird „gemütlich“.

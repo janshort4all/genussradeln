@@ -3,6 +3,7 @@
  * Straßennamen und Himmelsrichtungen sind nur noch Notlösung (siehe plan.ts).
  */
 import { resample, type LngLat } from '$lib/geo/geo';
+import type { FineMap } from '$lib/scoring/fine';
 import type { Landscape } from '$lib/scoring/landscape';
 import { BIG_WATER, NAMING } from '$lib/scoring/weights';
 import type { LandmarkKind, NameData } from './names';
@@ -33,7 +34,7 @@ export interface RouteNames {
 const STEP_M = 100;
 
 /** Welche benannten Orte und Orientierungspunkte liegen am Weg? */
-export function routeNames(line: LngLat[], data: NameData, landscape?: Landscape): RouteNames {
+export function routeNames(line: LngLat[], data: NameData, landscape?: Landscape, fine?: FineMap): RouteNames {
 	const samples = resample(line, STEP_M);
 	const landmarkVotes = new Map<string, { kind: LandmarkKind; count: number }>();
 	const placeVotes = new Map<string, { rank: number; count: number; first: number }>();
@@ -49,7 +50,7 @@ export function routeNames(line: LngLat[], data: NameData, landscape?: Landscape
 		};
 		if (!landscape || around?.water) vote(['river', 'lake'], landscape ? NAMING.waterRadiusM : NAMING.nearRadiusM);
 		// „Durch den Stadtwald“ nur, wenn der Weg wirklich im Wald verläuft – nicht am Waldrand entlang
-		const wood = landscape?.woodDepth(p);
+		const wood = fine ? fine.woodDepth(p) : landscape?.woodDepth(p);
 		if (!landscape || (wood?.kind === 'forest' && wood.depth > NAMING.minWoodDepth)) vote(['forest'], NAMING.nearRadiusM);
 		if (!landscape || (wood?.kind === 'green' && wood.depth > NAMING.minWoodDepth)) vote(['park'], NAMING.nearRadiusM);
 

@@ -10,8 +10,8 @@
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import sharp from 'sharp';
 import type { Bounds, OsmElement } from '../lib/osm-file.ts';
+import { writeGrayPng } from '../lib/png.ts';
 
 type Point = [number, number]; // [lon, lat]
 
@@ -19,18 +19,22 @@ const CELL_LON = 0.0015; // ≈ 104 m bei 51,4° N
 const CELL_LAT = 0.0009; // ≈ 100 m
 
 // Klassen (höhere Zahl gewinnt bei Überlappung) – wie in src/lib/scoring/landscape.ts
-const FIELDS = 1;
-const GREEN = 2;
-const FOREST = 3;
-const WATER = 4;
+export const FIELDS = 1;
+export const GREEN = 2;
+export const FOREST = 3;
+export const WATER = 4;
 /** Graustufen-Abstand zwischen den Klassen im PNG */
 const STEP = 51;
 
-export async function buildLandscape(elements: OsmElement[], bounds: Bounds) {
+/**
+ * Alle Flächen der Regionsdatei in ein Raster mit Zellen der Größe cellLon × cellLat (Grad) schreiben.
+ * Je Zelle die höchste Klasse (Felder < Grün < Wald < Wasser), 0 = nichts.
+ * Grob (≈ 100 m) für die Nachbewertung, fein (≈ 21 m) für „mitten im Wald“ – siehe fine.ts.
+ */
+export function rasterizeLandscape(elements: OsmElement[], bounds: Bounds, CELL_LON: number, CELL_LAT: number) {
 	const width = Math.ceil((bounds.east - bounds.west) / CELL_LON);
 	const height = Math.ceil((bounds.north - bounds.south) / CELL_LAT);
 	const grid = new Uint8Array(width * height);
-	console.log(`Landschaft: Raster ${width} × ${height} Zellen`);
 
 	const setCell = (row: number, col: number, value: number) => {
 		if (row < 0 || row >= height || col < 0 || col >= width) return;
@@ -110,6 +114,12 @@ export async function buildLandscape(elements: OsmElement[], bounds: Bounds) {
 		if (cls.line) rasterizeLine(element, cls.value);
 		else rasterizeArea(element, cls.value);
 	}
+	return { grid, width, height };
+}
+
+export async function buildLandscape(elements: OsmElement[], bounds: Bounds) {
+	const { grid, width, height } = rasterizeLandscape(elements, bounds, CELL_LON, CELL_LAT);
+	console.log(`Landschaft: Raster ${width} × ${height} Zellen`);
 
 	const counts = [0, 0, 0, 0, 0];
 	for (const v of grid) counts[v]++;
@@ -119,9 +129,13 @@ export async function buildLandscape(elements: OsmElement[], bounds: Bounds) {
 	);
 
 	await mkdir(new URL('../../static/data/', import.meta.url), { recursive: true });
-	await sharp(Buffer.from(grid.map((v) => v * STEP)), { raw: { width, height, channels: 1 } })
-		.png({ compressionLevel: 9 })
-		.toFile(fileURLToPath(new URL('../../static/data/landscape.png', import.meta.url)));
+	const pngBytes = await writeGrayPng(
+		fileURLToPath(new URL('../../static/data/landscape.png', import.meta.url)),
+		grid.map((v) => v * STEP),
+		width,
+		height
+	);
+	console.log();
 	await writeFile(
 		new URL('../../static/data/landscape.json', import.meta.url),
 		JSON.stringify({

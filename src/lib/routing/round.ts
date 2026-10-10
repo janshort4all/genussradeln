@@ -200,7 +200,7 @@ export async function planRound(request: TourRequest, deps: PlanDeps): Promise<P
 			const line = lineOf(path);
 			const overlap = selfOverlap(line);
 			if (overlap > ROUND.maxSelfOverlap) continue;
-			const stats = analyzeRoute(path, deps.landscape, deps.roads);
+			const stats = analyzeRoute(path, deps.landscape, deps.roads, deps.fine);
 			const beauty = beautyScore(stats);
 			return { path, line, vias, heading, stats, beauty, overlap, score: beauty - SCORE.returnOverlap * overlap };
 		}
@@ -217,7 +217,7 @@ export async function planRound(request: TourRequest, deps: PlanDeps): Promise<P
 
 	// Titel: benannter Höhepunkt und unterscheidende Orte, sonst die Landschaft; Name nach der Richtung
 	const named: (RouteNames | undefined)[] = chosen.map((c) =>
-		deps.names ? routeNames(c.line, deps.names, deps.landscape) : undefined
+		deps.names ? routeNames(c.line, deps.names, deps.landscape, deps.fine) : undefined
 	);
 	const used = new Set<string>();
 	return chosen.map((c, index) => {

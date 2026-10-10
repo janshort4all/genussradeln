@@ -27,6 +27,12 @@ export const SCORE = {
 	 * 10.10.2026: durch Wälder und Parks fahren, nicht nur daneben entlang). Kommt zu forest/green dazu.
 	 */
 	through: 0.8,
+	/**
+	 * Zusatzpunkte für den Anteil direkt am Wasser (Ufer höchstens ca. 100 m entfernt). Große Gewässer zählen sonst
+	 * bis 400 m Abstand („Rhein vom Deich“) – dann sähen die Straße 300 m neben einem See und der Uferweg gleich
+	 * aus (Wunsch Jan, 10.10.2026: Elfrather See). Kommt zu water dazu.
+	 */
+	shore: 0.6,
 	/** Anteil auf ausgeschilderten Radnetzen (Knotenpunktnetz) */
 	network: 0.4,
 	/** Anteil auf Radwegen, Wirtschaftswegen, Spielstraßen */
@@ -104,6 +110,9 @@ export const NAMING = {
 /** Ein Weg wird nur nach einer Landschaft benannt, die mindestens diesen Anteil der stärksten erreicht */
 export const TITLE_MIN_SHARE_OF_TOP = 0.85;
 
+/** „Am Wasser entlang“ bei der feinen Karte: Wasser höchstens so viele Zellen (≈ 21 m) entfernt – Seerundwege liegen oft 100–150 m vom Ufer (Grünstreifen dazwischen) */
+export const SHORE_CELLS_FINE = 6;
+
 /** Abstand der Prüfpunkte entlang eines Wegs in Metern */
 export const SAMPLE_STEP_M = 50;
 
@@ -120,15 +129,23 @@ export const VIA_SEARCH = {
 	minBeauty: 0.2,
 	/** Mindestabstand zwischen zwei Zwischenpunkten */
 	minSpacingM: 1500,
-	/** Mindestabstand zu Start und Ziel (Anteil der Luftlinie) */
-	minFromEndsRatio: 0.15,
+	/**
+	 * Mindestabstand zu Start und Ziel (Meter). Früher 15 % der Luftlinie (2,6 km bei 17 km) – dann kam ein Park
+	 * direkt hinter der Startstraße nie infrage (Wunsch Jan, 10.10.2026: durch den Moerser Park aus der Stadt).
+	 */
+	minFromEndsM: 600,
 	/**
 	 * Zwischenpunkte nur „zwischen“ Start und Ziel: Lage entlang der Luftlinie als Anteil (0 = Start, 1 = Ziel).
 	 * Verhindert Wege, die erst über das Ziel hinaus (oder hinter den Start) fahren und dann zurückkommen.
 	 */
-	alongRange: [0.15, 0.85] as [number, number],
+	alongRange: [0.03, 0.97] as [number, number],
+	/** Die Hilfspunkte verteilen sich auf so viele Abschnitte zwischen Start und Ziel (Anfang, Mitte, Ende …) */
+	bins: 3,
 	/** Mindestabstand zum direkten Weg (sonst bringt der Umweg nichts) */
-	minFromDirectM: 400,
+	minFromDirectM: 250,
+	/** Gewässer-Ufer als Hilfspunkte: höchstens so viele, nur Gewässer ab so vielen Zellen (≈ 1 ha je Zelle) */
+	shoreVias: 6,
+	minWaterCells: 12,
 	/** Umweg-Schätzung: Straßenweg ≈ Luftlinie × Faktor */
 	roadFactor: 1.25,
 	/**
@@ -208,6 +225,12 @@ export const ROUND = {
 	/** zwei Runden sind „gleich“, wenn jede zu mehr als diesem Anteil auf der anderen liegt */
 	maxSimilarity: 0.6
 } as const;
+
+/**
+ * Der direkte Weg wird durch eine fast gleiche Variante ersetzt, wenn die höchstens maxExtraRatio länger und um mindestens
+ * minGain Schönheitspunkte schöner ist (kleiner Abstecher durch Park oder ans Ufer statt der Straße).
+ */
+export const IMPROVE_DIRECT = { maxExtraRatio: 0.12, minGain: 0.04 } as const;
 
 /** Beim Auffüllen auf TARGET_SUGGESTIONS darf ein Weg so viel weniger schön sein als der direkte (Schönheitspunkte) */
 export const FILL_BEAUTY_MARGIN = 0.15;

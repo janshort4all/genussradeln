@@ -6,6 +6,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import { route, RoutingUnavailableError } from '$lib/routing/graphhopper';
 	import { loadLandscape } from '$lib/scoring/landscape';
+	import { loadFineMap } from '$lib/scoring/fine';
 	import { loadRoadMask } from '$lib/scoring/roads';
 	import { unpackShared } from '$lib/share/link';
 	import { rebuildTour } from '$lib/share/rebuild';
@@ -25,11 +26,12 @@
 			let tour;
 			if ('tour' in shared) tour = shared.tour;
 			else {
-				const [landscape, roads] = await Promise.all([
+				const [landscape, roads, fine] = await Promise.all([
 					loadLandscape(asset('/data/landscape.json'), asset('/data/landscape.png')).catch(() => undefined),
-					loadRoadMask(asset('/data/roads.json'), asset('/data/roads.bin')).catch(() => undefined)
+					loadRoadMask(asset('/data/roads.json'), asset('/data/roads.bin')).catch(() => undefined),
+					loadFineMap(asset('/data/fine.json'), asset('/data/fine.bin')).catch(() => undefined)
 				]);
-				tour = await rebuildTour(shared.spec, { route, landscape, roads });
+				tour = await rebuildTour(shared.spec, { route, landscape, roads, fine });
 			}
 			session.addShared(tour);
 			await goto(resolve('/tour/[id]', { id: tour.id }), { replaceState: true });

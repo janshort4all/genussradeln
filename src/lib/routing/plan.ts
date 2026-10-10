@@ -11,6 +11,7 @@
  */
 import { bearing, distance, distanceToLine, offset, resample, segmentLengths, type LngLat } from '$lib/geo/geo';
 import type { Landscape } from '$lib/scoring/landscape';
+import type { FineMap } from '$lib/scoring/fine';
 import type { RoadMask } from '$lib/scoring/roads';
 import { WATER } from '$lib/scoring/landscape';
 import { findBacktrack, findLoop, findSpur, separatedFrom } from '$lib/scoring/backtrack';
@@ -29,6 +30,7 @@ import {
 	FILL_BEAUTY_MARGIN,
 	SCORE,
 	TARGET_SUGGESTIONS,
+	IMPROVE_DIRECT,
 	TITLE_MIN_SHARE_OF_TOP,
 	VIA_PAIRS,
 	VIA_WOODLAND_BONUS,
@@ -48,6 +50,8 @@ export interface PlanDeps {
 	landscape?: Landscape;
 	/** große Straßen – erkennt Radwege direkt daneben (scoring/roads.ts) */
 	roads?: RoadMask;
+	/** feine Karte von Wald, Parks und Wasser – „mitten durch“ und „direkt am Ufer“ (scoring/fine.ts) */
+	fine?: FineMap;
 	/** Orts- und Gewässernamen für verständliche Titel („Am Rhein entlang über Meerbusch“) */
 	names?: NameData;
 	signal?: AbortSignal;
@@ -127,9 +131,30 @@ async function mapLimited<T, R>(items: T[], limit: number, fn: (item: T) => Prom
 	return results;
 }
 
+/** Suchbereich für Hilfspunkte: Rechteck um die Ellipse aller erlaubten Umwegpunkte, als Zellgrenzen der Landschaftskarte */
+function searchWindow(landscape: Landscape, start: LngLat, end: LngLat, maxSum: number) {
+	const beeline = distance(start, end);
+	// Die Ellipse reicht seitlich am weitesten (kleine Halbachse) – das deckt auch die Verlängerung hinter Start/Ziel ab.
+	const margin = Math.sqrt(Math.max(0, (maxSum / 2) ** 2 - (beeline / 2) ** 2));
+	const latMargin = margin / 111_000;
+	const lonMargin = margin / (111_000 * Math.cos((start[1] * Math.PI) / 180));
+	const north = Math.max(start[1], end[1]) + latMargin;
+	const south = Math.min(start[1], end[1]) - latMargin;
+	const west = Math.min(start[0], end[0]) - lonMargin;
+	const east = Math.max(start[0], end[0]) + lonMargin;
+	return {
+		r0: Math.max(0, landscape.rowOf(north)),
+		r1: Math.min(landscape.meta.height - 1, landscape.rowOf(south)),
+		c0: Math.max(0, landscape.colOf(west)),
+		c1: Math.min(landscape.meta.width - 1, landscape.colOf(east))
+	};
+}
+
 /**
  * Schöne Zwischenpunkte zwischen Start und Ziel finden: Stellen mit viel Wasser/Wald/Grün in der Umgebung,
- * die innerhalb des erlaubten Umwegs liegen und nicht direkt am kürzesten Weg.
+ * die innerhalb des erlaubten Umwegs liegen und nicht direkt am kürzesten Weg. Die Punkte verteilen sich auf
+ * VIA_SEARCH.bins Abschnitte (Anfang, Mitte, Ende) – so kommen auch Parks nahe Start und Ziel infrage, nicht nur
+ * die schönste Gegend irgendwo in der Mitte (Wunsch Jan, 10.10.2026).
  */
 export function findScenicVias(
 	landscape: Landscape,
@@ -143,24 +168,10 @@ export function findScenicVias(
 	const beeline = distance(start, end);
 	const maxSum = maxLength / VIA_SEARCH.roadFactor;
 	if (maxSum <= beeline) return [];
-	const minFromEnds = VIA_SEARCH.minFromEndsRatio * beeline;
+	const minFromEnds = VIA_SEARCH.minFromEndsM;
 	const coarseDirect = resample(directLine, 200);
-
-	// Suchbereich: Rechteck um die Ellipse aller erlaubten Umwegpunkte.
-	// Die Ellipse reicht seitlich am weitesten (kleine Halbachse) – das deckt auch die Verlängerung hinter Start/Ziel ab.
-	const margin = Math.sqrt((maxSum / 2) ** 2 - (beeline / 2) ** 2);
-	const latMargin = margin / 111_000;
-	const lonMargin = margin / (111_000 * Math.cos((start[1] * Math.PI) / 180));
-	const north = Math.max(start[1], end[1]) + latMargin;
-	const south = Math.min(start[1], end[1]) - latMargin;
-	const west = Math.min(start[0], end[0]) - lonMargin;
-	const east = Math.max(start[0], end[0]) + lonMargin;
-
+	const { r0, r1, c0, c1 } = searchWindow(landscape, start, end, maxSum);
 	const step = VIA_SEARCH.gridStepCells;
-	const r0 = Math.max(0, landscape.rowOf(north));
-	const r1 = Math.min(landscape.meta.height - 1, landscape.rowOf(south));
-	const c0 = Math.max(0, landscape.colOf(west));
-	const c1 = Math.min(landscape.meta.width - 1, landscape.colOf(east));
 
 	// Lage entlang der Luftlinie (lokal flach gerechnet): 0 = Start, 1 = Ziel
 	const kx = Math.cos((start[1] * Math.PI) / 180);
@@ -169,7 +180,7 @@ export function findScenicVias(
 	const axisLen2 = ax * ax + ay * ay;
 	const [minAlong, maxAlong] = VIA_SEARCH.alongRange;
 
-	const found: { point: LngLat; beauty: number }[] = [];
+	const found: { point: LngLat; beauty: number; along: number }[] = [];
 	for (let row = r0; row <= r1; row += step) {
 		for (let col = c0; col <= c1; col += step) {
 			// Zwischenpunkt auf festem Boden, nicht mitten im See
@@ -185,20 +196,128 @@ export function findScenicVias(
 			if (around < VIA_SEARCH.minBeauty) continue;
 			// mitten im Wald/Grünen liegende Stellen bevorzugen: der Weg soll hindurch führen, nicht daran vorbei
 			const beauty = around + VIA_WOODLAND_BONUS * (landscape.woodDepthAtCell(row, col)?.depth ?? 0);
-			found.push({ point, beauty });
+			found.push({ point, beauty, along });
 		}
 	}
 
 	found.sort((a, b) => b.beauty - a.beauty);
 	const chosen: LngLat[] = [];
+	const usable = (point: LngLat) =>
+		!chosen.some((c) => distance(c, point) < VIA_SEARCH.minSpacingM) &&
+		distanceToLine(point, coarseDirect) >= VIA_SEARCH.minFromDirectM;
+	// erst je Abschnitt die schönsten, dann mit den schönsten übrigen auffüllen
+	const bins = VIA_SEARCH.bins;
+	const quota = Math.ceil(count / bins);
+	for (let bin = 0; bin < bins; bin++) {
+		const lo = minAlong + ((maxAlong - minAlong) * bin) / bins;
+		const hi = minAlong + ((maxAlong - minAlong) * (bin + 1)) / bins;
+		let taken = 0;
+		for (const { point, along } of found) {
+			if (taken >= quota || chosen.length >= count) break;
+			if (along < lo || along > hi || !usable(point)) continue;
+			chosen.push(point);
+			taken++;
+		}
+	}
 	for (const { point } of found) {
 		if (chosen.length >= count) break;
-		if (chosen.some((c) => distance(c, point) < VIA_SEARCH.minSpacingM)) continue;
-		if (distanceToLine(point, coarseDirect) < VIA_SEARCH.minFromDirectM) continue;
+		if (usable(point)) chosen.push(point);
+	}
+	return chosen;
+}
+
+/**
+ * Hilfspunkte an den Ufern größerer Gewässer (Seen, Rhein) in Reichweite: je Gewässer der Uferpunkt, der den
+ * kleinsten Umweg macht, und der auf der anderen Seite der direkten Strecke. Die allgemeine Suche (findScenicVias)
+ * hält Abstand zur direkten Strecke und würde ein Ufer 300 m neben der Straße übersehen – dort liegt aber oft
+ * der schöne Weg (Wunsch Jan, 10.10.2026: Elfrather See).
+ */
+export function findShoreVias(
+	landscape: Landscape,
+	start: LngLat,
+	end: LngLat,
+	maxLength: number,
+	directLine: LngLat[],
+	count: number
+): LngLat[] {
+	if (count <= 0) return [];
+	const maxSum = maxLength / VIA_SEARCH.roadFactor;
+	if (maxSum <= distance(start, end)) return [];
+	const { r0, r1, c0, c1 } = searchWindow(landscape, start, end, maxSum);
+	const width = c1 - c0 + 1;
+	const height = r1 - r0 + 1;
+	if (width <= 0 || height <= 0) return [];
+	const coarseDirect = resample(directLine, 200);
+	const kx = Math.cos((start[1] * Math.PI) / 180);
+	const ax = (end[0] - start[0]) * kx;
+	const ay = end[1] - start[1];
+	const axisLen2 = ax * ax + ay * ay;
+	const [minAlong, maxAlong] = VIA_SEARCH.alongRange;
+
+	// zusammenhängende Wasserflächen (8er-Nachbarschaft) im Suchbereich
+	type Shore = { point: LngLat; detour: number; side: number };
+	const label = new Int32Array(width * height).fill(-1);
+	const bodies: { cells: number; shore: Shore[] }[] = [];
+	const at = (r: number, c: number) => (r - r0) * width + (c - c0);
+	for (let r = r0; r <= r1; r++) {
+		for (let c = c0; c <= c1; c++) {
+			if (landscape.cell(r, c) !== WATER || label[at(r, c)] >= 0) continue;
+			const id = bodies.length;
+			const body = { cells: 0, shore: [] as Shore[] };
+			bodies.push(body);
+			const stack: [number, number][] = [[r, c]];
+			label[at(r, c)] = id;
+			while (stack.length) {
+				const [cr, cc] = stack.pop()!;
+				body.cells++;
+				for (let dr = -1; dr <= 1; dr++) {
+					for (let dc = -1; dc <= 1; dc++) {
+						const nr = cr + dr;
+						const nc = cc + dc;
+						if (nr < r0 || nr > r1 || nc < c0 || nc > c1) continue;
+						if (landscape.cell(nr, nc) === WATER) {
+							if (label[at(nr, nc)] < 0) {
+								label[at(nr, nc)] = id;
+								stack.push([nr, nc]);
+							}
+						} else if (!dr || !dc) {
+							// Landzelle direkt neben dem Wasser = Ufer
+							const point = landscape.cellCenter(nr, nc);
+							const along = ((point[0] - start[0]) * kx * ax + (point[1] - start[1]) * ay) / axisLen2;
+							const dStart = distance(start, point);
+							const dEnd = distance(point, end);
+							if (along < minAlong || along > maxAlong || dStart + dEnd > maxSum) continue;
+							if (Math.min(dStart, dEnd) < VIA_SEARCH.minFromEndsM) continue;
+							const cross = (point[0] - start[0]) * kx * ay - (point[1] - start[1]) * ax;
+							body.shore.push({ point, detour: dStart + dEnd, side: cross >= 0 ? 1 : -1 });
+						}
+					}
+				}
+			}
+		}
+	}
+
+	const found: { point: LngLat; detour: number }[] = [];
+	for (const body of bodies) {
+		if (body.cells < VIA_SEARCH.minWaterCells) continue;
+		for (const side of [1, -1]) {
+			const best = body.shore
+				// liegt das Ufer schon fast auf der direkten Strecke, bringt der Punkt nichts Neues
+				.filter((s) => s.side === side && distanceToLine(s.point, coarseDirect) > 100)
+				.sort((a, b) => a.detour - b.detour)[0];
+			if (best) found.push({ point: best.point, detour: best.detour });
+		}
+	}
+	found.sort((a, b) => a.detour - b.detour);
+	const chosen: LngLat[] = [];
+	for (const { point } of found) {
+		if (chosen.length >= count) break;
+		if (chosen.some((c) => distance(c, point) < VIA_SEARCH.minSpacingM / 3)) continue;
 		chosen.push(point);
 	}
 	return chosen;
 }
+
 
 /**
  * Fährt der Weg einen Stummel, einen Kreis oder einen Zipfel? Kreuzungen auf Brücken/in Tunneln zählen nicht
@@ -264,7 +383,7 @@ async function viaPairs(
 	const points = singles
 		.filter((p): p is NonNullable<typeof p> => !!p && !p.side && p.vias.length === 1 && p.path.distance <= maxLength)
 		.filter((p) => !shapeProblem(p.path))
-		.map((p) => ({ point: p.vias[0], beauty: beautyScore(analyzeRoute(p.path, deps.landscape, deps.roads)) }))
+		.map((p) => ({ point: p.vias[0], beauty: beautyScore(analyzeRoute(p.path, deps.landscape, deps.roads, deps.fine)) }))
 		.sort((a, b) => b.beauty - a.beauty)
 		.slice(0, VIA_PAIRS.fromBest)
 		.map((p) => p.point);
@@ -316,11 +435,15 @@ async function planDirection(
 	const paths: Found[] = direct.map((path) => ({ path, vias: [], side: false }));
 
 	// Zwischenpunkte: schöne Orte (je nach Umweg-Wunsch) + knapp neben der Luftlinie (für „Fast direkt“)
+	const directLine = lineOf(direct[0]);
+	const shore = deps.landscape ? findShoreVias(deps.landscape, from, to, maxLength, directLine, VIA_SEARCH.shoreVias) : [];
 	const vias = [
 		...(deps.landscape && level.scenicVias > 0
-			? findScenicVias(deps.landscape, from, to, maxLength, lineOf(direct[0]), level.scenicVias + VIA_SEARCH.spareVias)
+			? findScenicVias(deps.landscape, from, to, maxLength, directLine, level.scenicVias + VIA_SEARCH.spareVias)
 			: []
 		).map((point) => ({ point, side: false })),
+		// Ufer von Seen und Flüssen: eigene Punkte, damit sie nicht von den anderen verdrängt werden
+		...shore.map((point) => ({ point, side: false })),
 		...sideVias(from, to).map((point) => ({ point, side: true }))
 	];
 	const viaPaths = await mapLimited(vias, 4, async ({ point, side }): Promise<Found | undefined> => {
@@ -380,7 +503,7 @@ async function planDirection(
 		// … ohne Runde im Kreis und ohne Zipfel
 		.filter(({ path, detour }) => !detour || !shapeProblem(path))
 		.map(({ path, vias, side }) => {
-			const stats = analyzeRoute(path, deps.landscape, deps.roads);
+			const stats = analyzeRoute(path, deps.landscape, deps.roads, deps.fine);
 			const beauty = beautyScore(stats);
 			const extraRatio = Math.max(0, path.distance / directDistance - 1);
 			return {
@@ -588,10 +711,25 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 	// Der direkte Weg ist immer dabei. Für die übrigen Längen jeweils der schönste Weg dieser Länge
 	// (bestForItsLength): zuerst der schönste überhaupt (der Umweg spielt dafür kaum eine Rolle), dann die mit dem
 	// besten Verhältnis von Schönheit zu Umweg – jeder spürbar anders lang als die schon gewählten.
-	const direct = withReturn(outbound.direct);
+	const plainDirect = withReturn(outbound.direct);
 	const compact = withReturn(outbound.compact);
 	// bei der Runde nie weitgehend auf demselben Weg zurück
 	const pool = [...combinations, ...(compact ? [compact] : [])].filter((c) => c.overlap <= ROUND_MAX_OVERLAP);
+	// Der direkte Weg wird durch eine fast gleiche, nur wenig längere und deutlich schönere Variante ersetzt
+	// (Abstecher durch einen Park oder ans Seeufer, Wunsch Jan, 10.10.2026). Als eigener Vorschlag würde sie an der
+	// Regel „spürbar anders lang“ scheitern – dabei ist sie genau das, was der direkte Weg sein sollte.
+	const improved = plainDirect
+		? pool
+				.filter(
+					(c) =>
+						c !== plainDirect &&
+						tooSimilar(c, plainDirect) &&
+						lengthOf(c) <= lengthOf(plainDirect) * (1 + IMPROVE_DIRECT.maxExtraRatio) &&
+						beautyOf(c) >= beautyOf(plainDirect) + IMPROVE_DIRECT.minGain
+				)
+				.sort((a, b) => beautyOf(b) - beautyOf(a))[0]
+		: undefined;
+	const direct = improved ?? plainDirect;
 	const chosen: Combination[] = [direct ?? best];
 	const differentLength = (c: Combination) =>
 		chosen.every((p) => Math.abs(lengthOf(p) - lengthOf(c)) >= lengthStep(p, c));
@@ -636,7 +774,7 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 
 	const streets = ordered.map(streetLengths);
 	const named: (RouteNames | undefined)[] = ordered.map((c) =>
-		deps.names ? routeNames(c.legs.flatMap((l) => l.line), deps.names, deps.landscape) : undefined
+		deps.names ? routeNames(c.legs.flatMap((l) => l.line), deps.names, deps.landscape, deps.fine) : undefined
 	);
 	const usedTitles = new Set<string>();
 

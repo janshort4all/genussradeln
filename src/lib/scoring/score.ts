@@ -2,9 +2,10 @@
 import { resample, segmentLengths, type LngLat } from '$lib/geo/geo';
 import type { DetailInterval, RoutePath } from '$lib/routing/graphhopper';
 import { climbWordOf, elevationProfile, type ClimbWord } from '$lib/tour/elevation';
+import type { FineMap } from './fine';
 import type { Landscape } from './landscape';
 import type { RoadMask } from './roads';
-import { BIG_WATER, ROADSIDE, SAMPLE_STEP_M, SCORE, SURROUNDINGS_RADIUS_CELLS } from './weights';
+import { BIG_WATER, ROADSIDE, SAMPLE_STEP_M, SCORE, SHORE_CELLS_FINE, SURROUNDINGS_RADIUS_CELLS } from './weights';
 
 export type { ClimbWord };
 
@@ -23,6 +24,8 @@ export interface RouteStats {
 	 */
 	forestThrough?: number;
 	greenThrough?: number;
+	/** Anteil direkt am Wasser (Ufer höchstens ca. 100 m entfernt, ohne die Fernsicht auf große Gewässer) */
+	shoreWater?: number;
 	/** Anteil mit Wasser, Wald, Grün oder Feldern in der Nähe */
 	nature: number;
 	network: number;
@@ -130,7 +133,7 @@ export function lineOf(path: RoutePath): LngLat[] {
 	return path.coordinates.map(([lon, lat]) => [lon, lat]);
 }
 
-export function analyzeRoute(path: RoutePath, landscape?: Landscape, roads?: RoadMask): RouteStats {
+export function analyzeRoute(path: RoutePath, landscape?: Landscape, roads?: RoadMask, fine?: FineMap): RouteStats {
 	const line = lineOf(path);
 	const lengths = segmentLengths(line);
 	const total = lengths.reduce((s, d) => s + d, 0);
@@ -143,6 +146,7 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape, roads?: Roa
 	let nature = 0;
 	let forestThrough = 0;
 	let greenThrough = 0;
+	let shoreWater = 0;
 	const samples = resample(line, SAMPLE_STEP_M);
 	if (landscape && samples.length) {
 		for (const p of samples) {
@@ -152,7 +156,11 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape, roads?: Roa
 			if (s.green) green++;
 			if (s.fields) fields++;
 			if (s.water || s.forest || s.green || s.fields) nature++;
-			const wood = landscape.woodDepth(p);
+			// mit der feinen Karte (≈ 21 m) lässt sich „mitten im Wald“ und „direkt am Wasser“ genau sagen,
+			// sonst nur grob (≈ 100 m)
+			const shore = fine ? fine.nearWater(p, SHORE_CELLS_FINE) : landscape.surroundings(p, SURROUNDINGS_RADIUS_CELLS, null).water;
+			if (shore) shoreWater++;
+			const wood = fine ? fine.woodDepth(p) : landscape.woodDepth(p);
 			if (wood) (wood.kind === 'forest' ? (forestThrough += wood.depth) : (greenThrough += wood.depth));
 		}
 		water /= samples.length;
@@ -162,6 +170,7 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape, roads?: Roa
 		nature /= samples.length;
 		forestThrough /= samples.length;
 		greenThrough /= samples.length;
+		shoreWater /= samples.length;
 	}
 
 	const { share: roadside, noise: roadsideNoise } = roads ? roadsideStats(path, roads, landscape) : { share: 0, noise: 0 };
@@ -173,6 +182,7 @@ export function analyzeRoute(path: RoutePath, landscape?: Landscape, roads?: Roa
 		fields,
 		forestThrough,
 		greenThrough,
+		shoreWater,
 		nature,
 		network: detailShare(d.bike_network, lengths, total, (v) => !!v && v !== 'missing'),
 		// Radwege direkt neben großen Straßen sind nicht ruhig
@@ -196,6 +206,7 @@ export function beautyScore(s: RouteStats): number {
 		SCORE.green * s.green +
 		SCORE.fields * s.fields +
 		SCORE.through * ((s.forestThrough ?? 0) + (s.greenThrough ?? 0)) +
+		SCORE.shore * (s.shoreWater ?? 0) +
 		SCORE.network * s.network +
 		SCORE.quiet * s.quiet -
 		SCORE.major * s.major -
@@ -218,6 +229,7 @@ export function combineStats(parts: RouteStats[]): RouteStats {
 		fields: avg('fields'),
 		forestThrough: avg('forestThrough'),
 		greenThrough: avg('greenThrough'),
+		shoreWater: avg('shoreWater'),
 		nature: avg('nature'),
 		network: avg('network'),
 		quiet: avg('quiet'),
