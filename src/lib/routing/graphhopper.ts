@@ -96,28 +96,38 @@ export interface RouteOptions {
 	 * Zwischenpunkt erzeugt das keine „Zipfel“ (hinein und wieder zurück).
 	 */
 	preferAreas?: { rings: LngLat[][]; outsideFactor: number };
+	/**
+	 * Gebiete, die der Weg meiden soll (Wege darin werden um `insideFactor` unattraktiver): So entstehen echte
+	 * Alternativen zu einem schon bekannten Weg – ein Weg in einem anderen Korridor statt nur ein Abstecher.
+	 */
+	avoidAreas?: { rings: LngLat[][]; insideFactor: number };
 	signal?: AbortSignal;
 }
 
 /** Regeln fürs Anfrage-custom_model: „gemütlich“ und ggf. bevorzugte Gebiete */
 function requestModel(options: RouteOptions): Record<string, unknown> | undefined {
 	const priority: unknown[] = options.effort === 'easy' ? [...GEMUETLICH_MODEL.priority] : [];
-	const areas = options.preferAreas;
-	if (!areas?.rings.length) return priority.length ? { priority } : undefined;
-	const ids = areas.rings.map((_, i) => `schoen${i}`);
-	priority.push({ if: `!(${ids.map((id) => `in_${id}`).join(' || ')})`, multiply_by: String(areas.outsideFactor) });
-	return {
-		priority,
-		areas: {
-			type: 'FeatureCollection',
-			features: areas.rings.map((ring, i) => ({
+	const features: unknown[] = [];
+	/** Gebiete als Polygone anhängen und die Bedingung „in einem davon“ liefern */
+	const addAreas = (prefix: string, rings: LngLat[][]): string => {
+		const ids = rings.map((_, i) => `${prefix}${i}`);
+		rings.forEach((ring, i) =>
+			features.push({
 				type: 'Feature',
 				id: ids[i],
 				properties: {},
 				geometry: { type: 'Polygon', coordinates: [[...ring, ring[0]]] }
-			}))
-		}
+			})
+		);
+		return ids.map((id) => `in_${id}`).join(' || ');
 	};
+	const prefer = options.preferAreas;
+	if (prefer?.rings.length)
+		priority.push({ if: `!(${addAreas('schoen', prefer.rings)})`, multiply_by: String(prefer.outsideFactor) });
+	const avoid = options.avoidAreas;
+	if (avoid?.rings.length) priority.push({ if: addAreas('meiden', avoid.rings), multiply_by: String(avoid.insideFactor) });
+	if (!features.length) return priority.length ? { priority } : undefined;
+	return { priority, areas: { type: 'FeatureCollection', features } };
 }
 
 /** Berechnet einen Weg durch alle Punkte (bzw. mehrere Alternativen) mit dem Profil „genuss“ */

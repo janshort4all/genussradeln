@@ -20,11 +20,14 @@ import { analyzeRoute, beautyScore, combineStats, lineOf, type RouteStats } from
 import {
 	BEAUTY_CLASS_WEIGHTS,
 	COMPACT,
+	ALTERNATIVES,
 	CORRIDOR,
+	TIERS,
 	DETOUR,
 	DIVERSITY_MAX_OVERLAP,
 	MAX_SUGGESTIONS,
 	PAIR_CANDIDATES,
+	PAIR_DIVERSITY,
 	ROUND_MAX_OVERLAP,
 	LENGTH_STEP,
 	FILL_BEAUTY_MARGIN,
@@ -341,6 +344,57 @@ function shapeProblem(path: RoutePath): { kind: 'backtrack' | 'loop' | 'spur'; a
 	return undefined;
 }
 
+/** Streifen (Rechtecke) entlang eines Wegs, ohne die ersten und letzten `freeEndsM` Meter */
+function corridorAlong(line: LngLat[]): LngLat[][] {
+	const pts = resample(line, ALTERNATIVES.spacingM);
+	const free = Math.ceil(ALTERNATIVES.freeEndsM / ALTERNATIVES.spacingM);
+	const rings: LngLat[][] = [];
+	for (let i = free; i + 1 < pts.length - free; i++) rings.push(band(pts[i], pts[i + 1], ALTERNATIVES.halfWidthM));
+	return rings;
+}
+
+/**
+ * Alternativen zu den schönsten bekannten Wegen: je Weg ein neuer Weg, der dessen Korridor meidet; dazu einer, der die
+ * Korridore der beiden schönsten gemeinsam meidet. Gibt nur Wege zurück, die sich spürbar vom Vorbild unterscheiden.
+ */
+async function alternativePaths(
+	from: LngLat,
+	to: LngLat,
+	directDistance: number,
+	known: { path: RoutePath; side: boolean }[],
+	maxLength: number,
+	deps: PlanDeps,
+	options: RouteOptions
+): Promise<{ path: RoutePath; vias: LngLat[]; side: boolean }[]> {
+	const scored = known
+		.filter((k) => !k.side && k.path.distance <= maxLength)
+		.map((k) => ({ ...k, line: lineOf(k.path), beauty: beautyScore(analyzeRoute(k.path, deps.landscape, deps.roads, deps.fine)) }))
+		.sort((a, b) => b.beauty - a.beauty);
+	// der direkte Weg (erster Eintrag) ist immer ein Vorbild, dazu die schönsten
+	const bases = [known[0], ...scored.filter((s) => s.path !== known[0]?.path).slice(0, ALTERNATIVES.count - 1)].filter(
+		Boolean
+	) as { path: RoutePath }[];
+	const jobs = bases.map((b) => [b]);
+	if (bases.length >= 2) jobs.push(bases.slice(0, 2));
+	const found = await mapLimited(jobs, 3, async (group) => {
+		const rings = group.flatMap((b) => corridorAlong(lineOf(b.path)));
+		if (!rings.length) return undefined;
+		try {
+			const [path] = await deps.route([from, to], { ...options, avoidAreas: { rings, insideFactor: ALTERNATIVES.factor } });
+			if (!path || path.distance > maxLength) return undefined;
+			// nur, wenn der Weg wirklich woanders langführt (nicht in jedem Fall lässt sich der Korridor meiden)
+			const line = lineOf(path);
+			if (group.some((b) => mutualOverlap(lineOf(b.path), line) > 0.8)) return undefined;
+			return { path, vias: [] as LngLat[], side: false };
+		} catch (error) {
+			if (error instanceof NoRouteError) return undefined;
+			throw error;
+		}
+	});
+	void directDistance;
+	return found.filter((f): f is NonNullable<typeof f> => !!f);
+}
+
 /** Band (Rechteck) der halben Breite `halfWidth` Meter um die Strecke a → b, etwas über die Enden hinaus */
 function band(a: LngLat, b: LngLat, halfWidth: number): LngLat[] {
 	const kx = 111_320 * Math.cos((a[1] * Math.PI) / 180);
@@ -490,6 +544,12 @@ async function planDirection(
 	);
 	for (const p of corridorPaths) if (p) paths.push(p);
 
+	// Echte Alternativen: Wege, die den Korridor der besten bekannten Wege meiden. Hilfspunkte und Korridore liefern
+	// meist Abwandlungen desselben Wegs (bei 40 km Hin und zurück sind alle Kandidaten sich zu über 60 % ähnlich) –
+	// hier entsteht gezielt ein anderer Weg, der auch an Seen und Parks vorbeiführen kann, die der erste Weg ausließ.
+	for (const p of await alternativePaths(from, to, directDistance, [...paths], maxLength, deps, options))
+		paths.push({ ...p, detour: true });
+
 	// Wege über zwei schöne Stellen nacheinander (z. B. erst am Rhein, dann am See): aus den Hilfspunkten, deren
 	// Weg schon allein am schönsten war, Paare bilden – in Fahrtrichtung geordnet (Wunsch Jan, 06.10.2026)
 	for (const p of await viaPairs(from, to, viaPaths, maxLength, deps, options)) paths.push({ ...p, detour: true });
@@ -561,10 +621,33 @@ const tourLine = (c: Combination) => {
  * sich nur in einem kurzen Stück unterscheiden, schon (Wunsch Jan, 06.10.2026: lieber nur zwei Vorschläge).
  */
 function tooSimilar(a: Combination, b: Combination): boolean {
-	const la = tourLine(a);
-	const lb = tourLine(b);
-	return Math.min(overlapShare(la, lb), overlapShare(lb, la)) > DIVERSITY_MAX_OVERLAP;
+	return remembered(similarity, a, b, () => {
+		const la = tourLine(a);
+		const lb = tourLine(b);
+		return Math.min(overlapShare(la, lb), overlapShare(lb, la)) > DIVERSITY_MAX_OVERLAP;
+	});
 }
+
+/** Ergebnisse für Paare merken: dieselbe Ähnlichkeit wird bei der Auswahl tausendfach gefragt (je 1–2 ms) */
+const similarity = new WeakMap<object, WeakMap<object, boolean>>();
+function remembered<T extends object>(
+	cache: WeakMap<object, WeakMap<object, boolean>>,
+	a: T,
+	b: T,
+	compute: () => boolean
+): boolean {
+	let inner = cache.get(a);
+	if (!inner) cache.set(a, (inner = new WeakMap()));
+	const known = inner.get(b);
+	if (known !== undefined) return known;
+	const value = compute();
+	inner.set(b, value);
+	let back = cache.get(b);
+	if (!back) cache.set(b, (back = new WeakMap()));
+	back.set(a, value);
+	return value;
+}
+const legSimilarity = new WeakMap<object, WeakMap<object, boolean>>();
 
 const lengthOf = (c: Combination) => c.legs.reduce((sum, l) => sum + l.path.distance, 0);
 /** Schönheit eines Vorschlags; zurück auf demselben Weg wie hin kostet (wie bei der Bewertung der Paare) */
@@ -665,6 +748,25 @@ export class TooCloseError extends Error {}
 /** Unter diesem Abstand (Luftlinie) ist das Ziel praktisch der Start */
 const MIN_TRIP_M = 200;
 
+/**
+ * Die besten `n` Wege, aber untereinander verschieden: Wer einem schon gewählten zu über PAIR_DIVERSITY gleicht, wird
+ * übersprungen (sonst bestehen die besten Acht aus lauter Abwandlungen desselben Wegs und echte Alternativen
+ * erreichen die Auswahl nie). Reicht das nicht für `n`, wird mit den besten übrigen aufgefüllt.
+ */
+function diverse(candidates: LegCandidate[], n: number): LegCandidate[] {
+	const chosen: LegCandidate[] = [];
+	for (const c of candidates) {
+		if (chosen.length >= n) break;
+		if (chosen.every((p) => !remembered(legSimilarity, p, c, () => mutualOverlap(p.line, c.line) > PAIR_DIVERSITY)))
+			chosen.push(c);
+	}
+	for (const c of candidates) {
+		if (chosen.length >= n) break;
+		if (!chosen.includes(c)) chosen.push(c);
+	}
+	return chosen;
+}
+
 /** Hauptfunktion: Vorschläge für eine Zieltour */
 export async function planTours(request: TourRequest, deps: PlanDeps): Promise<PlannedTour[]> {
 	const start = request.start.lngLat;
@@ -690,8 +792,8 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 	let combinations: Combination[];
 	if (inbound) {
 		combinations = [];
-		for (const out of outbound.candidates.slice(0, PAIR_CANDIDATES)) {
-			for (const back of inbound.candidates.slice(0, PAIR_CANDIDATES)) {
+		for (const out of diverse(outbound.candidates, PAIR_CANDIDATES)) {
+			for (const back of diverse(inbound.candidates, PAIR_CANDIDATES)) {
 				const shared = overlapShare(back.line, out.line);
 				const total = out.path.distance + back.path.distance;
 				const score =
@@ -740,7 +842,24 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 		differentLength(c) &&
 		worthwhile(c, chosen) &&
 		bestForItsLength(c, pool);
-	const prettiest = [...pool].sort((a, b) => beautyOf(b) - beautyOf(a)).find(fits);
+	// Angebot aus kurz, mittel und lang (Wunsch Jan, 10.10.2026): Der direkte (bzw. schönere direkte) Weg ist die kurze
+	// Tour. Dazu die schönste lange Tour (mindestens TIERS.longMinRatio × so lang) und die schönste mittlere, die klar
+	// dazwischen liegt. Gibt es keine solchen Längen, greift das Auffüllen unten.
+	const byBeauty = [...pool].sort((a, b) => beautyOf(b) - beautyOf(a));
+	const shortLength = lengthOf(chosen[0]);
+	const inTier = (c: Combination, min: number, max: number) =>
+		lengthOf(c) >= min &&
+		lengthOf(c) <= max &&
+		!chosen.includes(c) &&
+		!chosen.some((p) => p !== direct && tooSimilar(c, p)) &&
+		worthwhile(c, chosen);
+	const long = byBeauty.find((c) => inTier(c, shortLength * TIERS.longMinRatio, Infinity));
+	if (long) chosen.push(long);
+	const mediumMin = shortLength * TIERS.mediumMinRatio;
+	const mediumMax = long ? lengthOf(long) * (1 - TIERS.gap) : Infinity;
+	const medium = byBeauty.find((c) => inTier(c, mediumMin, mediumMax) && lengthOf(c) >= shortLength * (1 + TIERS.gap));
+	if (medium) chosen.push(medium);
+	const prettiest = chosen.length < 2 ? byBeauty.find(fits) : undefined;
 	if (prettiest) chosen.push(prettiest);
 	// Auffüllen nach Schönheit je Umweg (score enthält bei Paaren schon den Abzug für denselben Weg zurück)
 	for (const item of [...pool].sort((a, b) => b.score - a.score)) {

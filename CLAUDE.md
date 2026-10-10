@@ -96,6 +96,15 @@ Freizeitpark: 2–3 Zellen) nicht sagen, ob ein Weg drin oder daneben liegt. `wo
 (getestet: 2–4 s, keine Wirkung). `npm run data` schreibt PNGs ohne das native `sharp` (`scripts/lib/png.ts`) – Windows-
 Anwendungssteuerung (Smart App Control) blockiert unsignierte .node/.dll-Dateien, das traf auch Git (libcurl).
 
+**Angebot kurz / mittel / lang (Wunsch Jan, 10.10.2026):** Der direkte (bzw. schönere direkte) Weg ist die kurze Tour; dazu die schönste
+lange (≥ `TIERS.longMinRatio` × so lang) und die schönste mittlere, klar dazwischen (`TIERS`). Gibt es solche Längen nicht, wird mit
+verschiedenen Wegen aufgefüllt (`TARGET_SUGGESTIONS` 3, gleich lang ist dann in Ordnung).
+**Echte Alternativen (`alternativePaths`, `ALTERNATIVES`):** Hilfspunkte und Korridore liefern meist Abwandlungen desselben Wegs (bei 40 km
+Hin und zurück waren alle Kandidaten zu > 60 % ähnlich – deshalb nur 2 Vorschläge). Zusätzlich je einer der besten bekannten Wege ein Weg, der
+dessen Korridor meidet (`avoidAreas`: Streifen 250 m breit, Faktor 0,3, Anfang/Ende frei); bei „Hin und zurück“ werden die Paare aus
+**verschiedenen** Wegen gebildet (`diverse`, `PAIR_DIVERSITY`). Ähnlichkeiten werden gemerkt (`overlap.ts` cached Abtastpunkte und Index
+je Weg) – die Rechnung im Browser dauert so 1–2 s statt 3 s (auf dem Handy mit Faktor 2–4 rechnen).
+
 **Warum Park und See nicht gewählt wurden (Analyse 10.10.2026, Crusestraße → Krefeld):** (1) Die Suche nach Hilfspunkten schloss alles
 unter 400 m zur direkten Straße und unter 15 % der Luftlinie (2,6 km) zu Start/Ziel aus – Seeufer und Park hinter der Startstraße kamen nie
 infrage; jetzt `minFromDirectM` 250, `minFromEndsM` 600, Auswahl auf `VIA_SEARCH.bins` Abschnitte verteilt, zusätzlich Ufer-Hilfspunkte

@@ -184,6 +184,19 @@ export const COMPACT = {
 } as const;
 
 /**
+ * Angebot aus kurzer, mittellanger und langer Tour (Wunsch Jan, 10.10.2026): Die lange ist mindestens longMinRatio ×
+ * so lang wie die kurze (der direkte Weg), die mittlere liegt mindestens `gap` über der kurzen und unter der langen.
+ */
+export const TIERS = { longMinRatio: 1.15, mediumMinRatio: 1.06, gap: 0.06 } as const;
+
+/**
+ * Echte Alternativen (Wunsch Jan, 10.10.2026: mehr verschiedene Vorschläge): Zu den besten bekannten Wegen wird ein Weg
+ * berechnet, der deren Korridor meidet (Streifen halfWidthM breit, Abstand spacingM, Anfang und Ende bleiben frei).
+ * Wege im Streifen zählen für GraphHopper nur noch mit factor.
+ */
+export const ALTERNATIVES = { count: 3, halfWidthM: 250, spacingM: 900, freeEndsM: 1000, factor: 0.3 } as const;
+
+/**
  * Umweg als Korridor (statt festem Punkt): Band Start → schöne Stelle → Ziel mit halfWidthM Metern zu jeder Seite;
  * Wege außerhalb zählen für GraphHopper um outsideFactor weniger (0,15 = deutlich unattraktiver).
  */
@@ -237,6 +250,9 @@ export const FILL_BEAUTY_MARGIN = 0.15;
 
 /** „Hin und zurück als Runde“: so viele der besten Hin- und Rückwege werden zu Paaren kombiniert */
 export const PAIR_CANDIDATES = 8;
+
+/** … und sind untereinander verschieden: höchstens so viel gemeinsame Strecke (Anteil) */
+export const PAIR_DIVERSITY = 0.7;
 
 /** „Hin und zurück als Runde“: höchstens dieser Anteil des Rückwegs darf auf dem Hinweg liegen (außer beim direkten) */
 export const ROUND_MAX_OVERLAP = 0.4;
