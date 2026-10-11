@@ -71,7 +71,7 @@
 					</g>
 				</svg>
 				<span class="text">
-					<strong>Eine Runde</strong>
+					<strong>Eine schöne Runde drehen</strong>
 					<span>Schöne Rundtouren in Ihrer Umgebung.</span>
 				</span>
 				<span class="go" aria-hidden="true"><ChevronRight size={30} strokeWidth={3} /></span>
