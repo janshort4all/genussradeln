@@ -238,19 +238,26 @@
 				// Wege zeichnen, sobald der Kartenstil da ist – nicht erst, wenn alle Kacheln geladen sind
 				instance.once('style.load', () => (loaded = true));
 				instance.once('load', () => (loaded = true));
-				// Start und Ziel als beschriftetes Schild mit Spitze („Start“, „Ziel“, bei Runden „Start und Ziel“) – kein farbiger Punkt, den man für
-					// einen Weg halten könnte (Jan, 14.10.2026)
+					// Start und Ziel als kleine Stecknadel (dunkelgrün, mit Spitze auf dem Punkt) – deutlich etwas anderes als die farbigen Nummernschilder
+					// der Wege, verdeckt aber kaum etwas (ein beschriftetes Schild war zu groß und lag über den Wegen; Jan, 14.10.2026).
+					// Ziel: Nadel mit Fähnchen; bei Runden und Rückwegen (Start und Ziel am selben Ort) nur die Startnadel.
 					const start = markers.find((m) => m.kind === 'start');
 					const goal = markers.find((m) => m.kind === 'destination');
 					const together = !!start && !!goal && distance(start.lngLat, goal.lngLat) < 300;
-					const signs = together ? [{ lngLat: start!.lngLat, text: 'Start und Ziel' }] : markers.map((m) => ({ lngLat: m.lngLat, text: m.kind === 'start' ? 'Start' : 'Ziel' }));
-					for (const sign of signs) {
+					const pins = together ? [start!] : markers;
+					for (const pin of pins) {
 						const element = document.createElement('div');
-						element.className = 'map-marker';
-						element.textContent = sign.text;
+						element.className = `map-marker ${pin.kind}`;
+						element.innerHTML =
+							'<svg viewBox="0 0 28 38" width="28" height="38" aria-hidden="true" focusable="false">' +
+							'<path d="M14 2C7.4 2 2.5 7 2.5 13.4 2.5 21.6 14 36 14 36s11.5-14.4 11.5-22.6C25.5 7 20.6 2 14 2z" fill="#283C30" stroke="#FDFBF5" stroke-width="2.5" stroke-linejoin="round"/>' +
+							(pin.kind === 'destination'
+								? '<path d="M10.5 9v10M10.5 9.5h8l-2 2.6 2 2.6h-8" fill="none" stroke="#FDFBF5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+								: '<circle cx="14" cy="13.4" r="4.2" fill="#FDFBF5"/>') +
+							'</svg>';
 						element.setAttribute('aria-hidden', 'true');
-						// die Spitze unter dem Schild zeigt auf den Punkt
-						new maplibre.Marker({ element, anchor: 'bottom', offset: [0, 10] }).setLngLat(sign.lngLat).addTo(instance);
+						// die Spitze der Nadel sitzt auf dem Punkt
+						new maplibre.Marker({ element, anchor: 'bottom' }).setLngLat(pin.lngLat).addTo(instance);
 					}
 				createMarker = (element, lngLat, options) =>
 					new maplibre.Marker({ element, ...options }).setLngLat(lngLat).addTo(instance);
@@ -618,29 +625,13 @@
 		color: var(--color-text-muted);
 	}
 
-	/* Start- und Zielschild: helle Fläche, dunkelgrüner Rand und Schrift, Spitze nach unten – deutlich etwas anderes als die farbigen Nummernschilder der Wege */
+	/* Start- und Zielnadel: klein, dunkelgrün mit hellem Rand */
 	.route-map :global(.map-marker) {
-		/* (nicht position ändern: MapLibre setzt das Schild selbst absolut auf den Punkt) */
-		padding: 0.125rem 0.625rem;
-		border: 3px solid var(--color-green);
-		border-radius: 0.75rem;
-		background: var(--color-surface);
-		color: var(--color-green);
-		font-size: var(--text-small);
-		font-weight: 700;
-		line-height: 1.2;
-		white-space: nowrap;
-		box-shadow: 0 1px 4px rgb(36 53 57 / 0.4);
-	}
-
-	.route-map :global(.map-marker::after) {
-		content: '';
-		position: absolute;
-		left: 50%;
-		top: 100%;
-		margin-left: -0.5rem;
-		border: 0.5rem solid transparent;
-		border-top-color: var(--color-green);
+		/* (nicht position ändern: MapLibre setzt die Nadel selbst absolut auf den Punkt) */
+		width: 1.75rem;
+		height: 2.375rem;
+		filter: drop-shadow(0 1px 2px rgb(36 53 57 / 0.5));
+		pointer-events: none;
 	}
 
 	.stop-pool {
