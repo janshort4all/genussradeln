@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import ArrowDown from '@lucide/svelte/icons/arrow-down';
-	import Check from '@lucide/svelte/icons/check';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Dices from '@lucide/svelte/icons/dices';
 	import Heart from '@lucide/svelte/icons/heart';
@@ -86,44 +84,9 @@
 		draft.km = String(Math.min(LONG_MAX, Math.max(LONG_MIN, km + delta)));
 	}
 
-	// Der Knopf unten bleibt beim Scrollen stehen. Damit niemand drückt, ohne zu wissen, dass es noch Länge und Wunsch zu wählen gibt
-	// (Jan, 14.10.2026), steht darüber ein Hinweis – bis beide Abschnitte gesehen oder verändert wurden; danach die gewählte Auswahl.
-	let lengthSection: HTMLElement | undefined = $state();
-	let wishSection: HTMLElement | undefined = $state();
-	let seenLength = $state(false);
-	let seenWish = $state(false);
-	$effect(() => {
-		if (!lengthSection || !wishSection) return;
-		const watch = new IntersectionObserver(
-			(entries) => {
-				for (const entry of entries) {
-					if (!entry.isIntersecting) continue;
-					if (entry.target === lengthSection) seenLength = true;
-					if (entry.target === wishSection) seenWish = true;
-				}
-			},
-			{ threshold: 0.5 }
-		);
-		watch.observe(lengthSection);
-		watch.observe(wishSection);
-		return () => watch.disconnect();
-	});
-	const startKm = draft.km;
-	const startWish = draft.wish;
-	$effect(() => {
-		if (draft.km !== startKm) seenLength = true;
-		if (draft.wish !== startWish) seenWish = true;
-	});
+	// Der Knopf unten bleibt beim Scrollen stehen und zeigt in einer zweiten Zeile, was gewählt ist („20 km · überrasche mich“): Wer ihn früh
+	// drückt, sieht, dass es Länge und Wunsch gibt – ohne zusätzlichen Hinweistext (Jan, 14.10.2026: der Hinweis über dem Knopf sah schlecht aus).
 	const WISH_WORDS = { water: 'am Wasser', forest: 'durch den Wald', fields: 'durch Felder und Dörfer', any: 'überrasche mich' } as const;
-	const cue = $derived(
-		!seenLength && !seenWish
-			? 'Weiter unten wählen Sie Länge und Wunsch'
-			: !seenLength
-				? 'Weiter oben: die Länge der Runde'
-				: !seenWish
-					? 'Weiter unten: Ihr Wunsch'
-					: ''
-	);
 
 	let busy = $state(false);
 	let problem = $state('');
@@ -190,7 +153,6 @@
 			number={1}
 			icon={MapPin}
 			title="Wo starten Sie?"
-			hint="Wählen Sie Ihren Startpunkt."
 		/>
 		<ChoiceGroup
 			legend="Wo starten Sie?"
@@ -206,18 +168,15 @@
 		/>
 		{#if draft.startMode === 'address'}
 			<PlaceSearch label="Startpunkt" placeholder="z. B. Ihre Straße und Hausnummer" bind:value={draft.startPlace} />
-		{:else}
-			<p class="hint">Beim Suchen fragt Ihr Handy kurz, ob die App Ihren Standort nutzen darf – bitte mit „Erlauben“ antworten.</p>
 		{/if}
 	</section>
 
-	<section class="sheet" aria-labelledby="length-title" bind:this={lengthSection}>
+	<section class="sheet" aria-labelledby="length-title">
 		<StepHeader
 			id="length-title"
 			number={2}
 			icon={Waypoints}
 			title="Wie lang soll die Runde sein?"
-			hint="Wählen Sie eine Länge. Die Fahrzeit ist ungefähr."
 		/>
 		<ChoiceGroup
 			legend="Wie lang soll die Runde sein?"
@@ -245,13 +204,12 @@
 		{/if}
 	</section>
 
-	<section class="sheet" aria-labelledby="wish-title" bind:this={wishSection}>
+	<section class="sheet" aria-labelledby="wish-title">
 		<StepHeader
 			id="wish-title"
 			number={3}
 			icon={Heart}
 			title="Worauf haben Sie Lust?"
-			hint="Wählen Sie, was Ihnen gefällt."
 		/>
 		<ChoiceGroup legend="Worauf haben Sie Lust?" hideLegend name="wish" columns={2} bind:value={draft.wish} choices={wishes} />
 	</section>
@@ -261,28 +219,16 @@
 	     kleinen Block am Seitenende. Die Fehlermeldung steht im selben Block, damit sie nicht außer Sicht erscheint. -->
 	<div class="cta">
 		<p class="problem" role="alert">{problem}</p>
-		<p class="cue" class:summary={!cue}>
-			{#if cue}
-				<ArrowDown size={22} strokeWidth={2.75} aria-hidden="true" /> {cue}
-			{:else}
-				<Check size={22} strokeWidth={3} aria-hidden="true" /> {km} km · {WISH_WORDS[draft.wish]}
-			{/if}
-		</p>
 
 		<button type="submit" class="find" disabled={busy}>
-			<!-- sanfte Hügel am unteren Rand, nur Schmuck – bewusst nichts hinter Symbol und Schrift -->
-			<svg class="find-art" viewBox="0 0 300 60" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-				<path d="M0 52 Q50 44 100 51 T200 50 T300 49 V60 H0 Z" fill="#8e4425" opacity="0.55" />
-			</svg>
 			<Sparkles size={26} strokeWidth={2.25} aria-hidden="true" />
-			<span>{busy ? 'Standort wird bestimmt …' : 'Schöne Runden finden'}</span>
+			<span class="find-text">
+				<strong>{busy ? 'Standort wird bestimmt …' : 'Schöne Runden finden'}</strong>
+				<span>{km} km · {WISH_WORDS[draft.wish]}</span>
+			</span>
 			<span class="trailing" aria-hidden="true"><ChevronRight size={28} strokeWidth={2.5} /></span>
 		</button>
 	</div>
-	<p class="reassure">
-		<Check size={22} strokeWidth={3} aria-hidden="true" />
-		<span><strong>Kostenlos und ohne Anmeldung.</strong><br />Die Ergebnisse wählen Sie danach in Ruhe aus.</span>
-	</p>
 </form>
 
 <style>
@@ -342,60 +288,35 @@
 		font-weight: 700;
 	}
 
-	/* Hinweis unter „Hier, wo ich bin“ */
-	.hint {
-		margin: 0 0 0.25rem;
-		color: var(--color-text-muted);
-		text-wrap: pretty;
-	}
-
 	/* festgesetzt: bleibt beim Scrollen knapp über der unteren Leiste sichtbar, am Seitenende steht er an seinem Platz.
 	   Ein Verlauf dahinter, damit Kacheln nicht unter dem Knopf durchscheinen. */
 	.cta {
 		position: sticky;
 		bottom: calc(var(--bottom-bar-height) + env(safe-area-inset-bottom));
 		z-index: 5;
-		margin: 0 -1rem;
-		padding: 1.25rem 1rem 0.75rem;
-		/* der Hinweis und der Knopf liegen im undurchsichtigen Teil, nur darüber blendet der Verlauf aus */
-		background: linear-gradient(0deg, var(--color-bg) 84%, rgb(247 242 229 / 0) 100%);
+		margin: 0 -1rem 1rem;
+		padding: 0.625rem 1rem;
+		/* eine ruhige, durchgehende Fläche direkt über der unteren Leiste – nichts scheint darunter durch */
+		background: var(--color-bg);
+		border-top: 1px solid var(--color-border);
 	}
 
 	.cta .problem {
 		margin-bottom: 0.5rem;
 	}
 
-	/* Hinweis über dem Knopf: erst „weiter unten wählen“, dann die gewählte Auswahl */
-	.cue {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.375rem;
-		margin: 0 0 0.5rem;
-		color: var(--color-green);
-		font-weight: 700;
-		text-align: center;
+	/* zwei Zeilen im Knopf: oben die Aktion, darunter die gewählte Auswahl */
+	.find-text {
+		display: grid;
+		justify-items: center;
+		gap: 0.0625rem;
+		min-width: 0;
 	}
 
-	.cue.summary {
-		color: var(--color-text);
-	}
-
-	.reassure {
-		display: flex;
-		align-items: flex-start;
-		justify-content: center;
-		gap: 0.5rem;
-		margin: 0 0.5rem 1.5rem;
-		color: var(--color-text);
-		text-align: left;
-		text-wrap: pretty;
-	}
-
-	.reassure :global(svg) {
-		flex: none;
-		margin-top: 0.1875rem;
-		color: var(--color-green);
+	.find-text span {
+		font-size: var(--text-small);
+		font-weight: 400;
+		color: #fff;
 	}
 
 	.problem {
@@ -417,8 +338,8 @@
 		justify-content: center;
 		gap: 0.5rem;
 		width: 100%;
-		min-height: 4.5rem;
-		padding: 0.75rem 3rem 0.75rem 1rem;
+		min-height: 4.25rem;
+		padding: 0.5rem 3rem 0.5rem 1rem;
 		overflow: hidden;
 		border: 2px solid transparent;
 		border-radius: var(--radius);
@@ -444,14 +365,6 @@
 	.find:disabled {
 		cursor: not-allowed;
 		opacity: 0.6;
-	}
-
-	.find-art {
-		position: absolute;
-		inset: 0;
-		z-index: -1;
-		width: 100%;
-		height: 100%;
 	}
 
 	.find :global(svg:not(.find-art)) {
