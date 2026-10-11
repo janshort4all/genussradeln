@@ -27,6 +27,9 @@ beschrieben in `docs/lastenheft.md` → Abschnitt „Bedienung“.
 7. Muss bei vergrößerter Systemschrift funktionieren (rem statt px für Schrift).
 8. Echte `<button>`/`<a>`/`<label>`-Elemente, keine klickbaren `div`s.
 9. Im Zweifel: weglassen. Einfachheit schlägt Funktionsumfang.
+9a. **Gleiche Kacheln gleich aufgebaut (Jan, 14.10.2026):** Auswahlkacheln einer Gruppe haben überall gleich viele Zeilen – Fahrzeiten immer in einer Zeile
+    („40 Min.“, „1:20 Std.“, `white-space: nowrap`), Beschriftungen mit festen Zeilenumbrüchen (`\n`, `white-space: pre-line`). Nach jeder Änderung bei
+    320, 360, 375 und 411 px Breite die Zeilenzahlen messen.
 10. **Erreichbarkeit (Jan, 14.10.2026):** Jede Funktion ist von jeder Seite aus in höchstens 2–3 Taps erreichbar (Faustregel, kein Naturgesetz –
     entscheidend ist, dass jeder Schritt offensichtlich ist). Die Hauptfunktionen (Startseite, Meine Touren, Mehr; ab der Planung der
     Weg zur Navigation) sind immer sichtbar – die untere Leiste steht auf allen Seiten außer in der Navigation, dort bleiben „Beenden“,

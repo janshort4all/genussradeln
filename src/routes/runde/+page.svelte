@@ -45,9 +45,8 @@
 		...LENGTHS.map((value) => ({
 			value: String(value),
 			label: `${value} km`,
-			// Fahrzeit auf der Kachel, gemütlich gefahren – ein Richtwert
-			// (feste Leerzeichen: „40 Min.“ bricht nicht mitten auseinander)
-			sub: `ca. ${formatDuration(rideMinutes(value * 1000, 0, effort)).replace(/(\d) (Std\.|Min\.)/g, '$1 $2')}`,
+			// Fahrzeit auf der Kachel, gemütlich gefahren – immer in einer Zeile, in der Schreibweise der Tour-Seite („40 Min.“, „1:20 Std.“)
+			sub: clockText(rideMinutes(value * 1000, 0, effort)),
 			art: SCENES[value]
 		})),
 		{ value: 'more', label: 'Länger als 50 km', icon: InfinityIcon, wide: true, chevron: true }
@@ -55,11 +54,19 @@
 
 	/** „Worauf haben Sie Lust?“ – die App sucht die Runde dann mehr am Wasser, im Wald oder durch Felder und Dörfer */
 	const wishes = [
-		{ value: 'water', label: 'Am Wasser', icon: Waves, art: 'water' as SceneKind, photo: true },
-		{ value: 'forest', label: 'Durch den Wald', icon: Trees, art: 'woods' as SceneKind, photo: true },
-		{ value: 'fields', label: 'Durch Felder und Dörfer', icon: Wheat, art: 'fields' as SceneKind, photo: true },
-		{ value: 'any', label: 'Überrasche mich', icon: Dices, tall: true }
+		{ value: 'water', label: 'Am\nWasser', icon: Waves, art: 'water' as SceneKind, photo: true },
+		{ value: 'forest', label: 'Durch den\nWald', icon: Trees, art: 'woods' as SceneKind, photo: true },
+		{ value: 'fields', label: 'Durch Felder\nund Dörfer', icon: Wheat, art: 'fields' as SceneKind, photo: true },
+		{ value: 'any', label: 'Überrasche\nmich', icon: Dices, tall: true }
 	];
+
+	/** „1:20 Std.“ bzw. „40 Min.“ (auf 5 Minuten gerundet) – wie auf der Tour-Seite */
+	function clockText(minutes: number): string {
+		const rounded = Math.round(minutes / 5) * 5;
+		const hours = Math.floor(rounded / 60);
+		const rest = rounded % 60;
+		return hours ? `${hours}:${String(rest).padStart(2, '0')} Std.` : `${rest} Min.`;
+	}
 
 	const km = $derived(Number(draft.km));
 	const isLong = $derived(km > LENGTHS[LENGTHS.length - 1]);
@@ -152,8 +159,9 @@
 			columns={2}
 			bind:value={draft.startMode}
 			choices={[
-				{ value: 'here', label: 'Hier, wo ich bin', icon: Navigation },
-				{ value: 'address', label: 'An einer Adresse', icon: MapPin }
+				// feste Zeilenumbrüche: beide Kacheln gleich aufgebaut (zwei Zeilen)
+				{ value: 'here', label: 'Hier, wo\nich bin', icon: Navigation },
+				{ value: 'address', label: 'An einer\nAdresse', icon: MapPin }
 			]}
 		/>
 		{#if draft.startMode === 'address'}
@@ -169,7 +177,7 @@
 			number={2}
 			icon={Waypoints}
 			title="Wie lang soll die Runde sein?"
-			hint="Wählen Sie eine ungefähre Länge."
+			hint="Wählen Sie eine Länge. Die Fahrzeit ist ungefähr."
 		/>
 		<ChoiceGroup
 			legend="Wie lang soll die Runde sein?"

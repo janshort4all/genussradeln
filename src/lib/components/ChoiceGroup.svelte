@@ -182,19 +182,24 @@
 		color: var(--color-green);
 	}
 
+	/* Fahrzeit: immer genau eine Zeile (Jan, 14.10.2026: überall einheitlich) */
 	.sub {
 		font-size: var(--text-small);
 		font-weight: 400;
 		color: var(--color-text);
+		white-space: nowrap;
 	}
 
+	/* Zeilenumbrüche in der Beschriftung (\n) gelten – so haben alle Kacheln einer Gruppe gleich viele Zeilen */
 	.label {
 		position: relative;
+		white-space: pre-line;
 	}
 
 	/* Kacheln mit Landschaft: Text oben, Landschaft unten – alle Kacheln einer Reihe gleich aufgebaut */
 	.option:has(.scene.small) {
 		justify-content: flex-start;
+		padding-inline: 0.375rem;
 	}
 
 	/* kleine Landschaft unter dem Text */
