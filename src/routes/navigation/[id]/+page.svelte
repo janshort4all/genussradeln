@@ -3,6 +3,8 @@
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { onDestroy } from 'svelte';
 	import Flag from '@lucide/svelte/icons/flag';
+	import MapIcon from '@lucide/svelte/icons/map';
+	import Navigation from '@lucide/svelte/icons/navigation';
 	import Pause from '@lucide/svelte/icons/pause';
 	import Play from '@lucide/svelte/icons/play';
 	import Sun from '@lucide/svelte/icons/sun';
@@ -41,6 +43,17 @@
 	let theme: NavTheme = $state('dark');
 	let view: NavView | undefined = $state();
 	let simulating = $state(false);
+
+	// Übersicht über die ganze Strecke: Karte zeigt alles (Norden oben, verschiebbar). Nach einer Weile geht es von selbst
+	// zurück zur Fahrtansicht – unterwegs soll niemand die Übersicht vergessen (Jan, 12.10.2026).
+	const OVERVIEW_SECONDS = 45;
+	let overview = $state(false);
+	let overviewTimer: ReturnType<typeof setTimeout> | undefined;
+	function setOverview(on: boolean) {
+		overview = on;
+		clearTimeout(overviewTimer);
+		if (on) overviewTimer = setTimeout(() => (overview = false), OVERVIEW_SECONDS * 1000);
+	}
 
 	// Probefahrt nur am PC anbieten (Maus/Touchpad) – am Handy soll niemand aus Versehen darauf tippen.
 	// Zum Vorführen am Handy: Adresse mit „?probefahrt“ aufrufen.
@@ -116,6 +129,7 @@
 	}
 
 	function pause() {
+		setOverview(false);
 		stopAll();
 		phase = 'paused';
 	}
@@ -158,6 +172,7 @@
 	}
 
 	onDestroy(() => {
+		clearTimeout(overviewTimer);
 		stopAll();
 		if (typeof document !== 'undefined') void exitFullscreen();
 	});
@@ -248,9 +263,20 @@
 				{zoom}
 				{theme}
 				stops={stops.map((s) => s.lngLat)}
-				label="Karte mit Ihrer Position auf der Strecke"
+				{overview}
+				oninteract={() => overview && setOverview(true)}
+				label={overview ? 'Übersicht über die ganze Strecke' : 'Karte mit Ihrer Position auf der Strecke'}
 			/>
 			{#if simulating}<p class="sim">Probefahrt</p>{/if}
+			{#if overview}
+				<button type="button" class="back-to-ride go" onclick={() => setOverview(false)}>
+					<Navigation size={26} aria-hidden="true" /> Zurück zur Fahrt
+				</button>
+			{:else}
+				<button type="button" class="overview-button" onclick={() => setOverview(true)}>
+					<MapIcon size={24} aria-hidden="true" /> Ganze Strecke
+				</button>
+			{/if}
 		</div>
 
 		<section class="status">
@@ -444,6 +470,32 @@
 		flex: 1;
 		min-height: 10rem;
 		border-block: 2px solid var(--nav-line);
+	}
+
+	/* Knöpfe auf der Karte: schwebend, mit Rand, damit sie auf jedem Kartenhintergrund zu sehen sind */
+	.overview-button,
+	.back-to-ride {
+		position: absolute;
+		z-index: 2;
+		width: auto;
+		min-height: 3.5rem;
+		box-shadow: 0 2px 8px rgb(0 0 0 / 0.5);
+	}
+
+	.overview-button {
+		top: 0.75rem;
+		right: 0.75rem;
+		padding: 0.5rem 1rem;
+		border: 2px solid var(--nav-muted);
+		background: var(--nav-bg);
+		color: var(--nav-text);
+		font-size: var(--text-base);
+	}
+
+	.back-to-ride {
+		bottom: 0.75rem;
+		left: 1rem;
+		right: 1rem;
 	}
 
 	.sim {

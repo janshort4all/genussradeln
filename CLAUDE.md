@@ -450,7 +450,8 @@ Veröffentlichen: Push auf `main` → GitHub Action `.github/workflows/deploy.ym
   `guidance.ts` (reine Rechnung je Standortmeldung: Ansagen, „Strecke verlassen“; Schwellen in `NAV`), `wording.ts`
   (Worte für Anzeige/Ansage), `device.ts` (Sprache + Signalton, Wake Lock, Vollbild, `watchPosition` gedrosselt, Probefahrt).
   Karte: `NavMap.svelte` mit eigenem ruhigem Stil `map/nav-style.ts` (dunkel/hell), dreht mit der Fahrtrichtung, nicht verschiebbar.
-  Probefahrt am PC (Maus) oder mit `?probefahrt` in der Adresse. Neu berechnen bei Abweichung gibt es erst mit Server (M9).
+  Probefahrt am PC (Maus) oder mit `?probefahrt` in der Adresse.
+  **Übersicht (Jan, 12.10.2026: „rauszoomen, um den Gesamtweg zu sehen“):** Knopf „Ganze Strecke“ oben rechts auf der Karte; die Karte zeigt dann die ganze Strecke (Norden oben, ohne Animation), lässt sich verschieben und zoomen (Drehen/Kippen bleiben aus), der Punkt wandert weiter; Knopf unten „Zurück zur Fahrt“; nach 45 s ohne Berührung (`OVERVIEW_SECONDS`) und bei Pause geht es von selbst zurück (nicht in der Übersicht vergessen). Ansagen und Anweisung oben laufen weiter. Neu berechnen bei Abweichung gibt es erst mit Server (M9).
 - **Tour im Link (`src/lib/share/`, Seite `/geteilt`):** kurz (ca. 300 Zeichen): Start, Ziel und Stützpunkte etwa alle 2 km
   (immer mitten in einem Wegstück, nie auf Kreuzungen), deflate + base64url hinter „#“ (geht an keinen Server, nichts wird
   gespeichert). Der Empfänger rechnet den Weg durch die Stützpunkte nach (`rebuild.ts`, `exactPoints`: kein Wegschieben von
