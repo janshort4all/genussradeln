@@ -15,7 +15,7 @@
 	const home = resolve('/');
 	const myTours = resolve('/meine-touren');
 	/** Seiten unter „Mehr“ */
-	const moreSection = [resolve('/mehr'), resolve('/planen')];
+	const moreSection = [resolve('/mehr'), resolve('/planen'), resolve('/fahrten')];
 
 	function isActive(href: string): boolean {
 		const path = page.url.pathname;

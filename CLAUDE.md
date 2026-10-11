@@ -27,6 +27,14 @@ beschrieben in `docs/lastenheft.md` → Abschnitt „Bedienung“.
 7. Muss bei vergrößerter Systemschrift funktionieren (rem statt px für Schrift).
 8. Echte `<button>`/`<a>`/`<label>`-Elemente, keine klickbaren `div`s.
 9. Im Zweifel: weglassen. Einfachheit schlägt Funktionsumfang.
+10. **Erreichbarkeit (Jan, 14.10.2026):** Jede Funktion ist von jeder Seite aus in höchstens 2–3 Taps erreichbar (Faustregel, kein Naturgesetz –
+    entscheidend ist, dass jeder Schritt offensichtlich ist). Die Hauptfunktionen (Startseite, Meine Touren, Mehr; ab der Planung der
+    Weg zur Navigation) sind immer sichtbar – die untere Leiste steht auf allen Seiten außer in der Navigation, dort bleiben „Beenden“,
+    „Pause“, „Nochmal“, „Ton“ und die Zoomknöpfe sichtbar.
+11. **Orientierung (Jan, 14.10.2026):** Man sieht immer, wo man ist: Überschrift der Seite, in der unteren Leiste der aktive Bereich
+    (`BottomBar.svelte`, `isActive` – bei jeder neuen Seite eintragen!) und ein sichtbarer Zurück-Weg mit Ziel („Zur Startseite“, „Wunsch ändern“).
+    **Prüfliste nach jeder UI-Änderung:** (a) Wie viele Taps von der Startseite bis hierher? (b) Steht oben, wo ich bin, und ist der richtige Bereich unten
+    markiert? (c) Sind die Hauptfunktionen noch sichtbar, nichts verdeckt?
 
 Farben: **nur Farben aus dem Logo** (`assets/logo-original.png`) bzw. hellere/dunklere Abstufungen davon.
 Logo-Grundfarben: Creme `#F7F2E5`, Dunkelgrün `#283C30`, Olivgrün `#768641`, Terrakotta `#DD8258`,
