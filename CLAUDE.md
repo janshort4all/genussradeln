@@ -229,26 +229,22 @@ ganze Strecke – 2 km am See bei 19 km ändern ihn kaum. Idee: Zusatzpunkte je 
 - **Karte:** `src/lib/map/RouteMap.svelte` (MapLibre 6, nur ESM; Worker per `?worker&url` + `setWorkerUrl`,
   `worker.format: 'es'` in `vite.config.ts`), Stil OpenFreeMap „liberty“.
 
-### Stationen tauschen (Stufe 3, 11.10.2026, `src/lib/improve/stations.ts`, `Stations.svelte`)
+### Spannende Umwege (12.10.2026, `src/lib/improve/highlights.ts`, `detours.svelte.ts`, `DetourSheet.svelte`)
 
-Im Tourdetail steht die Karte **„Diese Tour führt vorbei an“**: bis `STATIONS.max` (5) benannte Orte und
-Orientierungspunkte (Rhein, Seen, Wälder, Parks, Dörfer/Städte aus `places.json`/`landmarks.json`), an denen die Tour entlangführt – ohne
-Start- und Zielort, in Fahrtrichtung, mindestens 2,5 km auseinander (`stationsOf`: alle 100 m der nächste Name, zu Abschnitten
-zusammengefasst, Orte ab 1 km, Gewässer/Wald ab 1,5 km oder 10 % der Tour). Auf der Karte erscheinen sie als nummerierte Punkte (`RouteMap`:
-`stations`, gewählte orange). Ein Tipp auf eine Station sucht (`stationOptions`, erst dann – keine Anfragen auf Vorrat) bis zu 3 **andere** Orte oder
-Orientierungspunkte im Umkreis von 4,5 km, nicht schon am Weg und in verschiedenen Richtungen (≥ 50°), dazu „Direkt weiterfahren“, wenn der
-direkte Weg ≥ 400 m kürzer ist. Je Alternative wird das Stück 1,5 km vor bis 1,5 km hinter der Station von der Stelle davor über den Ort zur Stelle danach
-neu gerechnet (Hilfspunkt bei Zipfel/Stummel an den Anfang des Abstechers verlegt) und wie bei den Umwegen geprüft: echte Umfahrung (`OFFERS.minDeviationM`
-/ `minDifferentM`), höchstens 5 km Mehrweg, nicht auf dem Rest der Tour zurück, das neue Stück selbst ohne Zipfel/Kreis/Stummel (die Prüfung der ganzen
-Teilstrecke schlug zu oft an und ist hier weggelassen). Karte mit „Bisher“/„Neu“, Mehrweg in km und Minuten, „Übernehmen“/„Nein, danke“ – dieselben
-Bausteine wie die Umwege (`Offer`, `applyOffer`, `OfferMap`). **„Rückgängig“ liegt auf der Seite** (`undoStack` in `tour/[id]/+page.svelte`). Gemessen an der Rheinrunde ab Krefeld-Linn: 5 Stationen, je 0–4 Alternativen (ca. 0,2–0,5 s je Station am PC).
-**In der großen Karte (Jan, 12.10.2026: „unten im Menü ist am Handy frickelig“):** Die Nummern auf der Karte sind echte Knöpfe (≥ 44 px). In der
-großen Karte öffnet ein Tipp darauf ein Fenster am unteren Rand (`StationSheet.svelte`, über das `sheet`-Snippet von `RouteMap`): Alternativen, Mehrweg und
-Fahrzeit, „Übernehmen“ / „Nein, danke“; die **Vorschau liegt direkt auf der Karte** (`RouteMap`: `preview` → orange „Bisher“, grün gestrichelt „Neu · +1,7 km“,
-Karte zoomt auf die Stelle und lässt die untere Hälfte frei). Auf der kleinen Karte springt ein Tipp zur Liste. Liste und Fenster teilen sich einen Zustand
-(`StationsController` in `improve/stations.svelte.ts`, Seite hält ihn); Worte für Mehrweg/Fahrzeit in `improve/wording.ts`.
-Grenzen: Namen aus den Kartendaten sind manchmal sperrig („Durch „In der Elt““); nach dem Tausch erkennt die App die alte Station oft noch am Weg
-(Umkreis 700 m/2,5 km). Stufe 2 („Unterwegs vorbei an …“ vor der Suche) ist noch nicht gebaut.
+**Nur in der großen Karte, erst auf Knopfdruck** (Jan, 12.10.2026: kein Warten beim Öffnen, nichts davon im Menü unter der Karte). Unten in der großen
+Karte steht „Spannende Umwege suchen“. Gesucht werden **Highlights**, die nur wegen der Längenvorgabe nicht in der Tour gelandet sind: benannte Seen,
+Flüsse, Wälder und Parks aus `landmarks.json` (Punkte alle ≈ 400 m am Rand bzw. entlang), bis 6 km neben der Tour, ab einer Mindestgröße
+(`DETOURS.minPoints`), nicht schon am Weg (höchstens 40 % der Punkte näher als 500 m), gleiche Namen an verschiedenen Orten getrennt (`clusters`). Für die
+8 besten (Art, Größe, Nähe) wird der Umweg gerechnet (`detourTo`): Die Tour wird 1,3 × (bzw. 2 ×) Abstand, mindestens 2 km, vor und nach der nächsten Stelle
+verlassen; Wald/Park über die Mitte, See über zwei Uferpunkte und den am weitesten entfernten (ums Wasser herum), Fluss über Anfang/Ende des Abschnitts;
+dazu ein Streifen ± 600 m um diese Linie (außen × 0,35). Ergibt das Zipfel (Uferpunkt ohne Weg), nur der Streifen (× 0,15) ohne Hilfspunkte. Angeboten
+wird nur, was **mindestens 3 km mehr** ist (kein Abbiegen für 1 km), höchstens die Hälfte der Tour bzw. 20 km, das Highlight wirklich erreicht (≤ 350 m) und
+nicht auf dem Rest der Tour zurückfährt; höchstens 6. Findet sich nichts, steht ehrlich „Kein spannender Umweg gefunden“ (Jan: „es ist ok, auch nichts
+anzubieten“). Die Highlights erscheinen als Symbole mit Namen (Wasser blau, Grün dunkelgrün) nur in der großen Karte und als Liste im Fenster; antippen
+→ Vorschau auf der Karte (orange „Bisher“, grün gestrichelt „Neu · +5,3 km“), Mehrweg, Fahrzeit, „Danach: … km“, „Übernehmen“ / „Nein, danke“;
+„Rückgängig“ im Fenster und oben auf der Seite. Übernehmen setzt das neue Stück ein, ohne neu zu rechnen (`spliceLeg`/`applyOffer`). Gemessen: 0–4 Umwege je
+Tour (+3 bis +9 km), Suche am PC unter 1 s. Vorgänger (wieder entfernt): „Noch schöner fahren?“ (automatisch, kleine Umwege) und „Stationen tauschen“
+(Orte am Weg mit Ausweichstücken) – beide Jan zu unübersichtlich bzw. zu klein.
 
 ### Merken (F13/F14 – vorgezogen, 11.10.2026)
 

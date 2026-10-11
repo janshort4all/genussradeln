@@ -2,32 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { offset, type LngLat } from '$lib/geo/geo';
 import type { RoutePath } from '$lib/routing/graphhopper';
 import type { TourLeg } from '$lib/tour/model';
-import { deviation, spliceLeg } from './slice';
+import { spliceLeg } from './slice';
 
 const start: LngLat = [6.55, 51.35];
 const eastLine = (meters: number, step = 100): LngLat[] =>
 	Array.from({ length: Math.floor(meters / step) + 1 }, (_, i) => offset(start, 90, i * step));
 
 const withHeight = (line: LngLat[]): [number, number, number][] => line.map(([lon, lat]) => [lon, lat, 30]);
-
-describe('deviation', () => {
-	it('erkennt einen kleinen Schlenker nicht als Umfahrung', () => {
-		const old = eastLine(2000);
-		// 100 m zur Seite und wieder zurück
-		const hop = old.map((p, i) => (i >= 8 && i <= 12 ? offset(p, 0, 100) : p));
-		const { max, different } = deviation(hop, old, 80);
-		expect(max).toBeLessThan(150);
-		expect(different).toBeLessThan(700);
-	});
-
-	it('erkennt einen Bogen von einem halben Kilometer Abstand', () => {
-		const old = eastLine(3000);
-		const arc = old.map((p, i) => offset(p, 0, 500 * Math.sin((Math.PI * i) / (old.length - 1))));
-		const { max, different } = deviation(arc, old, 80);
-		expect(max).toBeGreaterThan(450);
-		expect(different).toBeGreaterThan(2000);
-	});
-});
 
 describe('spliceLeg', () => {
 	// Hinweg 2 km nach Osten mit Abbiegehinweisen; Stück 8…12 wird durch einen Bogen nach Norden ersetzt

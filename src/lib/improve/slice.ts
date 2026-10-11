@@ -1,23 +1,7 @@
-/** Teilstücke eines Wegs: Abweichung messen und einen neuen Weg an die Stelle eines Abschnitts setzen */
-import { bearing, distance, distanceToLine, resample, type LngLat } from '$lib/geo/geo';
+/** Teilstücke eines Wegs: Länge messen und einen neuen Weg an die Stelle eines Abschnitts setzen */
+import { bearing, distance, type LngLat } from '$lib/geo/geo';
 import type { DetailInterval, RouteInstruction, RoutePath } from '$lib/routing/graphhopper';
 import type { TourLeg } from '$lib/tour/model';
-
-/**
- * Wie weit weicht `line` von `other` ab? `max` = größter Abstand, `different` = Meter von `line`, die weiter als
- * `apart` von `other` entfernt sind (geprüft alle 40 m).
- */
-export function deviation(line: LngLat[], other: LngLat[], apart: number): { max: number; different: number } {
-	const step = 40;
-	let max = 0;
-	let different = 0;
-	for (const p of resample(line, step)) {
-		const d = distanceToLine(p, other);
-		if (d > max) max = d;
-		if (d > apart) different += step;
-	}
-	return { max, different };
-}
 
 /** Länge bis zu jedem Punkt der Linie (Meter, erster Punkt 0) */
 export function cumulative(line: LngLat[]): number[] {

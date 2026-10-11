@@ -309,42 +309,46 @@ export const WISH_WEIGHTS: Record<'water' | 'forest' | 'fields', [number, number
  */
 export const IMPROVE_DIRECT = { maxExtraRatio: 0.12, minGain: 0.04 } as const;
 
-/**
- * Prüfung eines Austauschs (Stationen, Stufe 3): Der neue Weg muss sich deutlich vom alten unterscheiden – eine echte
- * Umfahrung von mehreren hundert Metern, kein kleiner Hüpfer zur Seite (Wunsch Jan, 10.10.2026) – und darf nicht auf
- * dem Rest der Tour zurückfahren.
- */
-export const OFFERS = {
-	/** der neue Weg darf höchstens so viel (Anteil) auf dem übrigen Teil der Tour verlaufen */
-	maxOverlapWithRest: 0.25,
-	/** mindestens so weit vom alten Weg weg (Meter) … */
-	minDeviationM: 300,
-	/** … und über so viel Strecke weiter als `apartM` vom alten Weg entfernt */
-	minDifferentM: 700,
-	apartM: 80
-} as const;
 
 /**
- * Stationen im Tourdetail (Stufe 3, Jan, 11.10.2026): „Diese Tour führt vorbei an …“ und Alternativen dazu.
+ * Spannende Umwege (Jan, 12.10.2026): Highlights in der Nähe der Tour, die nur wegen der Längenvorgabe nicht in der Tour
+ * gelandet sind – in der großen Karte nach „Spannende Umwege suchen“.
  */
-export const STATIONS = {
-	/** höchste Zahl Stationen, Mindestabstand entlang der Tour (Meter), Abstand der Proben */
-	max: 5,
-	minApartM: 2500,
-	stepM: 100,
-	/** Orientierungspunkt (Fluss, See, Wald) mindestens so viele Meter am Weg (oder 10 % der Tour) */
-	minLandmarkM: 1500,
-	/** das ausgetauschte Stück reicht so weit vor und hinter die Station (Meter) */
-	windowM: 1500,
-	/** Alternativen: Umkreis um die Station, Abstand zum bisherigen Weg, Anzahl, Mindestwinkel zwischen zwei Alternativen */
-	reachM: 4500,
-	offRouteM: 500,
-	options: 3,
-	minAngleDeg: 50,
-	/** höchster Mehrweg je Alternative */
-	maxExtraM: 5000,
-	/** „Station weglassen“ nur, wenn der direkte Weg so viele Meter kürzer ist */
-	minSavingM: 400
+export const DETOURS = {
+	/** so weit neben der Tour darf ein Highlight liegen (Meter) */
+	reachM: 6000,
+	/** näher als das gilt ein Punkt als „schon am Weg“; ab diesem Anteil am Weg ist das Highlight schon in der Tour */
+	onRouteM: 500,
+	maxOnRouteShare: 0.4,
+	/** Punkte gleichen Namens gehören zusammen, wenn sie höchstens so weit auseinanderliegen (Punkte alle ≈ 400 m) */
+	clusterLinkM: 1500,
+	/** Mindestgröße abseits der Tour in Punkten (≈ 400 m je Punkt: Umfang bzw. Flusslänge) */
+	minPoints: { lake: 3, river: 5, forest: 5, park: 5 },
+	/** ab dieser Größe zählt ein Highlight voll (für die Reihenfolge) */
+	sizeCapPoints: 20,
+	/** so viele Highlights werden durchgerechnet, so viele höchstens angeboten, so weit liegen sie mindestens auseinander */
+	candidates: 8,
+	max: 6,
+	minApartM: 1500,
+	/** die Tour wird so weit vor/nach der nächsten Stelle verlassen: Faktor × Abstand des Highlights (mindestens minWindowM);
+	 * klappt es nicht, wird der nächste Faktor probiert */
+	windowFactors: [1.3, 2.0],
+	minWindowM: 2000,
+	/** See/Fluss: liegen die beiden Uferpunkte näher als das, reicht einer */
+	minShoreM: 600,
+	/** Streifen um die Linie Tour → Highlight → Tour: halbe Breite, Faktor für alles außerhalb */
+	corridorHalfWidthM: 600,
+	outsideFactor: 0.35,
+	/** ergeben die Hilfspunkte Zipfel: nur der Streifen, mit stärkerem Abzug außerhalb */
+	corridorOnlyFactor: 0.15,
+	/** Mehrweg: mindestens (sonst ist es kein Umweg, der lohnt), höchstens die Hälfte der Tour bzw. 20 km (Jan, 12.10.2026) */
+	minExtraM: 3000,
+	maxExtraRatio: 0.5,
+	maxExtraM: 20000,
+	/** der Weg muss so nah an das Highlight herankommen */
+	reachHighlightM: 350,
+	/** höchstens so viel (Anteil) des Umwegs auf dem Rest der Tour */
+	maxOverlapWithRest: 0.3
 } as const;
 
 /** Beim Auffüllen auf TARGET_SUGGESTIONS darf ein Weg so viel weniger schön sein als der direkte (Schönheitspunkte) */

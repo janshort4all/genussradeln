@@ -27,11 +27,13 @@
 		extraMeters: number;
 	}
 
-	/** Station der Tour („Diese Tour führt vorbei an …“): nummerierter Punkt */
-	export interface MapStation {
+	/** Highlight in der Nähe (spannender Umweg): Symbol mit Namen, nur in der großen Karte */
+	export interface MapHighlight {
 		id: string;
 		lngLat: LngLat;
-		number: number;
+		/** Wasser (See, Fluss) oder Grün (Wald, Park) */
+		water: boolean;
+		label: string;
 	}
 </script>
 
@@ -43,6 +45,8 @@
 	import { pushState } from '$app/navigation';
 	import { page } from '$app/state';
 	import Maximize2 from '@lucide/svelte/icons/maximize-2';
+	import Trees from '@lucide/svelte/icons/trees';
+	import Waves from '@lucide/svelte/icons/waves';
 	import X from '@lucide/svelte/icons/x';
 	import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
 	import { stopIcons } from '$lib/components/icons';
@@ -61,15 +65,15 @@
 		stops?: MapStop[];
 		/** Stopp, zu dem die Karte springen soll */
 		focusStopId?: string;
-		/** Stationen als nummerierte Punkte */
-		stations?: MapStation[];
-		/** gewählte Station (hervorgehoben) */
-		selectedStationId?: string;
-		/** Station angetippt (zweiter Wert: die große Karte ist offen) */
-		onstation?: (id: string, expanded: boolean) => void;
+		/** Highlights in der Nähe (nur in der großen Karte zu sehen) */
+		highlights?: MapHighlight[];
+		/** gewähltes Highlight (hervorgehoben) */
+		selectedHighlightId?: string;
+		/** Highlight angetippt */
+		onhighlight?: (id: string) => void;
 		/** Vorschau eines Tauschs, wird auf der Karte eingezeichnet */
 		preview?: MapPreview;
-		/** Fenster am unteren Rand der großen Karte (z. B. Alternativen zu einer Station) */
+		/** Fenster am unteren Rand der großen Karte (spannende Umwege) */
 		sheet?: Snippet;
 		/** Beschreibung für Screenreader */
 		label: string;
@@ -82,9 +86,9 @@
 		onselect,
 		stops = [],
 		focusStopId,
-		stations = [],
-		selectedStationId,
-		onstation,
+		highlights = [],
+		selectedHighlightId,
+		onhighlight,
 		preview,
 		sheet,
 		label
@@ -93,8 +97,8 @@
 	let createMarker: ((element: HTMLElement, lngLat: LngLat) => Marker) | undefined = $state();
 	const stopElements: Record<string, HTMLElement> = $state({});
 	const stopMarkers = new Map<string, Marker>();
-	const stationElements: Record<string, HTMLElement> = $state({});
-	const stationMarkers = new Map<string, Marker>();
+	const highlightElements: Record<string, HTMLElement> = $state({});
+	const highlightMarkers = new Map<string, Marker>();
 
 	const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 	// rechts Platz für die Zoom-Knöpfe, unten für den Quellenhinweis
@@ -319,19 +323,19 @@
 		}
 	});
 
-	// Stationen: nummerierte Punkte (wie die Stopp-Symbole)
+	// Highlights: Symbole mit Namen – nur in der großen Karte (die kleine bleibt ruhig)
 	$effect(() => {
 		if (!createMarker) return;
-		const wanted = new Set(stations.map((s) => s.id));
-		for (const [id, marker] of stationMarkers) {
+		const wanted = new Set(expanded ? highlights.map((h) => h.id) : []);
+		for (const [id, marker] of highlightMarkers) {
 			if (!wanted.has(id)) {
 				marker.remove();
-				stationMarkers.delete(id);
+				highlightMarkers.delete(id);
 			}
 		}
-		for (const station of stations) {
-			const element = stationElements[station.id];
-			if (element && !stationMarkers.has(station.id)) stationMarkers.set(station.id, createMarker(element, station.lngLat));
+		for (const h of highlights) {
+			const element = highlightElements[h.id];
+			if (wanted.has(h.id) && element && !highlightMarkers.has(h.id)) highlightMarkers.set(h.id, createMarker(element, h.lngLat));
 		}
 	});
 
@@ -425,18 +429,21 @@
 	{/if}
 	<!-- Vorlagen für die Stopp-Symbole; MapLibre hängt sie in die Karte um -->
 	<div class="stop-pool" aria-hidden="true">
-			{#each stations as station (station.id)}
-				<button
-					type="button"
-					bind:this={stationElements[station.id]}
-					class="station-marker"
-					class:selected={station.id === selectedStationId}
-					aria-label="Station {station.number} auswählen"
-					onclick={() => onstation?.(station.id, expanded)}
-				>
-					{station.number}
-				</button>
-			{/each}
+		{#each highlights as h (h.id)}
+			<button
+				type="button"
+				bind:this={highlightElements[h.id]}
+				class="highlight-marker"
+				class:water={h.water}
+				class:selected={h.id === selectedHighlightId}
+				onclick={() => onhighlight?.(h.id)}
+			>
+				<span class="highlight-icon">
+					{#if h.water}<Waves size={20} strokeWidth={2.25} />{:else}<Trees size={20} strokeWidth={2.25} />{/if}
+				</span>
+				<span class="highlight-label">{h.label}</span>
+			</button>
+		{/each}
 		{#each stops as stop (stop.id)}
 			{@const style = stopIcons[stop.kind]}
 			<div
@@ -580,28 +587,47 @@
 		background: #4b5a22;
 	}
 
-	/* Station: Zahl im dunkelgrünen Kreis (antippbar, ≥ 44 px), gewählte orange und größer */
-	.route-map :global(.station-marker) {
-		display: grid;
-		place-items: center;
-		width: 2.75rem;
-		height: 2.75rem;
-		padding: 0;
-		cursor: pointer;
-		border-radius: 50%;
+	/* Highlight: Symbol (Wasser blau, Grün dunkelgrün) mit Namen, antippbar (≥ 44 px), gewähltes orange */
+	.route-map :global(.highlight-marker) {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		min-height: 2.75rem;
+		padding: 0.25rem 0.75rem 0.25rem 0.25rem;
 		border: 2px solid var(--color-surface);
+		border-radius: 999px;
 		background: var(--color-green);
 		color: var(--color-surface);
+		font: inherit;
 		font-size: var(--text-small);
 		font-weight: 700;
-		box-shadow: 0 1px 4px rgb(36 53 57 / 0.4);
+		white-space: nowrap;
+		box-shadow: 0 1px 6px rgb(36 53 57 / 0.45);
+		cursor: pointer;
 	}
 
-	.route-map :global(.station-marker.selected) {
-		width: 3.25rem;
-		height: 3.25rem;
+	.route-map :global(.highlight-marker.water) {
+		background: var(--color-blue);
+	}
+
+	.route-map :global(.highlight-marker.selected) {
 		background: var(--color-orange);
 		z-index: 2;
+	}
+
+	.route-map :global(.highlight-icon) {
+		display: grid;
+		place-items: center;
+		width: 2.125rem;
+		height: 2.125rem;
+		border-radius: 50%;
+		background: rgb(255 255 255 / 0.2);
+	}
+
+	.route-map :global(.highlight-label) {
+		max-width: 11rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.route-map :global(.stop-marker.focused) {

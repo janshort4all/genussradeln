@@ -17,9 +17,8 @@
 	import BackLink from '$lib/components/BackLink.svelte';
 	import BatteryHint from '$lib/components/BatteryHint.svelte';
 	import ElevationProfile from '$lib/components/ElevationProfile.svelte';
-	import StationSheet from '$lib/components/StationSheet.svelte';
-	import Stations from '$lib/components/Stations.svelte';
-	import { StationsController } from '$lib/improve/stations.svelte';
+	import DetourSheet from '$lib/components/DetourSheet.svelte';
+	import { DetoursController } from '$lib/improve/detours.svelte';
 	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import StopCards from '$lib/components/StopCards.svelte';
 	import TourScene from '$lib/components/illustrations/TourScene.svelte';
@@ -52,20 +51,12 @@
 	// übernommene Änderungen (Umwege, getauschte Stationen), jüngste zuletzt – für „Rückgängig“
 	let undoStack: { before: PlannedTour; text: string }[] = $state([]);
 	const lastUndo = $derived(undoStack[undoStack.length - 1]);
-	// Stationen („Diese Tour führt vorbei an“): Zustand für die Liste unter der Karte und das Fenster in der großen Karte
-	const stationsCtrl = new StationsController((next, text) => changeTour(next, text));
+	// Spannende Umwege: nur in der großen Karte, erst nach „Spannende Umwege suchen“
+	const detours = new DetoursController((next, text) => changeTour(next, text));
 	$effect(() => {
 		const current = planned;
-		if (current && tour.map.kind === 'route') untrack(() => void stationsCtrl.setTour(current));
+		if (current && tour.map.kind === 'route') untrack(() => detours.setTour(current));
 	});
-
-	/** Station auf der Karte angetippt: in der großen Karte öffnet sich das Fenster, sonst geht es zur Liste */
-	function stationTapped(id: string, expanded: boolean) {
-		stationsCtrl.select(id);
-		if (expanded) return;
-		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-		document.getElementById('stations')?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
-	}
 
 	function undo() {
 		const last = undoStack[undoStack.length - 1];
@@ -319,8 +310,10 @@
 	</div>
 </div>
 
-{#snippet stationSheet()}
-	{#if planned}<StationSheet tour={planned} controller={stationsCtrl} />{/if}
+{#snippet detourSheet()}
+	{#if planned && tour.map.kind === 'route'}
+		<DetourSheet tour={planned} controller={detours} undoText={lastUndo?.text} onundo={undo} />
+	{/if}
 {/snippet}
 
 <div class="wide">
@@ -336,11 +329,16 @@
 					]}
 					stops={stops.flatMap((s) => (s.lngLat ? [{ id: s.id, lngLat: s.lngLat, kind: s.kind }] : []))}
 					{focusStopId}
-					stations={stationsCtrl.stations.map((s, i) => ({ id: s.id, lngLat: s.lngLat, number: i + 1 }))}
-					selectedStationId={stationsCtrl.selectedId}
-					onstation={stationTapped}
-					preview={stationsCtrl.preview}
-					sheet={stationSheet}
+					highlights={detours.detours.map((d) => ({
+						id: d.highlight.id,
+						lngLat: d.highlight.marker,
+						water: d.highlight.kind === 'lake' || d.highlight.kind === 'river',
+						label: d.highlight.name
+					}))}
+					selectedHighlightId={detours.selectedId}
+					onhighlight={(id) => detours.select(id)}
+					preview={detours.preview}
+					sheet={detourSheet}
 				/>
 			</div>
 		{:else}
@@ -424,9 +422,6 @@
 					</button>
 				</p>
 			{/if}
-			{#key planned.id}
-				<Stations tour={planned} controller={stationsCtrl} />
-			{/key}
 		{/if}
 
 		<section class="stops">
