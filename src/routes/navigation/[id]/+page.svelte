@@ -4,7 +4,9 @@
 	import { onDestroy } from 'svelte';
 	import Flag from '@lucide/svelte/icons/flag';
 	import MapIcon from '@lucide/svelte/icons/map';
+	import Minus from '@lucide/svelte/icons/minus';
 	import Navigation from '@lucide/svelte/icons/navigation';
+	import Plus from '@lucide/svelte/icons/plus';
 	import Pause from '@lucide/svelte/icons/pause';
 	import Play from '@lucide/svelte/icons/play';
 	import Sun from '@lucide/svelte/icons/sun';
@@ -50,7 +52,13 @@
 
 	// Die Strecke in drei Teile: vor Ihnen (nur das sieht man in der Fahrtansicht), schon gefahren und der weitere Verlauf
 	// (beides nur in der Übersicht). Am Start laufen Hin- und Rückweg sonst beide auf den Standort zu (Jan, 13.10.2026).
-	const AHEAD_M = 2500;
+	// Zoom (Jan, 13.10.2026: „keine Möglichkeit rauszuzoomen“): Plus und Minus auf der Karte; wer herauszoomt, sieht auch mehr vom Weg
+	// vor sich (sonst endete die Linie mitten im Bild)
+	const ZOOM_MIN = -3;
+	const ZOOM_MAX = 2;
+	let zoomOffset = $state(0);
+	const AHEAD_BY_ZOOM = [2500, 2500, 5000, 8000];
+	const AHEAD_M = $derived(AHEAD_BY_ZOOM[Math.min(3, Math.max(0, -zoomOffset))]);
 	/** nur alle 25 m neu zeichnen – die Karte muss nicht bei jeder GPS-Meldung die Linie neu aufbauen */
 	const alongSteps = $derived(Math.round((view?.state.along ?? 0) / 25) * 25);
 	const behindLine = $derived(track ? track.segment(0, alongSteps) : []);
@@ -140,7 +148,7 @@
 		return new Date(Date.now() + share * tour.minutes * 60_000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 	});
 	/** näher heran vor einer Abzweigung, sonst mehr Überblick */
-	const zoom = $derived(view?.distance !== undefined && view.distance < 250 ? 17 : 16);
+	const zoom = $derived((view?.distance !== undefined && view.distance < 250 ? 17 : 16) + zoomOffset);
 
 	function onFix(fix: Fix) {
 		if (!track || phase !== 'running') return;
@@ -326,6 +334,17 @@
 				oninteract={() => overview && setOverview(true)}
 				label={overview ? 'Übersicht über die ganze Strecke' : 'Karte mit Ihrer Position auf der Strecke'}
 			/>
+			{#if !overview}
+				<!-- Karte größer/kleiner: große Knöpfe am rechten Rand -->
+				<div class="zoom-buttons">
+					<button type="button" aria-label="Karte vergrößern" disabled={zoomOffset >= ZOOM_MAX} onclick={() => (zoomOffset = Math.min(ZOOM_MAX, zoomOffset + 1))}>
+						<Plus size={30} strokeWidth={3} aria-hidden="true" />
+					</button>
+					<button type="button" aria-label="Karte verkleinern" disabled={zoomOffset <= ZOOM_MIN} onclick={() => (zoomOffset = Math.max(ZOOM_MIN, zoomOffset - 1))}>
+						<Minus size={30} strokeWidth={3} aria-hidden="true" />
+					</button>
+				</div>
+			{/if}
 			<!-- hell/dunkel: schwebend oben links auf der Karte (seltener gebraucht als Ton und Pause) -->
 			<button type="button" class="theme-button" onclick={() => (theme = theme === 'dark' ? 'light' : 'dark')}>
 				{#if theme === 'dark'}<Sun size={24} aria-hidden="true" /> Heller{:else}<Moon size={24} aria-hidden="true" /> Dunkler{/if}
@@ -553,6 +572,31 @@
 		width: auto;
 		min-height: 3.5rem;
 		box-shadow: 0 2px 8px rgb(0 0 0 / 0.5);
+	}
+
+	.zoom-buttons {
+		position: absolute;
+		right: 0.75rem;
+		bottom: 2.75rem;
+		z-index: 2;
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.zoom-buttons button {
+		width: 3.5rem;
+		min-height: 3.5rem;
+		padding: 0;
+		border: 2px solid var(--nav-muted);
+		border-radius: 50%;
+		background: var(--nav-bg);
+		color: var(--nav-text);
+		box-shadow: 0 2px 8px rgb(0 0 0 / 0.5);
+	}
+
+	.zoom-buttons button:disabled {
+		opacity: 0.35;
+		cursor: not-allowed;
 	}
 
 	.theme-button {
