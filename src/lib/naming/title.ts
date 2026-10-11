@@ -124,6 +124,8 @@ export function landmarkTitle(l: { name: string; kind: LandmarkKind; share?: num
 	if (kind === 'lake') return isMasculineOrNeuter(name) ? `Am ${name} vorbei` : `An der ${name} vorbei`;
 	// Wälder und Parks: „Durch den Stadtwald“, „Durchs Hülser Bruch“, „Durch die Linner Heide“
 	const n = name.toLowerCase();
+	// Namen mit eigenem Artikel oder Verhältniswort („In der Elt“, „Der Meerbusch“) lassen sich nicht beugen
+	if (/^(der|die|das|in|im|am|an|auf|zum|zur|unter|hinter|vor)\s/.test(n)) return `Durch „${name}“`;
 	if (/(bruch|holz|venn|moor)$/.test(n)) return `Durchs ${name}`;
 	if (/(heide|aue|au)$/.test(n)) return `Durch die ${name}`;
 	if (/(wald|forst|busch|park|hain|berg)$/.test(n)) return `Durch den ${name}`;

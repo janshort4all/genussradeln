@@ -350,6 +350,29 @@ export const OFFERS = {
 	minApartM: 1000
 } as const;
 
+/**
+ * Stationen im Tourdetail (Stufe 3, Jan, 11.10.2026): „Diese Tour führt vorbei an …“ und Alternativen dazu.
+ */
+export const STATIONS = {
+	/** höchste Zahl Stationen, Mindestabstand entlang der Tour (Meter), Abstand der Proben */
+	max: 5,
+	minApartM: 2500,
+	stepM: 100,
+	/** Orientierungspunkt (Fluss, See, Wald) mindestens so viele Meter am Weg (oder 10 % der Tour) */
+	minLandmarkM: 1500,
+	/** das ausgetauschte Stück reicht so weit vor und hinter die Station (Meter) */
+	windowM: 1500,
+	/** Alternativen: Umkreis um die Station, Abstand zum bisherigen Weg, Anzahl, Mindestwinkel zwischen zwei Alternativen */
+	reachM: 4500,
+	offRouteM: 500,
+	options: 3,
+	minAngleDeg: 50,
+	/** höchster Mehrweg je Alternative */
+	maxExtraM: 5000,
+	/** „Station weglassen“ nur, wenn der direkte Weg so viele Meter kürzer ist */
+	minSavingM: 400
+} as const;
+
 /** Beim Auffüllen auf TARGET_SUGGESTIONS darf ein Weg so viel weniger schön sein als der direkte (Schönheitspunkte) */
 export const FILL_BEAUTY_MARGIN = 0.15;
 

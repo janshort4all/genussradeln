@@ -1,18 +1,12 @@
 <script lang="ts">
-	import { asset } from '$app/paths';
 	import Check from '@lucide/svelte/icons/check';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import { untrack } from 'svelte';
+	import { loadPlanDeps } from '$lib/improve/deps';
 	import { applyOffer, findOffers, type Offer } from '$lib/improve/offers';
 	import OfferMap from '$lib/map/OfferMap.svelte';
-	import { loadNames } from '$lib/naming/names';
-	import { NoRouteError, route, RoutingUnavailableError } from '$lib/routing/graphhopper';
+	import { NoRouteError, RoutingUnavailableError } from '$lib/routing/graphhopper';
 	import type { PlanDeps } from '$lib/routing/plan';
-	import { loadStreams } from '$lib/routing/streams';
-	import { loadFineMap } from '$lib/scoring/fine';
-	import { loadLandscape } from '$lib/scoring/landscape';
-	import { loadRoadMask } from '$lib/scoring/roads';
 	import { tourLine, type PlannedTour } from '$lib/tour/model';
 
 	/**
@@ -21,8 +15,8 @@
 	 */
 	interface Props {
 		tour: PlannedTour;
-		/** die Tour hat sich geändert (Übernehmen oder Rückgängig) */
-		onchange: (tour: PlannedTour) => void;
+		/** die Tour hat sich geändert (Übernehmen); `text` beschreibt die Änderung für „Rückgängig“ */
+		onchange: (tour: PlannedTour, text: string) => void;
 	}
 
 	let { tour, onchange }: Props = $props();
@@ -31,28 +25,10 @@
 	let offers: Offer[] = $state([]);
 	/** Nummer des gezeigten Vorschlags; nach dem letzten ist die Liste „durch“ */
 	let index = $state(0);
-	/** übernommene Umwege, jüngster zuletzt – für „Rückgängig“ */
-	let undoStack: { before: PlannedTour; text: string }[] = $state([]);
 
 	const current = $derived(offers[index]);
-	const lastUndo = $derived(undoStack[undoStack.length - 1]);
 
 	let deps: PlanDeps | undefined;
-	async function loadDeps(signal: AbortSignal): Promise<PlanDeps> {
-		const quiet = <T,>(promise: Promise<T>, what: string) =>
-			promise.catch((error) => {
-				console.warn(`${what} nicht verfügbar:`, error);
-				return undefined;
-			});
-		const [landscape, names, roads, fine, streams] = await Promise.all([
-			quiet(loadLandscape(asset('/data/landscape.json'), asset('/data/landscape.png')), 'Landschaftskarte'),
-			quiet(loadNames(asset('/data/landmarks.json'), asset('/data/places.json')), 'Namensdaten'),
-			quiet(loadRoadMask(asset('/data/roads.json'), asset('/data/roads.bin')), 'Straßenkarte'),
-			quiet(loadFineMap(asset('/data/fine.json'), asset('/data/fine.bin')), 'Feine Karte'),
-			quiet(loadStreams(asset('/data/streams.json')), 'Gewässerdaten')
-		]);
-		return { route, landscape, names, roads, fine, streams, signal };
-	}
 
 	// Suche starten, sobald die Tour da ist (und nach jeder Änderung neu – die Stellen verschieben sich)
 	$effect(() => {
@@ -65,7 +41,7 @@
 		});
 		(async () => {
 			try {
-				deps = await loadDeps(controller.signal);
+				deps = await loadPlanDeps(controller.signal);
 				const found = await findOffers(snapshot, deps);
 				if (controller.signal.aborted) return;
 				offers = found;
@@ -81,17 +57,7 @@
 
 	function accept() {
 		if (!current || !deps) return;
-		const before = tour;
-		const next = applyOffer(tour, current, deps);
-		undoStack = [...undoStack, { before, text: `${current.title} (${plus(current.extraMeters)})` }];
-		onchange(next);
-	}
-
-	function undo() {
-		const last = undoStack[undoStack.length - 1];
-		if (!last) return;
-		undoStack = undoStack.slice(0, -1);
-		onchange(last.before);
+		onchange(applyOffer(tour, current, deps), `${current.title} (${plus(current.extraMeters)})`);
 	}
 
 	const km = (meters: number) => (meters / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
@@ -120,16 +86,6 @@
 		<span class="round-icon" aria-hidden="true"><Sparkles size={22} strokeWidth={2.25} /></span>
 		Noch schöner fahren?
 	</h2>
-
-	{#if lastUndo}
-		<p class="done" role="status">
-			<Check size={22} strokeWidth={3} aria-hidden="true" />
-			<span>Übernommen: {lastUndo.text}</span>
-			<button type="button" class="undo" onclick={undo}>
-				<Undo2 size={20} strokeWidth={2.5} aria-hidden="true" /> Rückgängig
-			</button>
-		</p>
-	{/if}
 
 	{#if status === 'searching'}
 		<p class="muted" role="status">Wir suchen schönere Stellen auf Ihrer Tour …</p>
@@ -321,8 +277,7 @@
 
 	.accept,
 	.decline,
-	.again,
-	.undo {
+	.again {
 		font: inherit;
 		cursor: pointer;
 	}
@@ -361,38 +316,4 @@
 		margin-top: 0.5rem;
 	}
 
-	.done {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.5rem;
-		margin: 0 0 0.75rem;
-		padding: 0.5rem 0.75rem;
-		border-radius: var(--radius);
-		background: var(--color-green-light);
-		font-weight: 700;
-	}
-
-	.done :global(svg) {
-		flex: none;
-		color: var(--color-green);
-	}
-
-	.done span {
-		flex: 1;
-		min-width: 10rem;
-	}
-
-	.undo {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		min-height: var(--tap);
-		padding: 0.25rem 0.875rem;
-		border: 2px solid var(--color-green);
-		border-radius: var(--radius);
-		background: var(--color-surface);
-		color: var(--color-green);
-		font-weight: 700;
-	}
 </style>

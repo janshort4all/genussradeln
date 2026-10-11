@@ -49,6 +49,24 @@ export class NameIndex {
 		}
 		return best;
 	}
+
+	/** Alle Punkte im Umkreis (Meter), die nächsten zuerst */
+	within(point: LngLat, radius: number, accept?: (p: NamedPoint) => boolean): NamedPoint[] {
+		const reach = Math.ceil(radius / 700) + 1;
+		const cx = Math.floor(point[0] / CELL);
+		const cy = Math.floor(point[1] / CELL);
+		const found: { p: NamedPoint; d: number }[] = [];
+		for (let dx = -reach; dx <= reach; dx++) {
+			for (let dy = -reach; dy <= reach; dy++) {
+				for (const p of this.cells.get(`${cx + dx}:${cy + dy}`) ?? []) {
+					if (accept && !accept(p)) continue;
+					const d = distance(point, p.lngLat);
+					if (d <= radius) found.push({ p, d });
+				}
+			}
+		}
+		return found.sort((a, b) => a.d - b.d).map((f) => f.p);
+	}
 }
 
 export interface NameData {

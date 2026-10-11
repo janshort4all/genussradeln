@@ -229,6 +229,23 @@ ganze Strecke – 2 km am See bei 19 km ändern ihn kaum. Idee: Zusatzpunkte je 
 - **Karte:** `src/lib/map/RouteMap.svelte` (MapLibre 6, nur ESM; Worker per `?worker&url` + `setWorkerUrl`,
   `worker.format: 'es'` in `vite.config.ts`), Stil OpenFreeMap „liberty“.
 
+### Stationen tauschen (Stufe 3, 11.10.2026, `src/lib/improve/stations.ts`, `Stations.svelte`)
+
+Im Tourdetail steht über „Noch schöner fahren?“ die Karte **„Diese Tour führt vorbei an“**: bis `STATIONS.max` (5) benannte Orte und
+Orientierungspunkte (Rhein, Seen, Wälder, Parks, Dörfer/Städte aus `places.json`/`landmarks.json`), an denen die Tour entlangführt – ohne
+Start- und Zielort, in Fahrtrichtung, mindestens 2,5 km auseinander (`stationsOf`: alle 100 m der nächste Name, zu Abschnitten
+zusammengefasst, Orte ab 1 km, Gewässer/Wald ab 1,5 km oder 10 % der Tour). Auf der Karte erscheinen sie als nummerierte Punkte (`RouteMap`:
+`stations`, gewählte orange). Ein Tipp auf eine Station sucht (`stationOptions`, erst dann – keine Anfragen auf Vorrat) bis zu 3 **andere** Orte oder
+Orientierungspunkte im Umkreis von 4,5 km, nicht schon am Weg und in verschiedenen Richtungen (≥ 50°), dazu „Direkt weiterfahren“, wenn der
+direkte Weg ≥ 400 m kürzer ist. Je Alternative wird das Stück 1,5 km vor bis 1,5 km hinter der Station von der Stelle davor über den Ort zur Stelle danach
+neu gerechnet (Hilfspunkt bei Zipfel/Stummel an den Anfang des Abstechers verlegt) und wie bei den Umwegen geprüft: echte Umfahrung (`OFFERS.minDeviationM`
+/ `minDifferentM`), höchstens 5 km Mehrweg, nicht auf dem Rest der Tour zurück, das neue Stück selbst ohne Zipfel/Kreis/Stummel (die Prüfung der ganzen
+Teilstrecke schlug zu oft an und ist hier weggelassen). Karte mit „Bisher“/„Neu“, Mehrweg in km und Minuten, „Übernehmen“/„Nein, danke“ – dieselben
+Bausteine wie die Umwege (`Offer`, `applyOffer`, `OfferMap`). **„Rückgängig“ liegt auf der Seite** und gilt für Umwege und Stationen gemeinsam
+(`undoStack` in `tour/[id]/+page.svelte`). Gemessen an der Rheinrunde ab Krefeld-Linn: 5 Stationen, je 0–4 Alternativen (ca. 0,2–0,5 s je Station am PC).
+Grenzen: Namen aus den Kartendaten sind manchmal sperrig („Durch „In der Elt““); nach dem Tausch erkennt die App die alte Station oft noch am Weg
+(Umkreis 700 m/2,5 km). Stufe 2 („Unterwegs vorbei an …“ vor der Suche) ist noch nicht gebaut.
+
 ### Merken (F13/F14 – vorgezogen, 11.10.2026)
 
 Das Herz im Tourdetail merkt die Tour auf dem Gerät (`src/lib/storage/tours.ts`, rohes IndexedDB ohne zusätzliche Bibliothek,

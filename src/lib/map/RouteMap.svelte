@@ -18,6 +18,13 @@
 		lngLat: LngLat;
 		kind: StopKind;
 	}
+
+	/** Station der Tour („Diese Tour führt vorbei an …“): nummerierter Punkt */
+	export interface MapStation {
+		id: string;
+		lngLat: LngLat;
+		number: number;
+	}
 </script>
 
 <script lang="ts">
@@ -46,15 +53,31 @@
 		stops?: MapStop[];
 		/** Stopp, zu dem die Karte springen soll */
 		focusStopId?: string;
+		/** Stationen als nummerierte Punkte */
+		stations?: MapStation[];
+		/** gewählte Station (hervorgehoben) */
+		selectedStationId?: string;
 		/** Beschreibung für Screenreader */
 		label: string;
 	}
 
-	let { routes, markers = [], selectedId, onselect, stops = [], focusStopId, label }: Props = $props();
+	let {
+		routes,
+		markers = [],
+		selectedId,
+		onselect,
+		stops = [],
+		focusStopId,
+		stations = [],
+		selectedStationId,
+		label
+	}: Props = $props();
 
 	let createMarker: ((element: HTMLElement, lngLat: LngLat) => Marker) | undefined = $state();
 	const stopElements: Record<string, HTMLElement> = $state({});
 	const stopMarkers = new Map<string, Marker>();
+	const stationElements: Record<string, HTMLElement> = $state({});
+	const stationMarkers = new Map<string, Marker>();
 
 	const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 	// rechts Platz für die Zoom-Knöpfe, unten für den Quellenhinweis
@@ -279,6 +302,22 @@
 		}
 	});
 
+	// Stationen: nummerierte Punkte (wie die Stopp-Symbole)
+	$effect(() => {
+		if (!createMarker) return;
+		const wanted = new Set(stations.map((s) => s.id));
+		for (const [id, marker] of stationMarkers) {
+			if (!wanted.has(id)) {
+				marker.remove();
+				stationMarkers.delete(id);
+			}
+		}
+		for (const station of stations) {
+			const element = stationElements[station.id];
+			if (element && !stationMarkers.has(station.id)) stationMarkers.set(station.id, createMarker(element, station.lngLat));
+		}
+	});
+
 	// Zum gewählten Stopp springen (ohne Animation, wenn der Nutzer weniger Bewegung wünscht)
 	$effect(() => {
 		const stop = stops.find((s) => s.id === focusStopId);
@@ -305,6 +344,15 @@
 	{/if}
 	<!-- Vorlagen für die Stopp-Symbole; MapLibre hängt sie in die Karte um -->
 	<div class="stop-pool" aria-hidden="true">
+			{#each stations as station (station.id)}
+				<div
+					bind:this={stationElements[station.id]}
+					class="station-marker"
+					class:selected={station.id === selectedStationId}
+				>
+					{station.number}
+				</div>
+			{/each}
 		{#each stops as stop (stop.id)}
 			{@const style = stopIcons[stop.kind]}
 			<div
@@ -414,6 +462,28 @@
 		background: var(--color-orange);
 		color: var(--color-surface);
 		box-shadow: 0 1px 4px rgb(36 53 57 / 0.35);
+	}
+
+	/* Station: Zahl im dunkelgrünen Kreis, gewählte orange und größer */
+	.route-map :global(.station-marker) {
+		display: grid;
+		place-items: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 50%;
+		border: 2px solid var(--color-surface);
+		background: var(--color-green);
+		color: var(--color-surface);
+		font-size: var(--text-small);
+		font-weight: 700;
+		box-shadow: 0 1px 4px rgb(36 53 57 / 0.4);
+	}
+
+	.route-map :global(.station-marker.selected) {
+		width: 2.5rem;
+		height: 2.5rem;
+		background: var(--color-orange);
+		z-index: 2;
 	}
 
 	.route-map :global(.stop-marker.focused) {

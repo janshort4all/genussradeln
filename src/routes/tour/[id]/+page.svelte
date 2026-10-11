@@ -18,6 +18,9 @@
 	import BatteryHint from '$lib/components/BatteryHint.svelte';
 	import ElevationProfile from '$lib/components/ElevationProfile.svelte';
 	import ImproveOffers from '$lib/components/ImproveOffers.svelte';
+	import Stations from '$lib/components/Stations.svelte';
+	import type { Station } from '$lib/improve/stations';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import StopCards from '$lib/components/StopCards.svelte';
 	import TourScene from '$lib/components/illustrations/TourScene.svelte';
 	import RouteMap from '$lib/map/RouteMap.svelte';
@@ -45,7 +48,22 @@
 		changed = undefined;
 	});
 
-	function changeTour(next: PlannedTour) {
+	// übernommene Änderungen (Umwege, getauschte Stationen), jüngste zuletzt – für „Rückgängig“
+	let undoStack: { before: PlannedTour; text: string }[] = $state([]);
+	const lastUndo = $derived(undoStack[undoStack.length - 1]);
+	let stations: Station[] = $state([]);
+	let selectedStationId: string | undefined = $state();
+
+	function undo() {
+		const last = undoStack[undoStack.length - 1];
+		if (!last) return;
+		undoStack = undoStack.slice(0, -1);
+		changeTour(last.before);
+	}
+
+	/** `text`: Beschreibung der Änderung – dann geht „Rückgängig“; ohne Text (beim Rückgängig selbst) bleibt der Stapel */
+	function changeTour(next: PlannedTour, text?: string) {
+		if (text && planned) undoStack = [...undoStack, { before: planned, text }];
 		session.replaceTour(next);
 		changed = next;
 		// eine gemerkte Tour bleibt mit dem übernommenen Umweg gemerkt
@@ -301,6 +319,8 @@
 					]}
 					stops={stops.flatMap((s) => (s.lngLat ? [{ id: s.id, lngLat: s.lngLat, kind: s.kind }] : []))}
 					{focusStopId}
+					stations={stations.map((s, i) => ({ id: s.id, lngLat: s.lngLat, number: i + 1 }))}
+					selectedStationId={selectedStationId}
 				/>
 			</div>
 		{:else}
@@ -375,7 +395,17 @@
 		</div>
 
 		{#if planned && tour.map.kind === 'route'}
+			{#if lastUndo}
+				<p class="done" role="status">
+					<Check size={22} strokeWidth={3} aria-hidden="true" />
+					<span>Übernommen: {lastUndo.text}</span>
+					<button type="button" class="undo" onclick={undo}>
+						<Undo2 size={20} strokeWidth={2.5} aria-hidden="true" /> Rückgängig
+					</button>
+				</p>
+			{/if}
 			{#key planned.id}
+				<Stations tour={planned} onchange={changeTour} bind:stations bind:selectedId={selectedStationId} />
 				<ImproveOffers tour={planned} onchange={changeTour} />
 			{/key}
 		{/if}
@@ -463,6 +493,43 @@
 
 	.icon-button:hover {
 		background: var(--color-green-light);
+	}
+
+	.done {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0 0 0.75rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: var(--radius);
+		background: var(--color-green-light);
+		font-weight: 700;
+	}
+
+	.done :global(svg) {
+		flex: none;
+		color: var(--color-green);
+	}
+
+	.done span {
+		flex: 1;
+		min-width: 10rem;
+	}
+
+	.undo {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		min-height: var(--tap);
+		padding: 0.25rem 0.875rem;
+		border: 2px solid var(--color-green);
+		border-radius: var(--radius);
+		background: var(--color-surface);
+		color: var(--color-green);
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
 	}
 
 	/* gemerkt: Herz gefüllt in Terrakotta (abgedunkelt, 5 : 1 auf Creme) */
