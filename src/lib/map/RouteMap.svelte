@@ -98,6 +98,7 @@
 	const stopElements: Record<string, HTMLElement> = $state({});
 	const stopMarkers = new Map<string, Marker>();
 	const highlightElements: Record<string, HTMLElement> = $state({});
+	let sheetSlot: HTMLDivElement | undefined = $state();
 	const highlightMarkers = new Map<string, Marker>();
 
 	const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
@@ -301,6 +302,13 @@
 				m.setLayoutProperty(layer, 'visibility', on ? 'visible' : 'none');
 			}
 		}
+		// solange eine Vorschau offen ist: die Tour blass, ohne Pfeile (sonst ist grün neben grün nicht zu unterscheiden)
+		const dim = !!preview;
+		for (const r of routes) {
+			m.setPaintProperty(`route-${r.id}`, 'line-opacity', dim ? 0.3 : 1);
+			m.setPaintProperty(`route-${r.id}-casing`, 'line-opacity', dim ? 0.3 : 1);
+			m.setLayoutProperty(`route-${r.id}-arrows`, 'visibility', dim || r.id !== active ? 'none' : 'visible');
+		}
 		if (active && m.getLayer(`route-${active}`)) {
 			m.moveLayer(`route-${active}`);
 			m.moveLayer(`route-${active}-arrows`);
@@ -326,7 +334,8 @@
 	// Highlights: Symbole mit Namen – nur in der großen Karte (die kleine bleibt ruhig)
 	$effect(() => {
 		if (!createMarker) return;
-		const wanted = new Set(expanded ? highlights.map((h) => h.id) : []);
+		const shown = preview && selectedHighlightId ? highlights.filter((h) => h.id === selectedHighlightId) : highlights;
+		const wanted = new Set(expanded ? shown.map((h) => h.id) : []);
 		for (const [id, marker] of highlightMarkers) {
 			if (!wanted.has(id)) {
 				marker.remove();
@@ -391,8 +400,10 @@
 		const b = boundsOf([draw.oldLine, draw.newLine]);
 		if (Number.isFinite(b.west)) {
 			// in der großen Karte bleibt die untere Hälfte für das Fenster frei
-			const bottom = expanded ? Math.round(window.innerHeight * 0.5) : 50;
-			m.fitBounds([b.west, b.south, b.east, b.north], { padding: { top: 90, bottom, left: 40, right: 70 }, duration: 400, maxZoom: 16 });
+			requestAnimationFrame(() => {
+				const bottom = expanded ? (sheetSlot?.offsetHeight ?? Math.round(window.innerHeight * 0.5)) + 24 : 50;
+				m.fitBounds([b.west, b.south, b.east, b.north], { padding: { top: 90, bottom, left: 40, right: 70 }, duration: 400, maxZoom: 16 });
+			});
 		}
 		return () => {
 			for (const marker of previewMarkers) marker.remove();
@@ -425,7 +436,7 @@
 		</button>
 	{/if}
 	{#if expanded && sheet}
-		<div class="sheet-slot">{@render sheet()}</div>
+		<div class="sheet-slot" bind:this={sheetSlot}>{@render sheet()}</div>
 	{/if}
 	<!-- Vorlagen für die Stopp-Symbole; MapLibre hängt sie in die Karte um -->
 	<div class="stop-pool" aria-hidden="true">

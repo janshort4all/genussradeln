@@ -11,12 +11,13 @@ import { landmarkTitle } from '$lib/naming/title';
 import { NoRouteError, type RoutePath } from '$lib/routing/graphhopper';
 import { shapeProblem, type PlanDeps } from '$lib/routing/plan';
 import { overlapShare } from '$lib/scoring/overlap';
+import { analyzeRoute, beautyScore, type RouteStats } from '$lib/scoring/score';
 import { DETOURS } from '$lib/scoring/weights';
 import { rideMinutes } from '$lib/tour/duration';
 import { elevationProfile } from '$lib/tour/elevation';
-import type { PlannedTour } from '$lib/tour/model';
+import { pathOfLeg, type PlannedTour } from '$lib/tour/model';
 import type { Offer } from './offers';
-import { cumulative } from './slice';
+import { cumulative, slicePath } from './slice';
 
 export interface Highlight {
 	id: string;
@@ -38,7 +39,12 @@ export interface Highlight {
 export interface Detour {
 	highlight: Highlight;
 	offer: Offer;
+	/** um so viel schöner ist das neue Stück als das bisherige (Punkte wie beautyScore) */
+	gain: number;
 }
+
+/** Anteil „laut“: Hauptstraßen, größere Nebenstraßen, Radwege direkt daneben */
+const traffic = (s: RouteStats) => s.major + (s.busy ?? 0) + (s.roadsideNoise ?? s.roadside ?? 0);
 
 const KIND_WEIGHT: Record<LandmarkKind, number> = { lake: 1.2, river: 1.1, forest: 1.0, park: 0.9 };
 
@@ -112,8 +118,8 @@ export function findHighlights(tour: PlannedTour, names: NameData): Highlight[] 
 			if (away.length < DETOURS.minPoints[kind]) continue;
 			const nearest = away.reduce((a, b) => (toTour(a) <= toTour(b) ? a : b));
 			const d = toTour(nearest);
-			const size = Math.min(away.length, DETOURS.sizeCapPoints);
-			const score = KIND_WEIGHT[kind] * (size / DETOURS.sizeCapPoints) - 0.3 * (d / DETOURS.reachM);
+			const size = Math.min(away.length, DETOURS.sizeCapPoints[kind]);
+			const score = KIND_WEIGHT[kind] * (size / DETOURS.sizeCapPoints[kind]) - 0.3 * (d / DETOURS.reachM);
 			const at = nearestOnTour(nearest);
 			found.push({
 				id: `${kind}-${name}-${Math.round(nearest[0] * 1e3)}-${Math.round(nearest[1] * 1e3)}`,
@@ -152,12 +158,16 @@ function alongAxis(p: LngLat, a: LngLat, b: LngLat): number {
 }
 
 /**
- * Der Umweg zu einem Highlight: Die Tour wird ein gutes Stück vor der nächsten Stelle verlassen (je weiter das Highlight
- * weg ist, desto früher) und ebenso weit danach wieder erreicht. Dazwischen führt der Weg durch das Highlight (Wald, Park:
+ * Der Umweg zu einem Highlight: Die Tour wird vor der nächsten Stelle verlassen und danach wieder erreicht – zuerst mit
+ * kleinem Abstand (es soll möglichst wenig von der bisherigen Tour wegfallen), dann mit größerem. Dazwischen führt der Weg durch das Highlight (Wald, Park:
  * über seine Mitte) bzw. an ihm entlang (See, Fluss: über zwei Punkte am Ufer); ein Streifen um diese Linie hält ihn dort,
  * ohne Zipfel. `undefined`, wenn sich kein Umweg findet, der sich lohnt.
  */
-export async function detourTo(tour: PlannedTour, highlight: Highlight, deps: PlanDeps): Promise<Offer | undefined> {
+export async function detourTo(
+	tour: PlannedTour,
+	highlight: Highlight,
+	deps: PlanDeps
+): Promise<{ offer: Offer; gain: number } | undefined> {
 	const { effort } = tour.request;
 	const leg = tour.legs[highlight.legIndex];
 	const line = leg.coordinates.map(([lon, lat]): LngLat => [lon, lat]);
@@ -219,12 +229,19 @@ export async function detourTo(tour: PlannedTour, highlight: Highlight, deps: Pl
 		// nicht auf dem Rest der Tour zurück
 		const rest = [line.slice(0, from + 1), line.slice(to), ...others].filter((l) => l.length > 1);
 		if (rest.some((r) => overlapShare(newLine, r) > DETOURS.maxOverlapWithRest)) continue;
+		// Der Umweg muss schöner sein als das Stück, das wegfällt – nicht das Rheinufer gegen Straßen durch den Ort tauschen
+		// (Jan, 12.10.2026) – und darf nicht mehr Autoverkehr haben
+		const before = analyzeRoute(slicePath(pathOfLeg(leg), from, to), deps.landscape, deps.roads, deps.fine);
+		const after = analyzeRoute(path, deps.landscape, deps.roads, deps.fine);
+		const gain = beautyScore(after) - beautyScore(before);
+		if (gain < DETOURS.minGain) continue;
+		if (traffic(after) > Math.max(traffic(before) + DETOURS.trafficSlack, DETOURS.maxTraffic)) continue;
 
 		const climb = (coords: [number, number, number][]) => elevationProfile(coords).ascent;
 		const extraMinutes =
 			rideMinutes(path.distance, climb(path.coordinates), effort) -
 			rideMinutes(baseLength, climb(leg.coordinates.slice(from, to + 1)), effort);
-		return {
+		const offer: Offer = {
 			id: `umweg-${highlight.id}`,
 			legIndex: highlight.legIndex,
 			from,
@@ -237,6 +254,7 @@ export async function detourTo(tour: PlannedTour, highlight: Highlight, deps: Pl
 			title: landmarkTitle({ name: highlight.name, kind: highlight.kind }),
 			why: `ca. ${Math.max(1, Math.round(highlight.distance / 1000))} km abseits Ihrer Route`
 		};
+		return { offer, gain };
 	}
 	return undefined;
 }
@@ -254,10 +272,14 @@ export async function findDetours(tour: PlannedTour, deps: PlanDeps): Promise<De
 		Array.from({ length: Math.min(3, highlights.length) }, async () => {
 			while (next < highlights.length) {
 				const i = next++;
-				const offer = await detourTo(tour, highlights[i], deps);
-				results[i] = offer && { highlight: highlights[i], offer };
+				const found = await detourTo(tour, highlights[i], deps);
+				results[i] = found && { highlight: highlights[i], ...found };
 			}
 		})
 	);
-	return results.filter((d): d is Detour => !!d).slice(0, DETOURS.max);
+	// die schönsten zuerst
+	return results
+		.filter((d): d is Detour => !!d)
+		.sort((a, b) => b.gain - a.gain)
+		.slice(0, DETOURS.max);
 }

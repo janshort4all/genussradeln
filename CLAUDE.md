@@ -242,8 +242,16 @@ wird nur, was **mindestens 3 km mehr** ist (kein Abbiegen für 1 km), höchstens
 nicht auf dem Rest der Tour zurückfährt; höchstens 6. Findet sich nichts, steht ehrlich „Kein spannender Umweg gefunden“ (Jan: „es ist ok, auch nichts
 anzubieten“). Die Highlights erscheinen als Symbole mit Namen (Wasser blau, Grün dunkelgrün) nur in der großen Karte und als Liste im Fenster; antippen
 → Vorschau auf der Karte (orange „Bisher“, grün gestrichelt „Neu · +5,3 km“), Mehrweg, Fahrzeit, „Danach: … km“, „Übernehmen“ / „Nein, danke“;
-„Rückgängig“ im Fenster und oben auf der Seite. Übernehmen setzt das neue Stück ein, ohne neu zu rechnen (`spliceLeg`/`applyOffer`). Gemessen: 0–4 Umwege je
-Tour (+3 bis +9 km), Suche am PC unter 1 s. Vorgänger (wieder entfernt): „Noch schöner fahren?“ (automatisch, kleine Umwege) und „Stationen tauschen“
+„Rückgängig“ im Fenster und oben auf der Seite. Übernehmen setzt das neue Stück ein, ohne neu zu rechnen (`spliceLeg`/`applyOffer`). **Nachgeschärft 12.10.2026** (Jan: Umweg „Überanger Mark“ +12 km verließ die Tour am Rhein, führte durch Straßen und Orte und ließ den
+Angermunder See aus): (1) Der Umweg muss **schöner sein als das Stück, das wegfällt** (`analyzeRoute` auf beiden, `DETOURS.minGain`) und darf nicht mehr
+Autoverkehr haben (`trafficSlack`, höchstens `maxTraffic`) – das Rheinufer wird nicht mehr gegen Straßen getauscht. (2) Die Tour wird zuerst **so spät
+wie möglich** verlassen (`windowFactors` 0,6 / 1,0 / 1,5 × Abstand, mindestens 1,2 km) – es fällt möglichst wenig von der bisherigen Tour weg. (3) Seen
+haben eine eigene Größenskala (`sizeCapPoints.lake` 8 statt 20 Punkte) und 12 statt 8 Kandidaten – vorher verdrängten große Wälder die Seen.
+(4) Die schönsten Umwege zuerst (`gain`). Gemessen: Touren am Rhein bekommen jetzt oft **keinen** Umweg (ehrlich), Moers 25 km: Rossenrayer See +3,8 km,
+Haferbruchsee +7,1 km, Uettelsheimer See +3,6 km. **Anzeige vereinfacht:** Liste nur Name + „+4 km“; gewähltes Ziel: Vergleich „Bisher“ → „Mit Umweg“
+(Strecke und Fahrzeit in großen Zahlen), darunter ein gelbes Feld „+3,8 km · +15 Min.“, dann „Übernehmen“ / „Nein, danke“ – kein Fließtext mehr.
+Während der Vorschau zeigt die Karte nur das gewählte Ziel, die übrige Tour blass ohne Pfeile, und zoomt so, dass das Fenster nichts verdeckt.
+Am PC lag die große Karte unter der unteren Leiste (die stehende Kartenspalte bildet eine eigene Ebene) – behoben. Vorgänger (wieder entfernt): „Noch schöner fahren?“ (automatisch, kleine Umwege) und „Stationen tauschen“
 (Orte am Weg mit Ausweichstücken) – beide Jan zu unübersichtlich bzw. zu klein.
 
 ### Merken (F13/F14 – vorgezogen, 11.10.2026)

@@ -1,17 +1,20 @@
 <script lang="ts">
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import Trees from '@lucide/svelte/icons/trees';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import Waves from '@lucide/svelte/icons/waves';
 	import type { DetoursController } from '$lib/improve/detours.svelte';
-	import { clockText, kmText, minutesText, plusText } from '$lib/improve/wording';
+	import { clockText, kmText, plusText } from '$lib/improve/wording';
 	import type { PlannedTour } from '$lib/tour/model';
 
 	/**
-	 * Fenster am unteren Rand der großen Karte: „Spannende Umwege suchen“ → Highlights in der Nähe (auch als Symbole auf der
-	 * Karte) → eins antippen: Vorschau auf der Karte, Mehrweg und Fahrzeit, „Übernehmen“ / „Nein, danke“.
+	 * Fenster am unteren Rand der großen Karte: „Spannende Umwege suchen“ → Liste der Ziele (auch als Symbole auf der Karte)
+	 * → ein Ziel: Vergleich „Bisher“ / „Mit Umweg“ in großen Zahlen, Vorschau auf der Karte, „Übernehmen“ / „Nein, danke“.
+	 * Bewusst wenig Text (Jan, 12.10.2026: „deutlich einfacher und strukturierter“).
 	 */
 	interface Props {
 		tour: PlannedTour;
@@ -22,63 +25,89 @@
 	}
 
 	let { tour, controller, undoText, onundo }: Props = $props();
+
+	const isWater = (kind: string) => kind === 'lake' || kind === 'river';
+	/** „+12 km“ – für die Liste ganz ohne Nachkommastelle, große Umwege sind keine Feinarbeit */
+	const roundKm = (meters: number) => `+${Math.round(meters / 1000)} km`;
+	/** „+50 Min.“ bzw. „+1:10 Std.“ */
+	function plusTime(minutes: number): string {
+		const rounded = Math.max(5, Math.round(minutes / 5) * 5);
+		return rounded >= 60 ? `+${Math.floor(rounded / 60)}:${String(rounded % 60).padStart(2, '0')} Std.` : `+${rounded} Min.`;
+	}
 </script>
 
 <div class="sheet-box" role="region" aria-label="Spannende Umwege">
 	{#if undoText && controller.status === 'idle'}
 		<p class="done" role="status">
 			<Check size={22} strokeWidth={3} aria-hidden="true" />
-			<span>Übernommen: {undoText}</span>
+			<span>Übernommen</span>
 			<button type="button" class="undo" onclick={() => onundo?.()}>
 				<Undo2 size={20} strokeWidth={2.5} aria-hidden="true" /> Rückgängig
 			</button>
 		</p>
 	{/if}
+
 	{#if controller.status === 'idle'}
-		<p class="intro">Schöne Ziele in der Nähe, die einen Umweg wert sind – Seen, Flüsse, Wälder, Parks.</p>
 		<button type="button" class="primary" onclick={() => controller.find()}>
 			<Sparkles size={24} strokeWidth={2.25} aria-hidden="true" /> Spannende Umwege suchen
 		</button>
+		<p class="hint">Seen, Flüsse, Wälder und Parks in der Nähe</p>
 	{:else if controller.status === 'searching'}
-		<p class="intro" role="status">Wir suchen spannende Umwege …</p>
+		<p class="message" role="status">Wir suchen …</p>
 	{:else if controller.status === 'none'}
-		<p class="intro">Kein spannender Umweg gefunden. Ihre Tour nimmt in dieser Gegend schon das Schönste mit.</p>
+		<p class="message">Kein spannender Umweg gefunden.</p>
+		<p class="hint">Ihre Tour nimmt hier schon das Schönste mit.</p>
 	{:else if controller.status === 'unavailable'}
-		<p class="intro">Die Suche ist gerade nicht möglich. Bitte versuchen Sie es später noch einmal.</p>
+		<p class="message">Die Suche geht gerade nicht. Bitte später noch einmal versuchen.</p>
 	{:else if controller.status === 'error'}
-		<p class="intro">Die Suche hat leider nicht geklappt.</p>
+		<p class="message">Die Suche hat nicht geklappt.</p>
 		<button type="button" class="decline" onclick={() => controller.find()}>Noch einmal versuchen</button>
 	{:else if !controller.selected}
-		<p class="intro">Tippen Sie auf ein Ziel – auf der Karte oder hier:</p>
+		<h2 class="title">Spannende Umwege</h2>
 		<ul class="list">
 			{#each controller.detours as detour (detour.highlight.id)}
-				{@const water = detour.highlight.kind === 'lake' || detour.highlight.kind === 'river'}
+				{@const water = isWater(detour.highlight.kind)}
 				<li>
 					<button type="button" class="item" onclick={() => controller.select(detour.highlight.id)}>
 						<span class="icon" class:water aria-hidden="true">
 							{#if water}<Waves size={22} strokeWidth={2.25} />{:else}<Trees size={22} strokeWidth={2.25} />{/if}
 						</span>
-						<span class="text">
-							<strong>{detour.offer.title}</strong>
-							<span>{plusText(detour.offer.extraMeters)} · {minutesText(detour.offer.extraMinutes)}</span>
-						</span>
+						<span class="name">{detour.highlight.name}</span>
+						<span class="extra">{roundKm(detour.offer.extraMeters)}</span>
+						<ChevronRight size={22} strokeWidth={2.5} aria-hidden="true" />
 					</button>
 				</li>
 			{/each}
 		</ul>
 	{:else}
 		{@const chosen = controller.selected}
+		{@const water = isWater(chosen.highlight.kind)}
 		<div class="head">
-			<button type="button" class="back" aria-label="Zurück zur Auswahl" onclick={() => controller.select(chosen.highlight.id)}>
+			<button type="button" class="back" aria-label="Zurück zur Liste" onclick={() => controller.select(chosen.highlight.id)}>
 				<ChevronLeft size={26} strokeWidth={2.5} aria-hidden="true" />
 			</button>
-			<h2>{chosen.offer.title}</h2>
+			<span class="icon" class:water aria-hidden="true">
+				{#if water}<Waves size={22} strokeWidth={2.25} />{:else}<Trees size={22} strokeWidth={2.25} />{/if}
+			</span>
+			<h2 class="title">{chosen.highlight.name}</h2>
 		</div>
-		<p class="facts"><strong>{plusText(chosen.offer.extraMeters)}</strong> · <strong>{minutesText(chosen.offer.extraMinutes)}</strong> · {chosen.offer.why}</p>
-		<p class="total">
-			Danach: {kmText(tour.stats.distance + chosen.offer.extraMeters)} km, ca. {clockText(tour.minutes + chosen.offer.extraMinutes)}
-			<span class="was">(jetzt {kmText(tour.stats.distance)} km, {clockText(tour.minutes)})</span>
-		</p>
+
+		<!-- Vergleich in großen Zahlen: bisher → mit Umweg -->
+		<div class="compare">
+			<div class="col">
+				<span class="label">Bisher</span>
+				<span class="value">{kmText(tour.stats.distance)} km</span>
+				<span class="value">{clockText(tour.minutes)}</span>
+			</div>
+			<span class="arrow" aria-hidden="true"><ArrowRight size={28} strokeWidth={2.5} /></span>
+			<div class="col new">
+				<span class="label">Mit Umweg</span>
+				<span class="value">{kmText(tour.stats.distance + chosen.offer.extraMeters)} km</span>
+				<span class="value">{clockText(tour.minutes + chosen.offer.extraMinutes)}</span>
+			</div>
+		</div>
+		<p class="badge">{plusText(chosen.offer.extraMeters)} · {plusTime(chosen.offer.extraMinutes)}</p>
+
 		<div class="buttons">
 			<button type="button" class="primary" onclick={() => controller.accept()}>
 				<Check size={24} strokeWidth={3} aria-hidden="true" /> Übernehmen
@@ -90,19 +119,33 @@
 
 <style>
 	.sheet-box {
-		padding: 0.875rem 1rem calc(0.875rem + env(safe-area-inset-bottom));
+		padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
 		border-radius: 1.5rem 1.5rem 0 0;
 		background: var(--color-surface);
 		box-shadow: 0 -4px 16px rgb(36 53 57 / 0.25);
 	}
 
-	.intro {
+	.title {
 		margin: 0 0 0.75rem;
-		font-weight: 700;
+		font-size: var(--text-large);
+		line-height: 1.2;
 	}
 
-	.intro:last-child {
-		margin-bottom: 0;
+	.head .title {
+		margin: 0;
+	}
+
+	.message {
+		margin: 0;
+		font-size: var(--text-large);
+		font-weight: 700;
+		text-align: center;
+	}
+
+	.hint {
+		margin: 0.5rem 0 0;
+		color: var(--color-text-muted);
+		text-align: center;
 	}
 
 	.primary {
@@ -143,12 +186,24 @@
 		background: var(--color-surface);
 		color: var(--color-text);
 		font: inherit;
+		font-weight: 700;
 		text-align: left;
 		cursor: pointer;
 	}
 
 	.item:hover {
 		border-color: var(--color-green);
+	}
+
+	.name {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.extra {
+		flex: none;
+		color: var(--color-green);
+		font-size: var(--text-large);
 	}
 
 	.icon {
@@ -166,26 +221,11 @@
 		background: var(--color-blue);
 	}
 
-	.text {
-		display: grid;
-		gap: 0.125rem;
-	}
-
-	.text span {
-		color: var(--color-text-muted);
-	}
-
 	.head {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		margin-bottom: 0.25rem;
-	}
-
-	h2 {
-		margin: 0;
-		font-size: var(--text-large);
-		line-height: 1.2;
+		gap: 0.625rem;
+		margin-bottom: 0.875rem;
 	}
 
 	.back {
@@ -201,19 +241,50 @@
 		cursor: pointer;
 	}
 
-	.facts {
-		margin: 0 0 0.25rem;
+	.compare {
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 0.625rem;
 	}
 
-	.total {
-		margin: 0 0 0.75rem;
+	.col {
+		display: grid;
+		gap: 0.125rem;
+		padding: 0.625rem 0.75rem;
+		border-radius: var(--radius);
+		background: var(--color-bg);
+		text-align: center;
+	}
+
+	.col.new {
+		background: var(--color-green-light);
+	}
+
+	.label {
+		color: var(--color-text-muted);
 		font-weight: 700;
 	}
 
-	.was {
-		display: block;
-		color: var(--color-text-muted);
-		font-weight: 400;
+	.value {
+		font-family: var(--font-title);
+		font-size: 1.5rem;
+		font-weight: 700;
+		line-height: 1.2;
+	}
+
+	.arrow {
+		color: var(--color-green);
+	}
+
+	.badge {
+		margin: 0 0 0.875rem;
+		padding: 0.375rem 0.75rem;
+		border-radius: 999px;
+		background: var(--color-sun-light);
+		font-weight: 700;
+		text-align: center;
 	}
 
 	.buttons {
@@ -235,7 +306,6 @@
 
 	.done {
 		display: flex;
-		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.5rem;
 		margin: 0 0 0.75rem;
@@ -245,9 +315,13 @@
 		font-weight: 700;
 	}
 
+	.done :global(svg) {
+		flex: none;
+		color: var(--color-green);
+	}
+
 	.done span {
 		flex: 1;
-		min-width: 10rem;
 	}
 
 	.undo {
@@ -268,7 +342,8 @@
 	.primary:focus-visible,
 	.item:focus-visible,
 	.back:focus-visible,
-	.decline:focus-visible {
+	.decline:focus-visible,
+	.undo:focus-visible {
 		outline: 3px solid var(--color-orange);
 		outline-offset: 2px;
 	}

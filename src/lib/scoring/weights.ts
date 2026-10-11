@@ -324,16 +324,21 @@ export const DETOURS = {
 	clusterLinkM: 1500,
 	/** Mindestgröße abseits der Tour in Punkten (≈ 400 m je Punkt: Umfang bzw. Flusslänge) */
 	minPoints: { lake: 3, river: 5, forest: 5, park: 5 },
-	/** ab dieser Größe zählt ein Highlight voll (für die Reihenfolge) */
-	sizeCapPoints: 20,
+	/** ab dieser Größe zählt ein Highlight voll (für die Reihenfolge) – Seen sind kleiner als Wälder und Flüsse */
+	sizeCapPoints: { lake: 8, river: 20, forest: 20, park: 20 },
 	/** so viele Highlights werden durchgerechnet, so viele höchstens angeboten, so weit liegen sie mindestens auseinander */
-	candidates: 8,
+	candidates: 12,
 	max: 6,
 	minApartM: 1500,
 	/** die Tour wird so weit vor/nach der nächsten Stelle verlassen: Faktor × Abstand des Highlights (mindestens minWindowM);
 	 * klappt es nicht, wird der nächste Faktor probiert */
-	windowFactors: [1.3, 2.0],
-	minWindowM: 2000,
+	windowFactors: [0.6, 1.0, 1.5],
+	minWindowM: 1200,
+	/** der Umweg muss mindestens so viel schöner sein als das wegfallende Stück (Punkte wie beautyScore) … */
+	minGain: 0.05,
+	/** … und darf höchstens so viel mehr Autoverkehr haben (Anteil), insgesamt höchstens maxTraffic */
+	trafficSlack: 0.05,
+	maxTraffic: 0.15,
 	/** See/Fluss: liegen die beiden Uferpunkte näher als das, reicht einer */
 	minShoreM: 600,
 	/** Streifen um die Linie Tour → Highlight → Tour: halbe Breite, Faktor für alles außerhalb */

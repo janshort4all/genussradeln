@@ -474,6 +474,11 @@
 			top: 1rem;
 		}
 
+		/* große Karte: über allem, auch über der unteren Leiste (sticky bildet sonst eine eigene Ebene unter ihr) */
+		.map-column:has(:global(.route-map.expanded)) {
+			z-index: 60;
+		}
+
 		.map-column .map,
 		.map-column .map.route {
 			height: calc(100vh - var(--bottom-bar-height) - 6rem);

@@ -1,7 +1,38 @@
 /** Teilstücke eines Wegs: Länge messen und einen neuen Weg an die Stelle eines Abschnitts setzen */
 import { bearing, distance, type LngLat } from '$lib/geo/geo';
-import type { DetailInterval, RouteInstruction, RoutePath } from '$lib/routing/graphhopper';
+import type { DetailInterval, RouteDetails, RouteInstruction, RoutePath } from '$lib/routing/graphhopper';
 import type { TourLeg } from '$lib/tour/model';
+
+function clip<T>(intervals: DetailInterval<T>[] | undefined, from: number, to: number): DetailInterval<T>[] {
+	const out: DetailInterval<T>[] = [];
+	for (const [f, t, v] of intervals ?? []) {
+		const start = Math.max(f, from);
+		const end = Math.min(t, to);
+		if (end > start) out.push([start - from, end - from, v]);
+	}
+	return out;
+}
+
+/** Das Stück von Punkt `from` bis Punkt `to` als eigener Weg (mit zugeschnittenen Abschnitts-Angaben) */
+export function slicePath(path: RoutePath, from: number, to: number): RoutePath {
+	const coordinates = path.coordinates.slice(from, to + 1);
+	const d = path.details;
+	const details: RouteDetails = {
+		road_class: clip(d.road_class, from, to),
+		bike_network: clip(d.bike_network, from, to),
+		surface: clip(d.surface, from, to),
+		smoothness: clip(d.smoothness, from, to),
+		street_name: clip(d.street_name, from, to),
+		average_slope: clip(d.average_slope, from, to),
+		road_environment: clip(d.road_environment, from, to),
+		max_speed: clip(d.max_speed, from, to)
+	};
+	let meters = 0;
+	for (let i = 1; i < coordinates.length; i++) {
+		meters += distance([coordinates[i - 1][0], coordinates[i - 1][1]], [coordinates[i][0], coordinates[i][1]]);
+	}
+	return { distance: meters, time: 0, ascend: 0, descend: 0, coordinates, details };
+}
 
 /** Länge bis zu jedem Punkt der Linie (Meter, erster Punkt 0) */
 export function cumulative(line: LngLat[]): number[] {
