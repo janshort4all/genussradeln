@@ -55,11 +55,12 @@ export class Voice {
 	 * Die neueste Ansage gewinnt: Eine noch wartende oder laufende ältere wird abgebrochen –
 	 * sonst käme z. B. „In 150 Metern links“ erst, wenn man schon abgebogen ist.
 	 */
-	say(text: string, beep = false) {
-		if (this.muted) return;
+	say(text: string, beep = false, force = false) {
+		// `force`: „Nochmal“ spricht auch bei ausgeschaltetem Ton (die Person hat ja gerade danach gefragt)
+		if (this.muted && !force) return;
 		if (this.canSpeak) speechSynthesis.cancel();
 		clearTimeout(this.pending);
-		if (beep) this.beep();
+		if (beep && !this.muted) this.beep();
 		if (!this.canSpeak) return;
 		const utterance = new SpeechSynthesisUtterance(text);
 		utterance.lang = 'de-DE';
@@ -76,14 +77,21 @@ export class Voice {
 	}
 }
 
-/** Bildschirm während der Fahrt anlassen (Screen Wake Lock). Gibt eine Funktion zum Freigeben zurück. */
-export async function keepScreenOn(): Promise<() => void> {
+/** Bildschirm wachhalten: Freigabe-Funktion; `active` sagt, ob der Browser es überhaupt erlaubt hat */
+export type ScreenLock = (() => void) & { active: boolean };
+
+/**
+ * Bildschirm während der Fahrt anlassen (Screen Wake Lock). Gibt eine Funktion zum Freigeben zurück. Klappt es nicht
+ * (alter Browser, Stromsparmodus), ist `active` falsch – die Seite weist dann darauf hin.
+ */
+export async function keepScreenOn(): Promise<ScreenLock> {
+	let lock: WakeLockSentinel | undefined;
 	try {
-		const lock = await navigator.wakeLock?.request('screen');
-		return () => void lock?.release().catch(() => {});
+		lock = await navigator.wakeLock?.request('screen');
 	} catch {
-		return () => {};
+		// nicht erlaubt, z. B. im Stromsparmodus
 	}
+	return Object.assign(() => void lock?.release().catch(() => {}), { active: !!lock });
 }
 
 export async function enterFullscreen() {

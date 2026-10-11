@@ -9,7 +9,9 @@
 	import Play from '@lucide/svelte/icons/play';
 	import Sun from '@lucide/svelte/icons/sun';
 	import Moon from '@lucide/svelte/icons/moon';
+	import Repeat from '@lucide/svelte/icons/repeat';
 	import Volume2 from '@lucide/svelte/icons/volume-2';
+	import VolumeX from '@lucide/svelte/icons/volume-x';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import NavMap from '$lib/map/NavMap.svelte';
 	import type { NavTheme } from '$lib/map/nav-style';
@@ -19,13 +21,14 @@
 		followPosition,
 		keepScreenOn,
 		simulateRide,
+		type ScreenLock,
 		Voice,
 		type PositionProblem
 	} from '$lib/navigation/device';
 	import { guide, initialNavState, type Fix, type NavView } from '$lib/navigation/guidance';
 	import { RouteTrack } from '$lib/navigation/track';
 	import TurnArrow from '$lib/navigation/TurnArrow.svelte';
-	import { actionText, arrowOf, distanceText } from '$lib/navigation/wording';
+	import { actionText, arrowOf, distanceText, repeatAnnouncement } from '$lib/navigation/wording';
 	import { highlightStops, stopsAlongRoute } from '$lib/stops/along';
 	import { STOP_LABELS } from '$lib/stops/kinds';
 	import { loadPois } from '$lib/stops/pois';
@@ -64,7 +67,23 @@
 	const voice = new Voice();
 	let navState = initialNavState();
 	let stopFollowing: (() => void) | undefined;
-	let releaseScreen: (() => void) | undefined;
+	let releaseScreen: ScreenLock | undefined;
+	// Der Browser hat das Wachhalten des Bildschirms nicht erlaubt → Hinweis in der Fahrtansicht
+	let screenWarning = $state(false);
+	// Ton: aus/an (Jan, 12.10.2026: „Ton aus“ und „Nochmal“ in der Fahrtansicht)
+	let muted = $state(false);
+
+	function toggleSound() {
+		voice.muted = !voice.muted;
+		muted = voice.muted;
+		if (muted) voice.stop();
+	}
+
+	/** „Nochmal“: die aktuelle Anweisung noch einmal sprechen – auch bei ausgeschaltetem Ton */
+	function repeatAnnouncementNow() {
+		const final = !!view?.maneuver && !!track && view.maneuver.sign === 4 && view.maneuver.leg === track.legCount - 1;
+		voice.say(repeatAnnouncement(view, final, tour.destinationName), false, true);
+	}
 
 	// Stopps zum Einkehren (für „Nächster Stopp“ und die Karte)
 	let stops: { along: number; name: string; lngLat: [number, number] }[] = $state([]);
@@ -109,6 +128,7 @@
 		phase = 'running';
 		await enterFullscreen();
 		releaseScreen = await keepScreenOn();
+		screenWarning = !releaseScreen.active && !simulate;
 		stopFollowing = simulate
 			? simulateRide(track, onFix)
 			: followPosition(onFix, (p) => {
@@ -137,6 +157,7 @@
 	async function resume() {
 		phase = 'running';
 		releaseScreen = await keepScreenOn();
+		screenWarning = !releaseScreen.active && !simulating;
 		stopFollowing = simulating && track ? simulateRide(track, onFix) : followPosition(onFix, (p) => (problem = p));
 	}
 
@@ -164,7 +185,10 @@
 
 	// Bildschirm war kurz aus (Wachhalten wird dann vom Browser beendet) → wieder anfordern
 	async function onVisibility() {
-		if (document.visibilityState === 'visible' && phase === 'running' && !releaseScreen) releaseScreen = await keepScreenOn();
+		if (document.visibilityState === 'visible' && phase === 'running' && !releaseScreen) {
+			releaseScreen = await keepScreenOn();
+			screenWarning = !releaseScreen.active && !simulating;
+		}
 		if (document.visibilityState === 'hidden') {
 			releaseScreen?.();
 			releaseScreen = undefined;
@@ -267,6 +291,10 @@
 				oninteract={() => overview && setOverview(true)}
 				label={overview ? 'Übersicht über die ganze Strecke' : 'Karte mit Ihrer Position auf der Strecke'}
 			/>
+			<!-- hell/dunkel: schwebend oben links auf der Karte (seltener gebraucht als Ton und Pause) -->
+			<button type="button" class="theme-button" onclick={() => (theme = theme === 'dark' ? 'light' : 'dark')}>
+				{#if theme === 'dark'}<Sun size={24} aria-hidden="true" /> Heller{:else}<Moon size={24} aria-hidden="true" /> Dunkler{/if}
+			</button>
 			{#if simulating}<p class="sim">Probefahrt</p>{/if}
 			{#if overview}
 				<button type="button" class="back-to-ride go" onclick={() => setOverview(false)}>
@@ -284,11 +312,20 @@
 			{#if nextStop && view}
 				<p class="next-stop">Einkehr: {nextStop.name} in {distanceText(nextStop.along - view.state.along)}</p>
 			{/if}
+			{#if screenWarning}
+				<p class="warning" role="status">
+					Ihr Handy hält den Bildschirm nicht von selbst an. Bitte stellen Sie in den Einstellungen die Bildschirmzeit auf „nie“
+					oder möglichst lang.
+				</p>
+			{/if}
 			<div class="buttons">
-				<button type="button" class="secondary" onclick={() => (theme = theme === 'dark' ? 'light' : 'dark')}>
-					{#if theme === 'dark'}<Sun size={24} aria-hidden="true" /> Heller{:else}<Moon size={24} aria-hidden="true" /> Dunkler{/if}
+				<button type="button" class="secondary" onclick={repeatAnnouncementNow}>
+					<Repeat size={26} aria-hidden="true" /> Nochmal
 				</button>
-				<button type="button" class="secondary" onclick={pause}><Pause size={24} aria-hidden="true" /> Pause</button>
+				<button type="button" class="secondary" aria-pressed={muted} onclick={toggleSound}>
+					{#if muted}<VolumeX size={26} aria-hidden="true" /> Ton an{:else}<Volume2 size={26} aria-hidden="true" /> Ton aus{/if}
+				</button>
+				<button type="button" class="secondary" onclick={pause}><Pause size={26} aria-hidden="true" /> Pause</button>
 			</div>
 		</section>
 
@@ -474,12 +511,23 @@
 
 	/* Knöpfe auf der Karte: schwebend, mit Rand, damit sie auf jedem Kartenhintergrund zu sehen sind */
 	.overview-button,
+	.theme-button,
 	.back-to-ride {
 		position: absolute;
 		z-index: 2;
 		width: auto;
 		min-height: 3.5rem;
 		box-shadow: 0 2px 8px rgb(0 0 0 / 0.5);
+	}
+
+	.theme-button {
+		top: 0.75rem;
+		left: 0.75rem;
+		padding: 0.5rem 1rem;
+		border: 2px solid var(--nav-muted);
+		background: var(--nav-bg);
+		color: var(--nav-text);
+		font-size: var(--text-base);
 	}
 
 	.overview-button {
@@ -500,8 +548,8 @@
 
 	.sim {
 		position: absolute;
-		top: 0.5rem;
-		left: 0.5rem;
+		top: 5rem;
+		left: 0.75rem;
 		margin: 0;
 		padding: 0.125rem 0.625rem;
 		border-radius: 999px;
@@ -526,10 +574,33 @@
 		font-size: var(--text-base);
 	}
 
+	/* drei Knöpfe nebeneinander: Symbol über dem Text, damit auch große Systemschrift hineinpasst */
 	.buttons {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 0.75rem;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 0.5rem;
+	}
+
+	.buttons button {
+		flex-direction: column;
+		gap: 0.125rem;
+		min-height: 4.25rem;
+		padding: 0.5rem 0.25rem;
+		font-size: var(--text-base);
+		line-height: 1.2;
+	}
+
+	.buttons button[aria-pressed='true'] {
+		background: var(--nav-accent);
+		border-color: var(--nav-accent);
+		color: var(--nav-bg);
+	}
+
+	.warning {
+		padding: 0.5rem 0.75rem;
+		border: 2px solid var(--nav-accent);
+		border-radius: 0.75rem;
+		font-size: var(--text-base);
 	}
 
 	.overlay {

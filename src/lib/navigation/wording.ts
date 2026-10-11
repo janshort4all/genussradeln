@@ -119,6 +119,32 @@ export function announceAhead(
 	return `${spokenDistance(meters)} ${actionText(m)}${m.street ? `, ${m.street}` : ''}.`;
 }
 
+/**
+ * „Nochmal“: der aktuelle Stand in einem Satz, auch wenn die letzte Ansage schon eine Weile her ist –
+ * „In 150 Metern links abbiegen“ mit der Entfernung von jetzt, nicht von damals.
+ */
+export function repeatAnnouncement(
+	view:
+		| {
+				maneuver?: Maneuver;
+				distance?: number;
+				then?: Maneuver;
+				offRoute?: { meters: number };
+		  }
+		| undefined,
+	isFinalGoal: boolean,
+	goalName?: string
+): string {
+	if (!view) return 'Ihr Standort wird noch gesucht.';
+	if (view.offRoute) {
+		const meters = view.offRoute.meters < 100 ? Math.round(view.offRoute.meters / 10) * 10 : Math.round(view.offRoute.meters / 50) * 50;
+		return `Sie sind etwa ${meters} Meter von der Strecke entfernt. Bitte fahren Sie zurück zur Strecke.`;
+	}
+	if (!view.maneuver || view.distance === undefined) return 'Bitte der Strecke folgen.';
+	if (view.distance < 25) return announceNow(view.maneuver, view.then, isFinalGoal, goalName);
+	return announceAhead(view.maneuver, view.distance, isFinalGoal, goalName, view.then);
+}
+
 /** Ansage an der Abzweigung, z. B. „Jetzt links abbiegen.“ – optional mit der nächsten gleich danach */
 export function announceNow(m: Maneuver, then: Maneuver | undefined, isFinalGoal: boolean, goalName?: string): string {
 	if (m.sign === 4) {
