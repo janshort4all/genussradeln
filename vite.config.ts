@@ -40,6 +40,38 @@ export default defineConfig({
 					'client/**/*.{js,css,ico,png,svg,webp,woff,woff2,webmanifest}',
 					'client/data/*.{json,bin}',
 					'prerendered/**/*.{html,json}'
+				],
+				// Kartenkacheln, Kartenbeschreibung und Schriften von OpenFreeMap bleiben auf dem Handy, sobald sie einmal geladen sind
+				// (auch die vorgeladenen, siehe src/lib/map/prefetch.ts): dieselbe Stelle noch einmal und die Karte ohne Netz gehen so.
+				// Begrenzt auf ca. 600 Kacheln (rund 60 MB) und 30 Tage; ist der Speicher des Handys voll, werden sie zuerst geräumt.
+				runtimeCaching: [
+					{
+						urlPattern: /^https:\/\/tiles\.openfreemap\.org\/planet\/[^/]+\/\d+\/\d+\/\d+\.pbf$/,
+						handler: 'CacheFirst',
+						options: {
+							cacheName: 'karte-kacheln',
+							expiration: { maxEntries: 600, maxAgeSeconds: 30 * 24 * 3600, purgeOnQuotaError: true },
+							cacheableResponse: { statuses: [200] }
+						}
+					},
+					{
+						urlPattern: /^https:\/\/tiles\.openfreemap\.org\/(planet|styles\/[^/]+)$/,
+						handler: 'StaleWhileRevalidate',
+						options: {
+							cacheName: 'karte-beschreibung',
+							expiration: { maxEntries: 10, maxAgeSeconds: 30 * 24 * 3600 },
+							cacheableResponse: { statuses: [200] }
+						}
+					},
+					{
+						urlPattern: /^https:\/\/tiles\.openfreemap\.org\/fonts\/.+\.pbf$/,
+						handler: 'CacheFirst',
+						options: {
+							cacheName: 'karte-schriften',
+							expiration: { maxEntries: 80, maxAgeSeconds: 90 * 24 * 3600, purgeOnQuotaError: true },
+							cacheableResponse: { statuses: [200] }
+						}
+					}
 				]
 			},
 			kit: {

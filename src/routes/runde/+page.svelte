@@ -2,22 +2,24 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import Clock from '@lucide/svelte/icons/clock';
+	import Dices from '@lucide/svelte/icons/dices';
+	import Heart from '@lucide/svelte/icons/heart';
+	import InfinityIcon from '@lucide/svelte/icons/infinity';
 	import MapPin from '@lucide/svelte/icons/map-pin';
 	import Minus from '@lucide/svelte/icons/minus';
 	import Navigation from '@lucide/svelte/icons/navigation';
 	import Plus from '@lucide/svelte/icons/plus';
-	import Route from '@lucide/svelte/icons/route';
-	import Shuffle from '@lucide/svelte/icons/shuffle';
+	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import Trees from '@lucide/svelte/icons/trees';
 	import Waves from '@lucide/svelte/icons/waves';
 	import Waypoints from '@lucide/svelte/icons/waypoints';
 	import Wheat from '@lucide/svelte/icons/wheat';
-	import Button from '$lib/components/Button.svelte';
 	import ChoiceGroup from '$lib/components/ChoiceGroup.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
+	import type { SceneKind } from '$lib/components/Scene.svelte';
+	import StepHeader from '$lib/components/StepHeader.svelte';
 	import { currentPosition, PositionError } from '$lib/geo/position';
 	import { inRegion } from '$lib/geocode/photon';
 	import type { Effort } from '$lib/routing/graphhopper';
@@ -29,6 +31,7 @@
 
 	// Rundtour-Wunsch (F2): Start und Länge – die App schlägt fünf schöne Runden vor, bei jeder Suche andere.
 	// Start und Länge liegen im gemeinsamen Zwischenspeicher (draft), siehe „Zu einem Ziel“.
+	// Aufbau nach dem Entwurf von Jan (14.10.2026): vier nummerierte Schritte mit Bildkacheln.
 	const effort: Effort = 'easy';
 
 	/** Auswahl bis 50 km als Kacheln; darüber „Länger“ mit Plus und Minus (Tagestouren) */
@@ -37,17 +40,25 @@
 	const LONG_MAX = 150;
 	const LONG_STEP = 10;
 	const LONG_START = 70;
+	const SCENES: Record<number, SceneKind> = { 10: 'bench', 15: 'hills', 20: 'meadow', 30: 'forest', 40: 'river', 50: 'trail' };
 	const choices = [
-		...LENGTHS.map((value) => ({ value: String(value), label: `${value} km`, icon: Route })),
-		{ value: 'more', label: 'Länger als 50 km', icon: Route, wide: true }
+		...LENGTHS.map((value) => ({
+			value: String(value),
+			label: `${value} km`,
+			// Fahrzeit auf der Kachel, gemütlich gefahren – ein Richtwert
+			// (feste Leerzeichen: „40 Min.“ bricht nicht mitten auseinander)
+			sub: `ca. ${formatDuration(rideMinutes(value * 1000, 0, effort)).replace(/(\d) (Std\.|Min\.)/g, '$1 $2')}`,
+			art: SCENES[value]
+		})),
+		{ value: 'more', label: 'Länger als 50 km', icon: InfinityIcon, wide: true, chevron: true }
 	];
 
 	/** „Worauf haben Sie Lust?“ – die App sucht die Runde dann mehr am Wasser, im Wald oder durch Felder und Dörfer */
 	const wishes = [
-		{ value: 'water', label: 'Am Wasser', icon: Waves },
-		{ value: 'forest', label: 'Durch den Wald', icon: Trees },
-		{ value: 'fields', label: 'Durch Felder und Dörfer', icon: Wheat },
-		{ value: 'any', label: 'Überrasche mich', icon: Shuffle }
+		{ value: 'water', label: 'Am Wasser', icon: Waves, art: 'water' as SceneKind, photo: true },
+		{ value: 'forest', label: 'Durch den Wald', icon: Trees, art: 'woods' as SceneKind, photo: true },
+		{ value: 'fields', label: 'Durch Felder und Dörfer', icon: Wheat, art: 'fields' as SceneKind, photo: true },
+		{ value: 'any', label: 'Überrasche mich', icon: Dices, tall: true }
 	];
 
 	const km = $derived(Number(draft.km));
@@ -127,9 +138,13 @@
 
 <form onsubmit={submit} novalidate>
 	<section class="sheet over" aria-labelledby="start-title">
-		<h2 id="start-title" class="card-title">
-			<MapPin size={30} strokeWidth={2} aria-hidden="true" /> Wo starten Sie?
-		</h2>
+		<StepHeader
+			id="start-title"
+			number={1}
+			icon={MapPin}
+			title="Wo starten Sie?"
+			hint="Wählen Sie Ihren Startpunkt für die Runde."
+		/>
 		<ChoiceGroup
 			legend="Wo starten Sie?"
 			hideLegend
@@ -147,9 +162,13 @@
 	</section>
 
 	<section class="sheet" aria-labelledby="length-title">
-		<h2 id="length-title" class="card-title">
-			<Waypoints size={30} strokeWidth={2} aria-hidden="true" /> Wie lang soll die Runde sein?
-		</h2>
+		<StepHeader
+			id="length-title"
+			number={2}
+			icon={Waypoints}
+			title="Wie lang soll die Runde sein?"
+			hint="Wählen Sie eine ungefähre Länge. Die Fahrzeit ist ein Richtwert."
+		/>
 		<ChoiceGroup
 			legend="Wie lang soll die Runde sein?"
 			hideLegend
@@ -170,31 +189,54 @@
 					<Plus size={30} strokeWidth={3} aria-hidden="true" />
 				</button>
 			</div>
-		{/if}
-
-		<p class="note">
-			<Clock size={24} strokeWidth={2} aria-hidden="true" />
-			<span>{km} km sind gemütlich gefahren ca. {duration}.</span>
-		</p>
-		{#if isLong}
-			<p class="note day">
-				<span>Das ist eine Tagestour. Bitte planen Sie Pausen ein und denken Sie an den Akku.</span>
+			<p class="note">
+				<span>{km} km sind gemütlich gefahren ca. {duration}. Das ist eine Tagestour – bitte planen Sie Pausen ein und denken Sie an den Akku.</span>
 			</p>
 		{/if}
-
 	</section>
 
 	<section class="sheet" aria-labelledby="wish-title">
-		<h2 id="wish-title" class="card-title">
-			<Sparkles size={30} strokeWidth={2} aria-hidden="true" /> Worauf haben Sie Lust?
-		</h2>
+		<StepHeader
+			id="wish-title"
+			number={3}
+			icon={Heart}
+			title="Worauf haben Sie Lust?"
+			hint="Wählen Sie, was Ihnen besonders gut gefällt."
+		/>
 		<ChoiceGroup legend="Worauf haben Sie Lust?" hideLegend name="wish" columns={2} bind:value={draft.wish} choices={wishes} />
+	</section>
+
+	<section class="sheet" aria-labelledby="find-title">
+		<StepHeader
+			id="find-title"
+			number={4}
+			icon={SlidersHorizontal}
+			title="Schöne Runden finden"
+			hint="Wir suchen jetzt passende Routen in Ihrer Umgebung. Sie können die Ergebnisse im nächsten Schritt in Ruhe auswählen."
+		/>
 
 		<p class="problem" role="alert">{problem}</p>
 
-		<Button variant="brand" type="submit" icon={Sparkles} trailing={ChevronRight} disabled={busy}>
-			{busy ? 'Standort wird bestimmt …' : 'Schöne Runden finden'}
-		</Button>
+		<button type="submit" class="find" disabled={busy}>
+			<!-- Wiesen und Bäume im Hintergrund, nur Schmuck -->
+			<svg class="find-art" viewBox="0 0 300 60" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+				<path d="M0 44 Q40 22 90 40 T170 36 T300 42 V60 H0 Z" fill="#3b5742" />
+				<path d="M0 52 Q60 40 140 50 T300 48 V60 H0 Z" fill="#33503a" />
+				<g fill="#4a6a4f">
+					<circle cx="24" cy="30" r="9" />
+					<rect x="22.5" y="36" width="3" height="10" />
+					<circle cx="46" cy="34" r="7" />
+					<rect x="44.5" y="38" width="3" height="8" />
+					<circle cx="262" cy="28" r="10" />
+					<rect x="260.5" y="35" width="3" height="11" />
+					<circle cx="282" cy="33" r="7" />
+					<rect x="280.5" y="37" width="3" height="9" />
+				</g>
+			</svg>
+			<Sparkles size={26} strokeWidth={2.25} aria-hidden="true" />
+			<span>{busy ? 'Standort wird bestimmt …' : 'Schöne Runden finden'}</span>
+			<span class="trailing" aria-hidden="true"><ChevronRight size={28} strokeWidth={2.5} /></span>
+		</button>
 	</section>
 </form>
 
@@ -203,20 +245,6 @@
 	.over {
 		position: relative;
 		z-index: 1;
-	}
-
-	.card-title {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		margin: 0 0 0.875rem;
-		font-size: var(--text-large);
-		line-height: 1.2;
-	}
-
-	.card-title :global(svg) {
-		flex: none;
-		color: var(--color-green);
 	}
 
 	.stepper {
@@ -261,24 +289,11 @@
 	}
 
 	.note {
-		display: flex;
-		align-items: center;
-		gap: 0.625rem;
-		margin: 0 0 1rem;
+		margin: 0 0 0.5rem;
 		padding: 0.75rem 1rem;
 		border-radius: var(--radius);
-		background: var(--color-green-light);
-		color: var(--color-text);
-	}
-
-	.note :global(svg) {
-		flex: none;
-		color: var(--color-green);
-	}
-
-	.day {
-		margin-top: -0.25rem;
 		background: var(--color-sun-light);
+		color: var(--color-text);
 		font-weight: 700;
 	}
 
@@ -290,5 +305,62 @@
 
 	.problem:empty {
 		display: none;
+	}
+
+	/* Hauptknopf: dunkelgrün mit Wiese im Hintergrund (Entwurf) – weiße Schrift 11 : 1 */
+	.find {
+		position: relative;
+		isolation: isolate;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.625rem;
+		width: 100%;
+		min-height: 4rem;
+		padding: 0.75rem 3rem 0.75rem 1rem;
+		overflow: hidden;
+		border: 2px solid transparent;
+		border-radius: var(--radius);
+		background: var(--color-green);
+		box-shadow: 0 3px 0 #18241d;
+		color: var(--color-surface);
+		font-family: var(--font-text);
+		font-size: var(--text-large);
+		font-weight: 700;
+		line-height: 1.25;
+		cursor: pointer;
+	}
+
+	.find:hover {
+		background: #1d2c23;
+	}
+
+	.find:focus-visible {
+		outline: 3px solid var(--color-orange);
+		outline-offset: 3px;
+	}
+
+	.find:disabled {
+		cursor: not-allowed;
+		opacity: 0.6;
+	}
+
+	.find-art {
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		width: 100%;
+		height: 100%;
+	}
+
+	.find :global(svg:not(.find-art)) {
+		flex: none;
+	}
+
+	.trailing {
+		position: absolute;
+		right: 1rem;
+		display: grid;
+		place-items: center;
 	}
 </style>

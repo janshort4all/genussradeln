@@ -37,6 +37,7 @@
 	import { STOP_LABELS } from '$lib/stops/kinds';
 	import { loadPois } from '$lib/stops/pois';
 	import { distance } from '$lib/geo/geo';
+	import { TilePrefetcher, tilesAlong } from '$lib/map/prefetch';
 	import { RideRecorder, rideMinutesRecorded, type RideRecord } from '$lib/navigation/recorder';
 	import { canShareRide, downloadRide, shareRide } from '$lib/navigation/ride-file';
 	import { removeRide, saveRide } from '$lib/storage/rides';
@@ -166,6 +167,42 @@
 				: ''
 	);
 
+	// Kartenkacheln vorladen (Jan, 14.10.2026): schon vor dem Start die ersten Kilometer, unterwegs immer ein Stück voraus,
+	// dazu einmal die ganze Strecke grob (für „Ganze Strecke“). Sinkt der Vorrat unter 2,5 km, kommen die nächsten 5 km.
+	const PREFETCH_AHEAD_M = 5000;
+	const PREFETCH_REFILL_M = 2500;
+	const PREFETCH_RADIUS_M = 700;
+	const prefetcher = new TilePrefetcher();
+	let prefetchedTo = -1;
+	let prefetchStarted = false;
+	const prefetchNotes: string[] = [];
+
+	async function prefetchAhead(from: number) {
+		if (!track) return;
+		const to = Math.min(track.total, from + PREFETCH_AHEAD_M);
+		prefetchedTo = to;
+		const keys = tilesAlong(track.segment(from, to), [13, 14], PREFETCH_RADIUS_M);
+		const result = await prefetcher.load(keys);
+		if (result.loaded || result.failed) {
+			const note = `Karte vorgeladen bis ${(to / 1000).toFixed(1)} km: ${result.loaded} Kacheln (${Math.round(result.bytes / 1024)} KB), ${result.failed} nicht geladen`;
+			// vor dem Start gibt es noch keine Aufzeichnung – dann kommt es mit dem Start hinein
+			if (recorder) recorder.event(note);
+			else prefetchNotes.push(note);
+		}
+	}
+
+	async function prefetchStart() {
+		if (prefetchStarted || !track) return;
+		prefetchStarted = true;
+		await prefetchAhead(0);
+		// ganze Strecke grob: genügt für die Übersicht
+		await prefetcher.load(tilesAlong(line, [11, 12], 3000, 2000));
+	}
+
+	$effect(() => {
+		if (track && phase === 'ready') void prefetchStart();
+	});
+
 	async function persist() {
 		if (recorder) await saveRide(recorder.record).catch(() => {});
 	}
@@ -260,6 +297,9 @@
 		}
 		view = next;
 		lastFixAt = Date.now();
+		if (next.state.along + PREFETCH_AHEAD_M > prefetchedTo + PREFETCH_REFILL_M && prefetchedTo < (track?.total ?? 0)) {
+			void prefetchAhead(next.state.along);
+		}
 		recorder?.fix(fix, next);
 		// alle Ansagen dieser Meldung in einem Satz – eine neue Ansage bricht sonst die vorige ab
 		if (next.speak.length) voice.say(next.speak.map((a) => a.text).join(' '), next.speak.some((a) => a.beep));
@@ -282,6 +322,7 @@
 				device: simulate ? 'Probefahrt am PC' : navigator.userAgent
 			});
 			recorder.event('Start');
+			for (const note of prefetchNotes.splice(0)) recorder.event(note);
 			void persist();
 		}
 		phase = 'running';
@@ -392,6 +433,7 @@
 	}
 
 	onDestroy(() => {
+		prefetcher.stop();
 		clearTimeout(overviewTimer);
 		stopAll();
 		if (typeof document !== 'undefined') void exitFullscreen();

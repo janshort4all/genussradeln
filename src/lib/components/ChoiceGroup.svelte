@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	import type { LucideIcon } from '@lucide/svelte';
+	import type { SceneKind } from './Scene.svelte';
 
 	export interface Choice {
 		value: string;
@@ -7,11 +8,23 @@
 		icon?: LucideIcon;
 		/** füllt eine ganze Zeile */
 		wide?: boolean;
+		/** zweite Zeile in normaler Schrift, z. B. „ca. 40 Min.“ */
+		sub?: string;
+		/** kleine gezeichnete Landschaft unter dem Text */
+		art?: SceneKind;
+		/** Landschaft als Hintergrund der ganzen Kachel, Symbol in weißer Scheibe, Text weiß darunter (wie im Entwurf) */
+		photo?: boolean;
+		/** höhere Kachel, passend zu den Bildkacheln daneben */
+		tall?: boolean;
+		/** Pfeil „>“ am rechten Rand (führt zu weiteren Angaben) */
+		chevron?: boolean;
 	}
 </script>
 
 <script lang="ts">
 	import Check from '@lucide/svelte/icons/check';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Scene from './Scene.svelte';
 
 	/**
 	 * Auswahlgruppe aus großen Kacheln, z. B. „1 Std. / 2 Std. / Halber Tag“.
@@ -63,7 +76,14 @@
 		style:grid-template-columns={columns ? `repeat(${columns}, minmax(0, 1fr))` : undefined}
 	>
 		{#each choices as choice (choice.value)}
-			<label class="option" class:with-icon={choice.icon} style:grid-column={choice.wide ? '1 / -1' : undefined}>
+			<label
+				class="option"
+				class:with-icon={choice.icon}
+				class:photo={choice.photo && choice.art}
+				class:tall={choice.tall}
+				class:wide={choice.wide}
+				style:grid-column={choice.wide ? '1 / -1' : undefined}
+			>
 				<input
 					type={multiple ? 'checkbox' : 'radio'}
 					{name}
@@ -71,10 +91,22 @@
 					checked={isChecked(choice.value)}
 					onchange={(e) => toggle(choice.value, e.currentTarget.checked)}
 				/>
-				{#if choice.icon}
-					<choice.icon class="icon" size={28} strokeWidth={2} aria-hidden="true" />
+				{#if choice.photo && choice.art}
+					<span class="scene full" aria-hidden="true"><Scene kind={choice.art} /></span>
+					<span class="shade" aria-hidden="true"></span>
+					{#if choice.icon}
+						<span class="disc" aria-hidden="true"><choice.icon size={26} strokeWidth={2} /></span>
+					{/if}
+					<span class="label">{choice.label}</span>
+				{:else}
+					{#if choice.icon}
+						<choice.icon class="icon" size={28} strokeWidth={2} aria-hidden="true" />
+					{/if}
+					<span class="label">{choice.label}</span>
+					{#if choice.sub}<span class="sub">{choice.sub}</span>{/if}
+					{#if choice.art}<span class="scene small" aria-hidden="true"><Scene kind={choice.art} /></span>{/if}
 				{/if}
-				<span>{choice.label}</span>
+				{#if choice.chevron}<ChevronRight class="chevron" size={26} strokeWidth={2.5} aria-hidden="true" />{/if}
 				<!-- Häkchen zusätzlich zur Farbe, damit die Auswahl nicht nur über Farbe erkennbar ist -->
 				<span class="badge" aria-hidden="true"><Check size={16} strokeWidth={3.5} /></span>
 			</label>
@@ -133,6 +165,91 @@
 		min-height: 5.25rem;
 	}
 
+	.option.tall {
+		min-height: 8rem;
+	}
+
+	/* Zeile mit Pfeil rechts (z. B. „Länger als 50 km“): Symbol und Text nebeneinander */
+	.option.wide {
+		flex-direction: row;
+		min-height: 3.5rem;
+		gap: 0.75rem;
+	}
+
+	.option.wide :global(.chevron) {
+		position: absolute;
+		right: 1rem;
+		color: var(--color-green);
+	}
+
+	.sub {
+		font-size: var(--text-small);
+		font-weight: 400;
+		color: var(--color-text);
+	}
+
+	.label {
+		position: relative;
+	}
+
+	/* Kacheln mit Landschaft: Text oben, Landschaft unten – alle Kacheln einer Reihe gleich aufgebaut */
+	.option:has(.scene.small) {
+		justify-content: flex-start;
+	}
+
+	/* kleine Landschaft unter dem Text */
+	.scene.small {
+		display: block;
+		margin-top: auto;
+		width: 100%;
+		height: 3.75rem;
+		overflow: hidden;
+		border-radius: 0.5rem;
+	}
+
+	/* Bildkachel: Landschaft füllt die Kachel, unten ein dunkler Verlauf für die weiße Schrift */
+	.option.photo {
+		justify-content: flex-end;
+		min-height: 8rem;
+		padding: 0.5rem;
+		overflow: hidden;
+		border-color: transparent;
+		color: #fff;
+	}
+
+	.option.photo:has(input:checked) {
+		border-color: var(--color-green);
+		background: var(--color-surface);
+		color: #fff;
+	}
+
+	.scene.full {
+		position: absolute;
+		inset: 0;
+	}
+
+	.shade {
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(0deg, rgb(20 32 26 / 0.82) 0%, rgb(20 32 26 / 0.5) 38%, rgb(20 32 26 / 0) 70%);
+	}
+
+	.disc {
+		position: relative;
+		display: grid;
+		place-items: center;
+		width: 2.75rem;
+		height: 2.75rem;
+		margin-bottom: auto;
+		border-radius: 50%;
+		background: #fdfbf5;
+		color: var(--color-green);
+	}
+
+	.option.photo .label {
+		text-shadow: 0 1px 3px rgb(0 0 0 / 0.6);
+	}
+
 	.option :global(.icon) {
 		color: var(--color-olive);
 		flex: none;
@@ -177,6 +294,13 @@
 
 	.option:has(input:checked) .badge {
 		display: grid;
+	}
+
+	/* Bildkachel schneidet am Rand ab – das Häkchen sitzt deshalb innen */
+	.option.photo .badge {
+		top: 0.375rem;
+		right: 0.375rem;
+		box-shadow: 0 0 0 2px #fff;
 	}
 
 	.option:has(input:focus-visible) {
