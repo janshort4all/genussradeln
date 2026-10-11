@@ -116,7 +116,13 @@ export function announceAhead(
 			: `${spokenDistance(meters)} erreichen Sie ${goalName ?? 'Ihr Ziel'}.`;
 	}
 	if (then && then.sign !== 4) return `${spokenDistance(meters)} ${actionText(m)} und gleich danach ${actionText(then)}.`;
-	return `${spokenDistance(meters)} ${actionText(m)}${m.street ? `, ${m.street}` : ''}.`;
+	return `${spokenDistance(meters)} ${actionText(m)}${ontoText(m)}.`;
+}
+
+/** „, Uerdinger Straße“ bzw. „ auf den Feldweg“ – wohin es geht, wenn man es erkennen kann */
+export function ontoText(m: Pick<Maneuver, 'street' | 'way'>): string {
+	if (m.street) return `, ${m.street}`;
+	return m.way ? ` auf den ${m.way}` : '';
 }
 
 /**
@@ -152,7 +158,7 @@ export function announceNow(m: Maneuver, then: Maneuver | undefined, isFinalGoal
 			? 'Sie sind am Ziel. Schöne Pause!'
 			: `Sie haben ${goalName ?? 'Ihr Ziel'} erreicht. Jetzt beginnt der Rückweg – auf einem anderen Weg.`;
 	}
-	const now = `Jetzt ${actionText(m)}.`;
+	const now = `Jetzt ${actionText(m)}${m.street ? '' : ontoText(m)}.`;
 	if (then && then.sign !== 4) return `${now} Danach gleich ${actionText(then)}.`;
 	return now;
 }

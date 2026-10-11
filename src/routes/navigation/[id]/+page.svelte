@@ -91,6 +91,17 @@
 	});
 	let simulating = $state(false);
 
+	/**
+	 * Die nächste Abzweigung als großes Zeichen auf der Karte (Jan, 13.10.2026: am schmalen, unbenannten Weg war unklar, wo es
+	 * abbiegen sollte): Scheibe mit Abbiegepfeil genau dort, ausgerichtet an der Fahrtrichtung, die man dort hat. Erst ab 600 m.
+	 */
+	const TURN_SHOWN_M = 600;
+	const turn = $derived.by(() => {
+		const m = view?.maneuver;
+		if (!track || !view || view.offRoute || !m || m.sign === 4 || view.distance === undefined || view.distance > TURN_SHOWN_M) return undefined;
+		return { lngLat: track.pointAt(m.at), kind: arrowOf(m.sign), bearing: track.bearingAt(Math.max(0, m.at - 20), 20) };
+	});
+
 	// Übersicht über die ganze Strecke: Karte zeigt alles (Norden oben, verschiebbar). Nach einer Weile geht es von selbst
 	// zurück zur Fahrtansicht – unterwegs soll niemand die Übersicht vergessen (Jan, 12.10.2026).
 	const OVERVIEW_SECONDS = 45;
@@ -467,7 +478,7 @@
 				<div>
 					<p class="distance">{distanceText(view.distance)}</p>
 					<p class="action">{view.maneuver.sign === 4 ? 'Ziel' : actionText(view.maneuver)}</p>
-					{#if view.maneuver.street}<p class="street">{view.maneuver.street}</p>{/if}
+					{#if view.maneuver.street}<p class="street">{view.maneuver.street}</p>{:else if view.maneuver.way}<p class="street">auf den {view.maneuver.way}</p>{/if}
 					{#if view.then}
 						<p class="then">
 							<span>dann</span>
@@ -487,6 +498,7 @@
 				whole={line}
 				labels={signs}
 				position={view?.position}
+					{turn}
 				heading={view?.heading ?? track.bearingAt(0)}
 				{zoom}
 				{theme}

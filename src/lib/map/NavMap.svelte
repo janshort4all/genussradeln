@@ -4,6 +4,8 @@
 	import { onMount } from 'svelte';
 	import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
 	import { boundsOf, type LngLat } from '$lib/geo/geo';
+	import TurnArrow from '$lib/navigation/TurnArrow.svelte';
+	import type { ArrowKind } from '$lib/navigation/wording';
 	import { navColors, navStyle, type NavTheme } from './nav-style';
 
 	/**
@@ -21,6 +23,8 @@
 		ahead: LngLat[];
 		rest: LngLat[];
 		position?: LngLat;
+		/** nächste Abzweigung als Zeichen auf der Karte: Ort, Pfeilart und Richtung, aus der man kommt (Grad) */
+		turn?: { lngLat: LngLat; kind: ArrowKind; bearing: number };
 		/** Fahrtrichtung in Grad – die Karte dreht sich so, dass sie nach oben zeigt */
 		heading: number;
 		zoom: number;
@@ -42,6 +46,7 @@
 		ahead,
 		rest,
 		position,
+		turn,
 		heading,
 		zoom,
 		theme,
@@ -58,6 +63,8 @@
 	let ready = $state(false);
 	let marker: Marker | undefined;
 	let labelMarkers: Marker[] = [];
+	let turnElement: HTMLDivElement | undefined = $state();
+	let turnMarker: Marker | undefined;
 	let createMarker: ((element: HTMLElement, lngLat: LngLat) => Marker) | undefined;
 	let shownTheme: NavTheme | undefined;
 	let styleToken = 0;
@@ -283,6 +290,22 @@
 		}
 	});
 
+	// Zeichen an der nächsten Abzweigung: dreht mit der Karte, der Pfeil zeigt von der Fahrtrichtung dort aus
+	$effect(() => {
+		const t = turn;
+		if (!map || !createMarker || !turnElement) return;
+		if (!t || overview) {
+			turnMarker?.remove();
+			turnMarker = undefined;
+			return;
+		}
+		if (!turnMarker) {
+			turnMarker = createMarker(turnElement, t.lngLat);
+			turnMarker.setRotationAlignment('map');
+		}
+		turnMarker.setLngLat(t.lngLat).setRotation(t.bearing);
+	});
+
 	// Standort folgen: ohne Animation, Standort im unteren Drittel, damit man mehr vom Weg vor sich sieht
 	// (in der Übersicht bleibt die Karte, wie sie ist – nur der Punkt wandert weiter)
 	$effect(() => {
@@ -295,11 +318,34 @@
 </script>
 
 <div class="nav-map" bind:this={container} role="img" aria-label={label}></div>
+<!-- Vorlage für das Abbiege-Zeichen; MapLibre hängt es in die Karte um -->
+<div class="turn-pool" aria-hidden="true">
+	<div class="nav-turn" bind:this={turnElement}>
+		{#if turn}<TurnArrow kind={turn.kind} size={38} />{/if}
+	</div>
+</div>
 
 <style>
 	.nav-map {
 		position: absolute;
 		inset: 0;
+	}
+
+	.turn-pool {
+		display: none;
+	}
+
+	.nav-map :global(.nav-turn) {
+		display: grid;
+		place-items: center;
+		width: 3.5rem;
+		height: 3.5rem;
+		border: 3px solid #000;
+		border-radius: 50%;
+		background: #f1b34c;
+		color: #000;
+		box-shadow: 0 1px 6px rgb(0 0 0 / 0.6);
+		pointer-events: none;
 	}
 
 	.nav-map :global(.nav-position) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { distance, offset, type LngLat } from '$lib/geo/geo';
 import { RouteTrack } from './track';
+import { announceAhead, announceNow } from './wording';
 
 const start: LngLat = [6.55, 51.35];
 /** Hinweg 1 km nach Osten, Rückweg 1 km zurück: Start und Ende liegen am selben Punkt */
@@ -9,6 +10,41 @@ const back = [...out].reverse().map((p) => offset(p, 0, 15));
 const track = new RouteTrack([{ coordinates: [...out, ...back].map(([lon, lat]) => [lon, lat, 30]) }]);
 
 const length = (line: LngLat[]) => line.slice(1).reduce((sum, p, i) => sum + distance(line[i], p), 0);
+
+describe('Wegart bei Abzweigungen ohne Namen', () => {
+	const line = Array.from({ length: 5 }, (_, i) => offset(start, 90, i * 100));
+	const withWays = new RouteTrack([
+		{
+			coordinates: line.map(([lon, lat]) => [lon, lat, 30]),
+			instructions: [
+				{ index: 1, sign: 2 },
+				{ index: 2, sign: -7 },
+				{ index: 3, sign: 1, street: 'Dorfstraße' }
+			],
+			details: {
+				road_class: [
+					[0, 2, 'residential'],
+					[2, 3, 'track'],
+					[3, 4, 'path']
+				]
+			}
+		}
+	]);
+
+	it('benennt den Weg nach der Abzweigung, wenn er keinen Namen hat', () => {
+		const [a, b, c] = withWays.maneuvers;
+		expect(a.way).toBeUndefined(); // Wohnstraße: kein Zusatz nötig
+		expect(b.way).toBe('Feldweg');
+		expect(c.way).toBeUndefined(); // hat einen Straßennamen
+	});
+
+	it('sagt die Wegart an, aber nur ohne Straßennamen', () => {
+		expect(announceAhead({ at: 0, sign: 2, way: 'Feldweg', leg: 0 }, 150, false)).toBe('In 150 Metern rechts abbiegen auf den Feldweg.');
+		expect(announceAhead({ at: 0, sign: -7, way: 'schmalen Weg', leg: 0 }, 100, false)).toBe('In 100 Metern links halten auf den schmalen Weg.');
+		expect(announceAhead({ at: 0, sign: 2, street: 'Dorfstraße', way: 'Feldweg', leg: 0 }, 150, false)).toBe('In 150 Metern rechts abbiegen, Dorfstraße.');
+		expect(announceNow({ at: 0, sign: 2, way: 'Radweg', leg: 0 }, undefined, false)).toBe('Jetzt rechts abbiegen auf den Radweg.');
+	});
+});
 
 describe('RouteTrack.segment', () => {
 	it('liefert das Stück zwischen zwei Metermarken mit genauen Enden', () => {

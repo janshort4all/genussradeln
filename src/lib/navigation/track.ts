@@ -3,7 +3,7 @@
  * und den Abzweigungen. Beantwortet „Wo auf der Strecke bin ich?“ und „Was kommt als Nächstes?“.
  */
 import { bearing, distance, type LngLat } from '$lib/geo/geo';
-import type { RouteInstruction } from '$lib/routing/graphhopper';
+import type { DetailInterval, RouteInstruction } from '$lib/routing/graphhopper';
 
 const RAD = Math.PI / 180;
 const EARTH_RADIUS = 6371000;
@@ -14,9 +14,34 @@ export interface Maneuver {
 	sign: number;
 	street?: string;
 	exit?: number;
+	/** Art des Wegs, auf den man abbiegt, wenn er keinen Namen hat: „Feldweg“, „Radweg“, „schmalen Weg“ (für die Ansage) */
+	way?: string;
 	/** Nummer des Abschnitts (0 = Hinweg, 1 = Rückweg) */
 	leg: number;
 }
+
+/**
+ * Wie man einen Weg ohne Namen nennt (Straßenklasse laut OpenStreetMap). Nur Wege, bei denen das Abbiegen sonst unklar ist –
+ * Straßen sind an Schildern und Häusern zu erkennen.
+ */
+export function wayName(roadClass: string | undefined): string | undefined {
+	switch (roadClass) {
+		case 'cycleway':
+			return 'Radweg';
+		case 'path':
+			return 'schmalen Weg';
+		case 'track':
+			return 'Feldweg';
+		case 'footway':
+		case 'pedestrian':
+			return 'Fußweg';
+		default:
+			return undefined;
+	}
+}
+
+const intervalValue = <T>(intervals: DetailInterval<T>[] | undefined, index: number): T | undefined =>
+	intervals?.find(([from, to]) => index >= from && index < to)?.[2];
 
 /** Wo auf der Strecke ein Punkt liegt */
 export interface Location {
@@ -39,7 +64,14 @@ export class RouteTrack {
 	/** Meter, an denen ein Abschnitt endet (bei Hin- und Rückweg: das Ziel) */
 	readonly legEnds: number[] = [];
 
-	constructor(legs: { coordinates: [number, number, number?][] | LngLat[]; instructions?: RouteInstruction[] }[]) {
+	constructor(
+		legs: {
+			coordinates: [number, number, number?][] | LngLat[];
+			instructions?: RouteInstruction[];
+			/** Straßenklassen je Abschnitt – damit sich unbenannte Wege beschreiben lassen */
+			details?: { road_class?: DetailInterval<string>[] };
+		}[]
+	) {
 		legs.forEach((leg, legIndex) => {
 			// der Rückweg beginnt dort, wo der Hinweg endet – den doppelten Punkt weglassen
 			const skipFirst = this.points.length > 0 ? 1 : 0;
@@ -55,7 +87,9 @@ export class RouteTrack {
 			for (const ins of leg.instructions ?? []) {
 				if (NOT_A_MANEUVER.has(ins.sign)) continue;
 				const index = Math.min(base + ins.index, this.cum.length - 1);
-				this.maneuvers.push({ at: this.cum[index], sign: ins.sign, street: ins.street, exit: ins.exit, leg: legIndex });
+				// den Weg nach der Abzweigung benennen: der Abschnitt, der am Punkt der Abzweigung beginnt
+				const way = ins.street ? undefined : wayName(intervalValue(leg.details?.road_class, Math.min(ins.index, leg.coordinates.length - 1)));
+				this.maneuvers.push({ at: this.cum[index], sign: ins.sign, street: ins.street, exit: ins.exit, way, leg: legIndex });
 			}
 		});
 		// fehlt das Ziel am Ende eines Abschnitts (ältere Touren ohne Hinweise), selbst ergänzen
