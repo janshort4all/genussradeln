@@ -163,3 +163,9 @@ export function simulateRide(track: RouteTrack, onFix: (fix: Fix) => void, speed
 	}, 1000);
 	return () => clearInterval(timer);
 }
+
+/**
+ * Die eine Stimme der App. „Tour starten“ auf der Tour-Seite schaltet sie frei (der Browser erlaubt Ton nur nach einer Berührung)
+ * und die Navigation benutzt dieselbe weiter – so geht es mit einem Tap direkt los.
+ */
+export const voice = new Voice();

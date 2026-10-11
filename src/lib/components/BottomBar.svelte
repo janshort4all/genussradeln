@@ -4,6 +4,7 @@
 	import Heart from '@lucide/svelte/icons/heart';
 	import House from '@lucide/svelte/icons/house';
 	import Menu from '@lucide/svelte/icons/menu';
+	import { area } from '$lib/tour/area.svelte';
 
 	/** Untere Leiste: Startseite / Meine Touren / Mehr (Entwurf von Jan, 10.10.2026) */
 	const items = [
@@ -20,8 +21,10 @@
 	function isActive(href: string): boolean {
 		const path = page.url.pathname;
 		const inMore = moreSection.some((p) => path.startsWith(p));
-		if (href === home) return !inMore && !path.startsWith(myTours); // auch Eingabe, Vorschläge und Tourdetail
-		if (href === myTours) return path.startsWith(myTours);
+		// Tourdetail: der Bereich, aus dem man gekommen ist (Meine Touren oder die Planung auf der Startseite)
+		const fromMyTours = area.tab === 'meine-touren' && path.startsWith('/tour');
+		if (href === home) return !inMore && !path.startsWith(myTours) && !fromMyTours; // auch Eingabe, Vorschläge und Tourdetail
+		if (href === myTours) return path.startsWith(myTours) || fromMyTours;
 		return inMore;
 	}
 </script>

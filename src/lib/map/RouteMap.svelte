@@ -156,6 +156,11 @@
 		pushState('', { mapOpen: mapId });
 	}
 
+	/** „Spannende Umwege suchen“ auf der Tour-Seite öffnet die große Karte, in der die Umwege erscheinen */
+	export function openLargeMap() {
+		if (!expanded) openLarge();
+	}
+
 	function closeLarge() {
 		if (expanded) history.back();
 	}

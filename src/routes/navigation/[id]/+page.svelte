@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { asset, resolve } from '$app/paths';
-	import { beforeNavigate, goto } from '$app/navigation';
-	import { onDestroy } from 'svelte';
+	import { beforeNavigate, goto, replaceState } from '$app/navigation';
+	import { onDestroy, onMount } from 'svelte';
 	import Download from '@lucide/svelte/icons/download';
 	import Flag from '@lucide/svelte/icons/flag';
 	import MapIcon from '@lucide/svelte/icons/map';
@@ -26,7 +26,7 @@
 		keepScreenOn,
 		simulateRide,
 		type ScreenLock,
-		Voice,
+		voice,
 		type PositionProblem
 	} from '$lib/navigation/device';
 	import { guide, initialNavState, type Fix, type NavView } from '$lib/navigation/guidance';
@@ -39,6 +39,7 @@
 	import { distance } from '$lib/geo/geo';
 	import { TilePrefetcher, tilesAlong } from '$lib/map/prefetch';
 	import { RideRecorder, rideMinutesRecorded, type RideRecord } from '$lib/navigation/recorder';
+	import { recordChoice, setRecordChoice } from '$lib/navigation/record-choice.svelte';
 	import { canShareRide, downloadRide, shareRide } from '$lib/navigation/ride-file';
 	import { removeRide, saveRide } from '$lib/storage/rides';
 	import { tourLine } from '$lib/tour/model';
@@ -120,7 +121,7 @@
 		typeof window !== 'undefined' &&
 		(window.matchMedia('(pointer: fine)').matches || new URLSearchParams(location.search).has('probefahrt'));
 
-	const voice = new Voice();
+	voice.muted = false;
 	let navState = initialNavState();
 	let stopFollowing: (() => void) | undefined;
 	let releaseScreen: ScreenLock | undefined;
@@ -129,23 +130,6 @@
 
 	// Fahrt aufzeichnen (Testbetrieb): Standortmeldungen und was die App angezeigt hat, nur auf dem Gerät; am Ende als Datei zu speichern.
 	// Voreinstellung „an“, die Person kann es vor der Fahrt abschalten – und merkt es sich.
-	const RECORD_KEY = 'genuss-fahrt-aufzeichnen';
-	function readRecordChoice(): boolean {
-		try {
-			return localStorage.getItem(RECORD_KEY) !== 'aus';
-		} catch {
-			return true;
-		}
-	}
-	let recordRide = $state(readRecordChoice());
-	function setRecordChoice(on: boolean) {
-		recordRide = on;
-		try {
-			localStorage.setItem(RECORD_KEY, on ? 'an' : 'aus');
-		} catch {
-			// Speicher gesperrt – dann gilt die Wahl nur für diese Fahrt
-		}
-	}
 	let recorder: RideRecorder | undefined;
 	let rideRecord: RideRecord | undefined = $state();
 	let reachedGoal = $state(false);
@@ -306,6 +290,23 @@
 		if (next.state.finished) finish();
 	}
 
+	// „Tour starten“ auf der Tour-Seite hängt `?start` an: dann geht es ohne weiteren Tap los (der Startbildschirm bleibt für direkte
+	// Aufrufe, z. B. nach dem Neuladen der Seite)
+	let startPending = false;
+	onMount(() => {
+		if (new URLSearchParams(location.search).has('start')) {
+			startPending = true;
+			// `?start` aus der Adresse nehmen, damit „Zurück“ später nicht noch einmal eine Fahrt beginnt
+			replaceState(resolve('/navigation/[id]', { id: data.tour.id }), {});
+		}
+	});
+	$effect(() => {
+		if (startPending && track && phase === 'ready') {
+			startPending = false;
+			void start(false);
+		}
+	});
+
 	async function start(simulate = false) {
 		if (!track) return;
 		voice.unlock();
@@ -313,7 +314,7 @@
 		rideRecord = undefined;
 		saveNote = '';
 		recorder = undefined;
-		if (recordRide) {
+		if (recordChoice.on) {
 			recorder = new RideRecorder({
 				tourId: tour.id,
 				title: tour.title,
@@ -464,7 +465,7 @@
 				<li>Gleich fragt das Handy, ob die App Ihren Standort nutzen darf – bitte mit „Erlauben“ antworten.</li>
 			</ul>
 			<label class="record">
-				<input type="checkbox" checked={recordRide} onchange={(e) => setRecordChoice(e.currentTarget.checked)} />
+				<input type="checkbox" checked={recordChoice.on} onchange={(e) => setRecordChoice(e.currentTarget.checked)} />
 				<span>Fahrt aufzeichnen – für den Test. Die Aufzeichnung bleibt auf Ihrem Handy, bis Sie sie selbst verschicken.</span>
 			</label>
 			<button type="button" class="go" onclick={() => start(false)}>Navigation starten</button>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { asset, resolve } from '$app/paths';
 	import Bike from '@lucide/svelte/icons/bike';
 	import Check from '@lucide/svelte/icons/check';
@@ -14,6 +15,8 @@
 	import MapIcon from '@lucide/svelte/icons/map';
 	import MountainSnow from '@lucide/svelte/icons/mountain-snow';
 	import Share2 from '@lucide/svelte/icons/share-2';
+	import Sparkles from '@lucide/svelte/icons/sparkles';
+	import Volume2 from '@lucide/svelte/icons/volume-2';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import BatteryHint from '$lib/components/BatteryHint.svelte';
 	import ElevationProfile from '$lib/components/ElevationProfile.svelte';
@@ -23,6 +26,9 @@
 	import StopCards from '$lib/components/StopCards.svelte';
 	import TourScene from '$lib/components/illustrations/TourScene.svelte';
 	import RouteMap from '$lib/map/RouteMap.svelte';
+	import { enterFullscreen, voice } from '$lib/navigation/device';
+	import { recordChoice, setRecordChoice } from '$lib/navigation/record-choice.svelte';
+	import { area } from '$lib/tour/area.svelte';
 	import { DETAIL_ROUTE_COLOR } from '$lib/map/colors';
 	import { foodGapNote, highlightStops, stopsAlongRoute, toiletSentence } from '$lib/stops/along';
 	import { loadPois } from '$lib/stops/pois';
@@ -38,6 +44,31 @@
 	import { fromPlanned, type ViewStop } from '$lib/tour/view';
 
 	let { data } = $props();
+
+	// Welcher Bereich unten markiert ist: kam man aus „Meine Touren“, bleibt „Meine Touren“ markiert
+	$effect(() => {
+		area.tab = data.tour.backHref === 'meine-touren' ? 'meine-touren' : undefined;
+		return () => (area.tab = undefined);
+	});
+
+	let routeMap: RouteMap | undefined = $state();
+
+	/** „Spannende Umwege suchen“: große Karte öffnen und gleich suchen (Jan, 14.10.2026: soll von der Tour-Seite aus sichtbar sein) */
+	function findDetours() {
+		routeMap?.openLargeMap();
+		void detours.find();
+	}
+
+	/**
+	 * „Tour starten“: ein Tap, und die Navigation läuft. Ton und Vollbild müssen beim Antippen freigeschaltet werden (Browserregel),
+	 * deshalb hier und nicht erst auf der nächsten Seite. Die Hinweise (Ton laut, Standort erlauben) stehen darum direkt darunter.
+	 */
+	function startTour(event: MouseEvent) {
+		event.preventDefault();
+		voice.unlock();
+		void enterFullscreen();
+		void goto(`${resolve('/navigation/[id]', { id: tour.id })}?start`);
+	}
 	// Wurde ein schönerer Umweg übernommen (oder zurückgenommen), gilt die geänderte Tour statt der geladenen
 	let changed: PlannedTour | undefined = $state();
 	const planned = $derived(changed ?? data.planned);
@@ -321,7 +352,8 @@
 		{#if tour.map.kind === 'route'}
 			<div class="map route" bind:this={mapBox}>
 				<RouteMap
-					label="Karte mit dem Weg „{tour.title}“"
+					bind:this={routeMap}
+						label="Karte mit dem Weg „{tour.title}“"
 					routes={[{ id: tour.id, coordinates: tour.map.coordinates, color: DETAIL_ROUTE_COLOR }]}
 					markers={[
 						{ lngLat: tour.map.start, kind: 'start' },
@@ -400,11 +432,23 @@
 		{#if tour.battery}<BatteryHint level={tour.battery} />{/if}
 
 		<div class="actions">
-			<a class="start-button" href={resolve('/navigation/[id]', { id: tour.id })}>
+			<a class="start-button" href={resolve('/navigation/[id]', { id: tour.id })} onclick={startTour}>
 				<Bike size={28} strokeWidth={2.25} aria-hidden="true" />
 				<span>Tour starten</span>
 				<ChevronRight size={26} strokeWidth={2.5} aria-hidden="true" />
 			</a>
+			{#if planned && tour.map.kind === 'route'}
+				<div class="start-notes">
+					<p><Volume2 size={22} aria-hidden="true" /> <span>Bitte Ton laut stellen – die App sagt jede Abzweigung an. Beim Start fragt das Handy nach dem Standort: bitte „Erlauben“.</span></p>
+					<label class="record">
+						<input type="checkbox" checked={recordChoice.on} onchange={(e) => setRecordChoice(e.currentTarget.checked)} />
+						<span>Fahrt aufzeichnen – für den Test. Die Aufzeichnung bleibt auf Ihrem Handy, bis Sie sie selbst verschicken.</span>
+					</label>
+				</div>
+				<button type="button" class="adjust-button" onclick={findDetours}>
+					<Sparkles size={22} strokeWidth={2.25} aria-hidden="true" /> Spannende Umwege suchen
+				</button>
+			{/if}
 			{#if tour.map.kind === 'route'}
 				<button type="button" class="adjust-button" onclick={saveGpx}>
 					<Download size={22} strokeWidth={2.25} aria-hidden="true" /> Als GPX-Datei speichern
@@ -811,6 +855,44 @@
 
 	.start-button:hover {
 		background: #1d2c23;
+	}
+
+	.start-notes {
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.start-notes p {
+		display: flex;
+		gap: 0.5rem;
+		align-items: flex-start;
+		margin: 0;
+		color: var(--color-text-muted);
+	}
+
+	.start-notes p :global(svg) {
+		flex: none;
+		margin-top: 0.2rem;
+		color: var(--color-olive);
+	}
+
+	.record {
+		display: flex;
+		gap: 0.75rem;
+		align-items: flex-start;
+		min-height: var(--tap);
+		padding: 0.5rem 0.75rem;
+		border: 2px solid var(--color-border);
+		border-radius: var(--radius);
+		background: var(--color-surface);
+	}
+
+	.record input {
+		flex: none;
+		width: 1.75rem;
+		height: 1.75rem;
+		margin: 0.125rem 0 0;
+		accent-color: var(--color-green);
 	}
 
 	.adjust-button {

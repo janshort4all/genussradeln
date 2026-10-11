@@ -208,8 +208,10 @@
 		<ChoiceGroup legend="Worauf haben Sie Lust?" hideLegend name="wish" columns={2} bind:value={draft.wish} choices={wishes} />
 	</section>
 
-	<!-- Schluss: gleich der Knopf, ohne eigene Karte mit demselben Titel (Marketing-Prüfung, 14.10.2026) – weniger Scrollen, ein klarer Schritt -->
-	<div class="finish">
+	<!-- Schluss: gleich der Knopf, ohne eigene Karte mit demselben Titel (Marketing-Prüfung, 14.10.2026) – weniger Scrollen, ein klarer Schritt.
+	     Der Knopf bleibt beim Scrollen unten über der Leiste stehen (Jan: „festsetzen“); er muss dafür direkt im Formular sitzen, nicht in einem
+	     kleinen Block am Seitenende. Die Fehlermeldung steht im selben Block, damit sie nicht außer Sicht erscheint. -->
+	<div class="cta">
 		<p class="problem" role="alert">{problem}</p>
 
 		<button type="submit" class="find" disabled={busy}>
@@ -221,11 +223,11 @@
 			<span>{busy ? 'Standort wird bestimmt …' : 'Schöne Runden finden'}</span>
 			<span class="trailing" aria-hidden="true"><ChevronRight size={28} strokeWidth={2.5} /></span>
 		</button>
-		<p class="reassure">
-			<Check size={22} strokeWidth={3} aria-hidden="true" />
-			<span><strong>Kostenlos und ohne Anmeldung.</strong><br />Die Ergebnisse wählen Sie danach in Ruhe aus.</span>
-		</p>
 	</div>
+	<p class="reassure">
+		<Check size={22} strokeWidth={3} aria-hidden="true" />
+		<span><strong>Kostenlos und ohne Anmeldung.</strong><br />Die Ergebnisse wählen Sie danach in Ruhe aus.</span>
+	</p>
 </form>
 
 <style>
@@ -292,8 +294,19 @@
 		text-wrap: pretty;
 	}
 
-	.finish {
-		margin: 0 0 1.5rem;
+	/* festgesetzt: bleibt beim Scrollen knapp über der unteren Leiste sichtbar, am Seitenende steht er an seinem Platz.
+	   Ein Verlauf dahinter, damit Kacheln nicht unter dem Knopf durchscheinen. */
+	.cta {
+		position: sticky;
+		bottom: calc(var(--bottom-bar-height) + env(safe-area-inset-bottom));
+		z-index: 5;
+		margin: 0 -1rem;
+		padding: 1.5rem 1rem 0.75rem;
+		background: linear-gradient(0deg, var(--color-bg) 62%, rgb(247 242 229 / 0) 100%);
+	}
+
+	.cta .problem {
+		margin-bottom: 0.5rem;
 	}
 
 	.reassure {
@@ -301,7 +314,7 @@
 		align-items: flex-start;
 		justify-content: center;
 		gap: 0.5rem;
-		margin: 0.875rem 0.5rem 0;
+		margin: 0 0.5rem 1.5rem;
 		color: var(--color-text);
 		text-align: left;
 		text-wrap: pretty;
