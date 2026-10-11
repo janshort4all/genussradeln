@@ -59,6 +59,8 @@
 html {
 	-webkit-text-size-adjust: 100%;
 	text-size-adjust: 100%;
+	/* am Seitenende nicht weiterziehen können (kein Gummiband mit leerer Fläche) */
+	overscroll-behavior-y: none;
 }
 
 body {

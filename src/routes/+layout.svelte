@@ -53,7 +53,15 @@
 	.page {
 		max-width: var(--page-width);
 		margin: 0 auto;
-		padding: 0.5rem 1rem calc(var(--bottom-bar-height) + 2.5rem + env(safe-area-inset-bottom));
+		/* unten genau so viel Platz wie die Leiste hoch ist: am Seitenende liegt der Inhalt unmittelbar über der Leiste, darunter ist nichts mehr
+		   zu scrollen (Jan, 14.10.2026: „leerer Bereich“) */
+		padding: 0.5rem 1rem calc(var(--bottom-bar-height) + env(safe-area-inset-bottom));
+	}
+
+	/* der Abstand zwischen Elementen steht nur zwischen ihnen, nie nach dem letzten: sonst bleibt am Seitenende (und unten in Karten) eine Lücke.
+	   Ausgenommen: Bedienelemente der Karte (MapLibre) */
+	.page :global(*:last-child:not([class*='maplibre'])) {
+		margin-bottom: 0 !important;
 	}
 
 	/* Seiten mit Karte dürfen am PC breiter sein (Karte links, Angaben rechts) */

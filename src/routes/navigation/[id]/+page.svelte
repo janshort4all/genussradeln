@@ -398,7 +398,7 @@
 		// zu kurz zum Auswerten: nichts aufheben
 		if (recorder) void removeRide(recorder.record.id).catch(() => {});
 		recorder = undefined;
-		void leave();
+		void leaveForHome();
 	}
 
 	let leaving = false;
@@ -407,6 +407,14 @@
 		stopAll();
 		await exitFullscreen();
 		await goto(resolve('/tour/[id]', { id: tour.id }));
+	}
+
+	/** Nach der Fahrt geht es zur Startseite (Jan, 14.10.2026: „Zur Tour“ klang, als ginge es zurück in die Navigation) */
+	async function leaveForHome() {
+		leaving = true;
+		stopAll();
+		await exitFullscreen();
+		await goto(resolve('/'));
 	}
 
 	// Zurück-Taste während der Fahrt: nicht aus Versehen beenden, sondern erst anhalten und nachfragen
@@ -503,7 +511,7 @@
 				{/if}
 				{#if saveNote}<p role="status" class="record-note">{saveNote}</p>{/if}
 			{/if}
-			<button type="button" class={rideRecord ? 'secondary' : 'go'} onclick={leave}>Zur Tour</button>
+			<button type="button" class={rideRecord ? 'secondary' : 'go'} onclick={leaveForHome}>Zur Startseite</button>
 		</div>
 	{:else}
 		<!-- Fahrt: oben die Anweisung, in der Mitte die Karte, unten Rest und Knöpfe -->
