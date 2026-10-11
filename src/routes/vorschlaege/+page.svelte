@@ -16,7 +16,7 @@
 	import { loadStreams } from '$lib/routing/streams';
 	import { loadFineMap } from '$lib/scoring/fine';
 	import { loadRoadMask } from '$lib/scoring/roads';
-	import { tourLine } from '$lib/tour/model';
+	import { tourLine, type PlannedTour } from '$lib/tour/model';
 	import { session } from '$lib/tour/session.svelte';
 
 	let request = $state(session.request);
@@ -28,63 +28,37 @@
 	);
 	let selectedId: string | undefined = $state();
 	let mapBox: HTMLDivElement | undefined = $state();
-	const cardItems: Record<string, HTMLLIElement> = {};
 
 	/** PC: Karte und Liste stehen nebeneinander – dort wählt das Zeigen mit der Maus */
 	const isWide = () => window.matchMedia('(min-width: 64rem)').matches;
 
-	/** Ein Knopf oder die Karte hat gewählt und rollt gerade dorthin – solange nicht dem Scrollen folgen */
-	let pickedAt = 0;
-
-	/**
-	 * Handy: Die Karte bleibt oben stehen. Hervorgehoben wird der Vorschlag im oberen Viertel des
-	 * sichtbaren Bereichs unter der Karte – so folgt die Karte beim Scrollen der Liste.
-	 */
-	function followScroll() {
-		if (isWide() || !mapBox || performance.now() - pickedAt < 1000) return;
-		const ids = tours.map((t) => t.id);
-		// ganz unten angekommen: der letzte Vorschlag (er kann nicht weiter nach oben rollen)
-		if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) {
-			selectedId = ids.at(-1);
-			return;
-		}
-		const top = mapBox.getBoundingClientRect().bottom;
-		const bottom = document.querySelector('.bottom-bar')?.getBoundingClientRect().top ?? window.innerHeight;
-		const line = top + (bottom - top) / 4;
-		let best: string | undefined;
-		let bestDistance = Infinity;
-		for (const id of ids) {
-			const box = cardItems[id]?.getBoundingClientRect();
-			if (!box) continue;
-			const distance = line < box.top ? box.top - line : line > box.bottom ? line - box.bottom : 0;
-			if (distance < bestDistance) {
-				bestDistance = distance;
-				best = id;
-			}
-		}
-		if (best) selectedId = best;
-	}
-
-	let scrollQueued = false;
-	function onScroll() {
-		if (scrollQueued) return;
-		scrollQueued = true;
-		requestAnimationFrame(() => {
-			scrollQueued = false;
-			followScroll();
-		});
-	}
-
-	/** Weg auf der Karte oder Knopf „Weg 2“ angetippt → seinen Vorschlag in der Liste zeigen */
-	function pick(id: string) {
+	/** „Karte ansehen“ an einer Karte: den Weg auf der Karte hervorheben und die Karte ins Bild holen */
+	function show(id: string) {
 		selectedId = id;
-		pickedAt = performance.now();
 		if (isWide()) return;
 		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-		cardItems[id]?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+		mapBox?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
 	}
 
-	const activeId = $derived(tours.some((t) => t.id === selectedId) ? selectedId : tours[0]?.id);
+	// Länge der Wege (Knöpfe unter der Karte, wie im Entwurf): nur Größen, die es gibt – und nur, wenn es überhaupt eine Auswahl gibt
+	type Size = 'short' | 'medium' | 'long';
+	const SIZES: { id: Size; name: string; range: string }[] = [
+		{ id: 'short', name: 'Kurz', range: 'bis 20 km' },
+		{ id: 'medium', name: 'Mittel', range: '20–40 km' },
+		{ id: 'long', name: 'Lang', range: 'ab 40 km' }
+	];
+	const sizeOf = (t: PlannedTour): Size => (t.stats.distance < 20_000 ? 'short' : t.stats.distance < 40_000 ? 'medium' : 'long');
+	let filter: Size | 'all' = $state('all');
+	const sizesPresent = $derived(SIZES.filter((size) => tours.some((t) => sizeOf(t) === size.id)));
+	const showFilter = $derived(sizesPresent.length > 1);
+	const chosenFilter = $derived<Size | 'all'>(showFilter && sizesPresent.some((size) => size.id === filter) ? filter : 'all');
+	/** Die Wege, die gerade gezeigt werden – mit ihrer festen Nummer und Farbe (die bleiben beim Filtern gleich) */
+	const shown = $derived(
+		tours
+			.map((tour, index) => ({ tour, index, line: tourLine(tour) }))
+			.filter(({ tour }) => chosenFilter === 'all' || sizeOf(tour) === chosenFilter)
+	);
+	const activeId = $derived(shown.some(({ tour }) => tour.id === selectedId) ? selectedId : shown[0]?.tour.id);
 
 	// „nach Kempen“ für Orte, sonst „bis Burg Linn“ (ohne Artikel passt „bis“ immer).
 	// Ältere Sitzungen kennen die Ortsart noch nicht – dann in der Ortsliste nachsehen.
@@ -112,6 +86,7 @@
 		request = { ...request, round: { ...request.round, seed: Math.floor(Math.random() * 2 ** 31) } };
 		session.setRequest(request);
 		window.scrollTo({ top: 0 });
+		filter = 'all';
 		compute();
 	}
 
@@ -159,12 +134,8 @@
 
 	onMount(() => {
 		if (status === 'loading') compute();
-		// nach dem Zurückkommen steht die Liste evtl. schon weiter unten – Karte gleich passend zeigen
-		else requestAnimationFrame(followScroll);
 	});
 </script>
-
-<svelte:window onscroll={onScroll} />
 
 <svelte:head>
 	<title>Genuss-Radeln – {isRound ? 'Ihre Runden' : 'Ihre Wege'}</title>
@@ -239,54 +210,56 @@
 			<div class="map" bind:this={mapBox}>
 				<div class="map-canvas">
 					<RouteMap
-						label="Karte mit dem Weg „{(tours.find((t) => t.id === activeId) ?? tours[0])?.title}“ von {request.start.name} {towards}"
-						routes={tours.map((t, i) => ({ id: t.id, coordinates: tourLine(t), color: routeColor(i) }))}
+						label="Karte mit {shown.length === 1 ? 'dem Weg' : 'den Wegen'} von {request.start.name} {towards}"
+						routes={shown.map(({ tour, index, line }) => ({ id: tour.id, coordinates: line, color: routeColor(index), number: index + 1 }))}
 						markers={[
 							{ lngLat: request.start.lngLat, kind: 'start' },
 							{ lngLat: request.destination.lngLat, kind: 'destination' }
 						]}
-						{selectedId}
-						onselect={pick}
+						selectedId={activeId}
+						onselect={(id) => (selectedId = id)}
 					/>
 				</div>
-				<!-- Wie viele Wege es gibt und welcher gerade auf der Karte ist – bleibt mit der Karte stehen -->
-				{#if tours.length > 1}
-					<div class="picker" role="group" aria-labelledby="picker-label">
-						<span class="picker-label" id="picker-label">Weg:</span>
-						{#each tours as tour, index (tour.id)}
-							<button
-								type="button"
-								class="pick"
-								class:active={tour.id === activeId}
-								aria-pressed={tour.id === activeId}
-								aria-label="Weg {index + 1} auf der Karte zeigen"
-								style:--route-color={routeColor(index)}
-								onclick={() => pick(tour.id)}
-							>
-								<span class="swatch" aria-hidden="true"></span>{index + 1}
+			</div>
+
+			<div class="list">
+				<!-- Wie im Entwurf: Alle oder nur kurze, mittlere, lange – erscheint nur, wenn es eine Auswahl gibt -->
+				{#if showFilter}
+					<div class="filter" role="group" aria-label="Länge der Touren">
+						<button type="button" class="chip" aria-pressed={chosenFilter === 'all'} onclick={() => (filter = 'all')}>
+							<strong>{isRound ? 'Alle Runden' : 'Alle Wege'}</strong>
+							<span>({tours.length})</span>
+						</button>
+						{#each sizesPresent as size (size.id)}
+							<button type="button" class="chip" aria-pressed={chosenFilter === size.id} onclick={() => (filter = size.id)}>
+								<strong>{size.name}</strong>
+								<span>{size.range}</span>
 							</button>
 						{/each}
 					</div>
 				{/if}
-			</div>
 
-			<ol class="tours">
-				{#each tours as tour, index (tour.id)}
-					<!-- PC: Zeigen auf eine Karte hebt ihren Weg auf der Karte hervor -->
-					<li
-						bind:this={cardItems[tour.id]}
-						onmouseenter={() => isWide() && (selectedId = tour.id)}
-						onfocusin={() => (selectedId = tour.id)}
-					>
-						<RouteCard {tour} number={index + 1} color={routeColor(index)} selected={tour.id === activeId} />
-					</li>
-				{/each}
-			</ol>
-			{#if isRound}
-				<div class="more">
-					<Button icon={RefreshCw} onclick={otherRounds}>Andere Runden vorschlagen</Button>
-				</div>
-			{/if}
+				<ol class="tours">
+					{#each shown as { tour, index, line } (tour.id)}
+						<!-- PC: Zeigen auf eine Karte hebt ihren Weg auf der Karte hervor -->
+						<li onmouseenter={() => isWide() && (selectedId = tour.id)} onfocusin={() => (selectedId = tour.id)}>
+							<RouteCard
+								{tour}
+								{line}
+								number={index + 1}
+								color={routeColor(index)}
+								selected={tour.id === activeId}
+								onshow={() => show(tour.id)}
+							/>
+						</li>
+					{/each}
+				</ol>
+				{#if isRound}
+					<div class="more">
+						<Button icon={RefreshCw} onclick={otherRounds}>Andere Runden vorschlagen</Button>
+					</div>
+				{/if}
+			</div>
 		</div>
 	{/if}
 {/if}
@@ -296,81 +269,58 @@
 		margin: 0 0 1.5rem;
 	}
 
-	/* Handy: Karte bleibt beim Scrollen oben stehen, die Vorschläge laufen darunter durch */
+	/* Handy: Karte steht über der Liste und scrollt mit (die kleinen Zeichnungen an den Karten zeigen, welcher Weg welcher ist) */
 	.map {
-		position: sticky;
-		top: 0;
-		z-index: 3;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		margin: 0 -0.25rem 0.5rem;
-		padding: 0.5rem 0.25rem 0.75rem;
-		background: var(--color-bg);
+		margin: 0 0 1rem;
+		scroll-margin-top: 0.5rem;
 	}
 
 	.map-canvas {
-		height: clamp(12rem, 32vh, 20rem);
+		height: clamp(16rem, 46vh, 26rem);
 	}
 
-	/* „Weg: 1 2 3 4 5“ unter der Karte – gleich breite Knöpfe; bei großer Schrift rutschen sie in eine zweite Zeile */
-	.picker {
+	/* Knöpfe „Alle / Kurz / Mittel / Lang“ – wie im Entwurf; bei großer Schrift rutschen sie in eine zweite Zeile */
+	.filter {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.375rem;
+		gap: 0.5rem;
+		margin: 0 0 1rem;
 	}
 
-	.picker-label {
-		font-weight: 700;
-		color: var(--color-green);
-		margin-right: 0.125rem;
-	}
-
-	.pick {
-		display: inline-flex;
+	.chip {
+		display: grid;
+		align-content: center;
+		justify-items: center;
 		flex: 1 1 0;
-		align-items: center;
-		justify-content: center;
-		gap: 0.375rem;
-		min-width: 3.5rem;
-		min-height: var(--tap);
+		min-width: 6.5rem;
+		min-height: 3.5rem;
 		padding: 0.25rem 0.5rem;
-		white-space: nowrap;
 		border: 2px solid var(--color-border);
-		border-radius: 999px;
+		border-radius: 1rem;
 		background: var(--color-surface);
 		color: var(--color-green);
 		font: inherit;
-		font-weight: 700;
+		line-height: 1.25;
+		text-align: center;
 		cursor: pointer;
 	}
 
-	.pick:hover {
-		border-color: var(--route-color);
+	.chip span {
+		font-size: var(--text-small);
+		color: var(--color-text-muted);
 	}
 
-	.pick.active {
+	.chip[aria-pressed='true'] {
 		border-color: var(--color-green);
 		background: var(--color-green);
 		color: var(--color-surface);
 	}
 
-	.swatch {
-		flex: none;
-		width: 1rem;
-		height: 0.5rem;
-		border-radius: 0.25rem;
-		background: var(--route-color);
-		box-shadow: 0 0 0 1.5px var(--color-surface);
+	.chip[aria-pressed='true'] span {
+		color: var(--color-surface);
 	}
 
-	/* angetippter Weg: Vorschlag direkt unter Karte und Knöpfen zeigen */
-	.tours > li {
-		scroll-margin-top: calc(clamp(12rem, 32vh, 20rem) + 6rem);
-	}
-
-	/* PC: Karte groß links und beim Scrollen stehend, Vorschläge rechts (Lastenheft B9) */
+	/* PC: Karte groß links und beim Scrollen stehend, Knöpfe und Vorschläge rechts (Lastenheft B9) */
 	@media (min-width: 64rem) {
 		.wide {
 			display: grid;
@@ -384,13 +334,10 @@
 			top: 1rem;
 			height: calc(100vh - var(--bottom-bar-height) - 3rem);
 			margin: 0;
-			padding: 0;
 		}
 
 		.map-canvas {
-			flex: 1;
-			height: auto;
-			min-height: 0;
+			height: 100%;
 		}
 	}
 

@@ -1,21 +1,30 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Clock from '@lucide/svelte/icons/clock';
+	import Mountain from '@lucide/svelte/icons/mountain';
+	import Route from '@lucide/svelte/icons/route';
+	import type { LngLat } from '$lib/geo/geo';
 	import { extraDistanceText } from '$lib/routing/describe';
 	import type { PlannedTour } from '$lib/tour/model';
 	import { formatDuration } from '$lib/tour/sample';
+	import RouteThumb from './RouteThumb.svelte';
 
-	/** Karte für einen berechneten Weg zum Ziel. Die ganze Karte ist ein Link zum Tourdetail. */
+	/** Karte für einen berechneten Weg. Die ganze Karte ist ein Link zum Tourdetail, nur „Karte ansehen“ ist ein eigener Knopf. */
 	interface Props {
 		tour: PlannedTour;
+		/** der Weg als Linie (für die kleine Zeichnung) */
+		line: LngLat[];
 		/** Farbe des Wegs auf der Karte */
 		color: string;
-		/** „Weg 2“ – passt zu den Knöpfen unter der Karte */
+		/** „Weg 2“ – dieselbe Nummer wie im Schild auf der Karte */
 		number: number;
 		selected?: boolean;
+		/** „Karte ansehen“: den Weg oben auf der Karte hervorheben */
+		onshow?: () => void;
 	}
 
-	let { tour, color, number, selected = false }: Props = $props();
+	let { tour, line, color, number, selected = false, onshow }: Props = $props();
 
 	const km = $derived(
 		(tour.stats.distance / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 })
@@ -23,27 +32,39 @@
 </script>
 
 <article class="route-card" class:selected style:--route-color={color}>
-	<div class="head">
-		<span class="swatch" aria-hidden="true"></span>
-		<span class="number">Weg {number}</span>
+	<span class="badge" aria-hidden="true">{number}</span>
+	<div class="titles">
+		<!-- Überschrift nach der Länge („Längste Tour“), darunter der Weg in Worten -->
+		<h2>
+			<a href={resolve('/tour/[id]', { id: tour.id })}><span class="visually-hidden">Weg {number}: </span>{tour.label ?? tour.title}</a>
+		</h2>
+		{#if tour.label}<p class="name">{tour.title}</p>{/if}
 	</div>
-	<!-- Überschrift nach der Länge („Längste Tour“), darunter der Weg in Worten -->
-	<h2>
-		<a href={resolve('/tour/[id]', { id: tour.id })}>{tour.label ?? tour.title}</a>
-	</h2>
-	{#if tour.label}<p class="name">{tour.title}</p>{/if}
-	<p class="facts">{km} km · ca. {formatDuration(tour.minutes)} · {tour.stats.climb}</p>
+	<ChevronRight class="chevron" size={28} strokeWidth={2.5} aria-hidden="true" />
+	<!-- Zahlen links, daneben die kleine Zeichnung; der Satz zum Weg darunter über die ganze Breite -->
+	<div class="row">
+		<p class="facts">
+			<span><Route size={20} aria-hidden="true" />{km} km</span>
+			<span><Clock size={20} aria-hidden="true" />ca. {formatDuration(tour.minutes)}</span>
+			<span><Mountain size={20} aria-hidden="true" />{tour.stats.climb}</span>
+		</p>
+		<button type="button" class="thumb" onclick={onshow}>
+			<span class="drawing"><RouteThumb {line} {color} /></span>
+			<span class="caption">Karte ansehen<span class="visually-hidden"> von Weg {number}</span></span>
+		</button>
+	</div>
 	<p class="highlight">{tour.highlight}</p>
-	<div class="footer">
-		<span class="muted">{extraDistanceText(tour.extraDistance)}</span>
-		<span class="more" aria-hidden="true">Ansehen <ChevronRight size={22} strokeWidth={2.5} /></span>
-	</div>
+	<p class="muted extra">{extraDistanceText(tour.extraDistance)}</p>
 </article>
 
 <style>
 	.route-card {
 		position: relative;
-		padding: 1rem 1.125rem 1.125rem;
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		column-gap: 0.75rem;
+		row-gap: 0.5rem;
+		padding: 1rem 0.875rem 1rem 1rem;
 		background: var(--color-surface);
 		border: 2px solid transparent;
 		border-radius: 1rem;
@@ -59,34 +80,26 @@
 		outline-offset: 3px;
 	}
 
-	.head {
-		display: flex;
-		align-items: center;
-		gap: 0.625rem;
-		min-height: 1.75rem;
-		margin-bottom: 0.25rem;
-	}
-
-	.swatch {
-		width: 2rem;
-		height: 0.5rem;
-		border-radius: 0.25rem;
+	/* Nummer in der Farbe des Wegs – dieselbe wie auf der Karte */
+	.badge {
+		display: grid;
+		place-items: center;
+		width: 2.5rem;
+		height: 2.5rem;
+		border-radius: 50%;
 		background: var(--route-color);
+		color: #fff;
+		font-size: var(--text-large);
+		font-weight: 700;
 	}
 
-	.number {
-		font-weight: 700;
-		color: var(--color-green);
+	.titles {
+		min-width: 0;
+		align-self: center;
 	}
 
 	h2 {
-		margin-bottom: 0.25rem;
-	}
-
-	.name {
-		margin-bottom: 0.625rem;
-		font-weight: 700;
-		color: var(--color-green);
+		margin: 0;
 	}
 
 	h2 a {
@@ -105,27 +118,81 @@
 		outline: none;
 	}
 
+	.name {
+		margin: 0.125rem 0 0;
+		font-weight: 700;
+		color: var(--color-green);
+	}
+
+	.route-card :global(.chevron) {
+		align-self: center;
+		color: var(--color-green);
+	}
+
+	.row {
+		grid-column: 2 / 4;
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.highlight,
+	.extra {
+		grid-column: 1 / 4;
+		margin: 0;
+	}
+
 	.facts {
-		margin: 0 0 0.5rem;
+		display: grid;
+		gap: 0.25rem;
+		margin: 0;
+		min-width: 0;
 		font-weight: 700;
 	}
 
-	.highlight {
-		margin-bottom: 0.75rem;
-	}
-
-	.footer {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem 0.75rem;
-	}
-
-	.more {
+	.facts span {
 		display: inline-flex;
 		align-items: center;
+		gap: 0.375rem;
+	}
+
+	.facts :global(svg) {
+		flex: none;
+		color: var(--color-olive);
+	}
+
+	/* kleine Zeichnung des Wegs mit „Karte ansehen“ – ein eigener Knopf über dem Karten-Link */
+	.thumb {
+		position: relative;
+		z-index: 1;
+		flex: none;
+		display: grid;
+		justify-items: center;
+		gap: 0.125rem;
+		width: 5.75rem;
+		padding: 0.375rem 0.25rem;
+		border: 2px solid var(--color-border);
+		border-radius: var(--radius);
+		background: var(--color-green-light);
 		color: var(--color-green);
-		font-weight: 700;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.thumb:hover {
+		border-color: var(--route-color);
+	}
+
+	.drawing {
+		display: block;
+		width: 3.5rem;
+		height: 3.5rem;
+	}
+
+	.caption {
+		font-size: var(--text-small);
+		line-height: 1.2;
+		text-align: center;
 	}
 </style>

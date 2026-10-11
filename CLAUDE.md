@@ -264,6 +264,16 @@ terrakottafarben, wenn die Tour gemerkt ist; erneut tippen entfernt sie. Ein üb
 Touren öffnen sich auch in einer neuen Sitzung (`tour/[id]/+page.ts` liest sie nach, `PlannedTour.saved`, Zurück-Weg „Zu Meine Touren“).
 Noch offen aus M8: Akku-Einschätzung; Teilen-Link gibt es schon.
 
+### Vorschlagsseite (Entwurf Jan, 11.10.2026)
+
+`/vorschlaege` folgt dem Mockup: Karte mit **allen** Wegen, je eine eigene Farbe (`map/colors.ts`) und ein **Nummernschild** auf dem Weg
+(`map/badges.ts` setzt es dorthin, wo der Weg am weitesten von den anderen entfernt ist; Abstände relativ zur Kartengröße, getestet).
+Gewählter Weg dicker, oben, mit Pfeilen; die anderen dünner. Darunter Knöpfe Alle/Kurz/Mittel/Lang (`SIZES` in der Seite; nur Größen,
+die es gibt, und nur bei mindestens zwei – sonst keine Auswahl nötig). Karten (`RouteCard`): Nummer in Wegfarbe, Zeichnung des Wegs
+(`RouteThumb`, ohne Karte) mit Knopf „Karte ansehen“ (wählt den Weg, holt die Karte ins Bild), Link zum Tourdetail über die ganze Karte.
+Die Karte steht am Handy **nicht mehr fest** (die Zeichnungen sagen, welcher Weg welcher ist), am PC bleibt sie links stehen.
+`RouteMap` zeichnet bei mehreren Wegen alle und setzt Schilder nur für Wege mit `number`; der Knopf heißt jetzt „Karte vergrößern“.
+
 ### Tour anpassen (F6)
 
 Eine Tour wird intern als Liste von Wegpunkten gespeichert (Start, Zwischenpunkte, Stopps, Ziel).

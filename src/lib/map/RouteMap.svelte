@@ -6,6 +6,8 @@
 		id: string;
 		coordinates: LngLat[];
 		color: string;
+		/** Nummer im Schild auf dem Weg (ohne Nummer kein Schild) */
+		number?: number;
 	}
 
 	export interface MapMarker {
@@ -51,6 +53,7 @@
 	import type { Map as MapLibreMap, Marker, MarkerOptions } from 'maplibre-gl';
 	import { stopIcons } from '$lib/components/icons';
 	import { boundsOf, distanceToLine, resample } from '$lib/geo/geo';
+	import { badgeSpots } from './badges';
 
 	/**
 	 * Karte mit einem oder mehreren Wegen (MapLibre + OpenFreeMap).
@@ -100,6 +103,8 @@
 	const highlightElements: Record<string, HTMLElement> = $state({});
 	let sheetSlot: HTMLDivElement | undefined = $state();
 	const highlightMarkers = new Map<string, Marker>();
+	const badgeElements: Record<string, HTMLElement> = $state({});
+	const activeId = $derived(routes.some((r) => r.id === selectedId) ? selectedId : routes[0]?.id);
 
 	const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 	// rechts Platz für die Zoom-Knöpfe, unten für den Quellenhinweis
@@ -294,26 +299,45 @@
 			fitRoutes(m);
 		}
 
-		// Es ist immer nur ein Weg zu sehen (ohne Auswahl der erste), mit Pfeilen in Fahrtrichtung;
-		// die anderen ausgeblendet – mehrere Wege übereinander sind auf der Karte nicht auseinanderzuhalten
-		const active = routes.some((r) => r.id === selectedId) ? selectedId : routes[0]?.id;
-		for (const r of routes) {
-			const on = r.id === active;
-			for (const layer of [`route-${r.id}`, `route-${r.id}-casing`, `route-${r.id}-arrows`]) {
-				m.setLayoutProperty(layer, 'visibility', on ? 'visible' : 'none');
-			}
-		}
-		// solange eine Vorschau offen ist: die Tour blass, ohne Pfeile (sonst ist grün neben grün nicht zu unterscheiden)
+		// Mehrere Wege: alle zu sehen, jeder in seiner Farbe; der gewählte kräftig und oben, mit Pfeilen in Fahrtrichtung,
+		// die anderen etwas dünner. Solange eine Vorschau offen ist: die Tour blass, ohne Pfeile
+		// (sonst ist grün neben grün nicht zu unterscheiden).
+		const active = activeId;
+		const multi = routes.length > 1;
 		const dim = !!preview;
 		for (const r of routes) {
-			m.setPaintProperty(`route-${r.id}`, 'line-opacity', dim ? 0.3 : 1);
-			m.setPaintProperty(`route-${r.id}-casing`, 'line-opacity', dim ? 0.3 : 1);
-			m.setLayoutProperty(`route-${r.id}-arrows`, 'visibility', dim || r.id !== active ? 'none' : 'visible');
+			const chosen = r.id === active || !multi;
+			const width = multi ? (chosen ? LINE_WIDTH + 1 : LINE_WIDTH - 1) : LINE_WIDTH;
+			const opacity = dim ? 0.3 : chosen ? 1 : 0.85;
+			m.setLayoutProperty(`route-${r.id}`, 'visibility', 'visible');
+			m.setLayoutProperty(`route-${r.id}-casing`, 'visibility', 'visible');
+			m.setPaintProperty(`route-${r.id}`, 'line-width', width);
+			m.setPaintProperty(`route-${r.id}-casing`, 'line-width', width + 4);
+			m.setPaintProperty(`route-${r.id}`, 'line-opacity', opacity);
+			m.setPaintProperty(`route-${r.id}-casing`, 'line-opacity', opacity);
+			m.setLayoutProperty(`route-${r.id}-arrows`, 'visibility', dim || !chosen ? 'none' : 'visible');
 		}
 		if (active && m.getLayer(`route-${active}`)) {
+			m.moveLayer(`route-${active}-casing`);
 			m.moveLayer(`route-${active}`);
 			m.moveLayer(`route-${active}-arrows`);
 		}
+	});
+
+	// Nummernschilder der Wege: je Weg an einer Stelle, die von den anderen Wegen weit weg liegt
+	let badgeMarkers: Marker[] = [];
+	$effect(() => {
+		if (!createMarker) return;
+		const numbered = preview ? [] : routes.filter((r) => r.number !== undefined && r.coordinates.length > 1);
+		const spots = badgeSpots(numbered.map((r) => r.coordinates));
+		numbered.forEach((r, i) => {
+			const element = badgeElements[r.id];
+			if (element) badgeMarkers.push(createMarker!(element, spots[i]));
+		});
+		return () => {
+			for (const marker of badgeMarkers) marker.remove();
+			badgeMarkers = [];
+		};
 	});
 
 	// Stopp-Symbole: Svelte zeichnet die Elemente (unten), MapLibre setzt sie an ihre Stelle auf der Karte
@@ -443,7 +467,7 @@
 		</button>
 	{:else}
 		<button type="button" class="map-button open" onclick={openLarge}>
-			<Maximize2 size={22} strokeWidth={2.5} aria-hidden="true" /> Große Karte
+			<Maximize2 size={22} strokeWidth={2.5} aria-hidden="true" /> Karte vergrößern
 		</button>
 	{/if}
 	{#if expanded && sheet}
@@ -451,6 +475,21 @@
 	{/if}
 	<!-- Vorlagen für die Stopp-Symbole; MapLibre hängt sie in die Karte um -->
 	<div class="stop-pool" aria-hidden="true">
+		{#each routes as r (r.id)}
+			{#if r.number !== undefined}
+				<button
+					type="button"
+					bind:this={badgeElements[r.id]}
+					class="route-badge"
+					class:selected={r.id === activeId}
+					style:--badge-color={r.color}
+					aria-label="Weg {r.number} zeigen"
+					onclick={() => onselect?.(r.id)}
+				>
+					<span>{r.number}</span>
+				</button>
+			{/if}
+		{/each}
 		{#each highlights as h (h.id)}
 			<button
 				type="button"
@@ -650,6 +689,45 @@
 		max-width: 11rem;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	/* Nummernschild eines Wegs: Tap-Fläche 48 px, sichtbar eine Scheibe in der Wegfarbe, der gewählte größer mit Ring */
+	.route-map :global(.route-badge) {
+		display: grid;
+		place-items: center;
+		width: var(--tap);
+		height: var(--tap);
+		padding: 0;
+		border: 0;
+		background: transparent;
+		cursor: pointer;
+	}
+
+	.route-map :global(.route-badge span) {
+		display: grid;
+		place-items: center;
+		width: 2rem;
+		height: 2rem;
+		border: 3px solid var(--color-surface);
+		border-radius: 50%;
+		background: var(--badge-color);
+		color: #fff;
+		font-size: var(--text-base);
+		font-weight: 700;
+		box-shadow: 0 1px 4px rgb(36 53 57 / 0.5);
+	}
+
+	.route-map :global(.route-badge.selected) {
+		z-index: 2;
+	}
+
+	.route-map :global(.route-badge.selected span) {
+		width: 2.5rem;
+		height: 2.5rem;
+		font-size: var(--text-large);
+		box-shadow:
+			0 0 0 3px var(--badge-color),
+			0 1px 6px rgb(36 53 57 / 0.5);
 	}
 
 	.route-map :global(.stop-marker.focused) {
