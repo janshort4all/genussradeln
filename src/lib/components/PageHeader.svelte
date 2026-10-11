@@ -16,13 +16,17 @@
 		/** sichtbarer Zurück-Weg (Pflicht auf jedem Screen außer der Startseite) */
 		backHref?: string;
 		backLabel?: string;
+		/** anderes Titelbild (Pfad unter static/) – nur wenn die Seite ein eigenes Bild bekommen soll, Größe und Ausfaden bleiben gleich */
+		image?: string;
+		/** Bild zurückgenommen (blasser, weniger Farbe), damit das Wichtige darunter – z. B. die Karte – mehr im Blick steht */
+		calm?: boolean;
 	}
 
-	let { title, lead, backHref, backLabel }: Props = $props();
+	let { title, lead, backHref, backLabel, image = '/teaser.jpg', calm = false }: Props = $props();
 </script>
 
 <header class="page-header">
-	<img class="photo" src={asset('/teaser.jpg')} alt="" width="1200" height="600" />
+	<img class="photo" class:calm src={asset(image)} alt="" width="1200" height="600" />
 	<div class="fade" aria-hidden="true"></div>
 	{#if backHref}
 		<div class="back"><BackLink href={backHref} label={backLabel} /></div>
@@ -81,6 +85,11 @@
 		object-position: 82% 50%;
 		-webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 40%);
 		mask-image: linear-gradient(90deg, transparent 0%, #000 40%);
+	}
+
+	.photo.calm {
+		opacity: 0.7;
+		filter: saturate(0.75);
 	}
 
 	/* nach unten in die Seitenfarbe ausblenden – wie auf der Startseite */

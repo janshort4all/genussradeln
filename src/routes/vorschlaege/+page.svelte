@@ -141,6 +141,8 @@
 	<Button variant="primary" href={resolve('/ziel')}>Ziel wählen</Button>
 {:else}
 	<PageHeader
+		image="/vorschlaege.jpg"
+		calm
 		title={heading}
 		lead={request.round
 				? `${request.round.km} km${request.round.wish ? ` · ${{ water: 'am Wasser', forest: 'durch den Wald', fields: 'durch Felder und Dörfer' }[request.round.wish]}` : ''}`
@@ -427,6 +429,12 @@
 	.map {
 		margin: 0 0 1rem;
 		scroll-margin-top: 0.5rem;
+	}
+
+	/* die Karte steht vor dem Bild: heller Rand und Schatten, damit sie im Mittelpunkt steht (Jan, 14.10.2026) */
+	.map :global(.route-map) {
+		border: 3px solid var(--color-surface);
+		box-shadow: 0 8px 24px rgb(36 53 57 / 0.32);
 	}
 
 	.map-canvas {
