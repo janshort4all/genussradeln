@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { asset, resolve } from '$app/paths';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import Settings from '@lucide/svelte/icons/settings';
+	import MoreLink from '$lib/components/MoreLink.svelte';
 
 	/**
 	 * Startseite: Was möchten Sie tun? Zwei große Felder – „Zu einem Ziel“ oder „Eine Runde“ (Entwurf von Jan, 10.10.2026).
@@ -17,9 +17,7 @@
 	<img class="photo" src={asset('/hero.jpg')} alt="" width="1200" height="600" fetchpriority="high" />
 	<div class="fade" aria-hidden="true"></div>
 	<img class="wordmark" src={asset('/wordmark.png')} alt="Genuss-Radeln" width="480" height="247" />
-	<a class="settings" href={resolve('/mehr')} aria-label="Mehr und Einstellungen">
-		<Settings size={28} strokeWidth={2.25} aria-hidden="true" />
-	</a>
+	<div class="settings"><MoreLink /></div>
 	<div class="welcome">
 		<h1>Schön, dass Sie da sind!</h1>
 		<p>Entdecken Sie die schönsten Radrouten in Ihrer Region.</p>
@@ -124,19 +122,6 @@
 		position: absolute;
 		top: 0.875rem;
 		right: 1rem;
-		display: grid;
-		place-items: center;
-		width: 3.5rem;
-		height: 3.5rem;
-		border-radius: 50%;
-		background: var(--color-surface);
-		color: var(--color-green);
-		box-shadow: 0 2px 8px rgb(36 53 57 / 0.25);
-	}
-
-	.settings:focus-visible {
-		outline: 3px solid var(--color-orange);
-		outline-offset: 2px;
 	}
 
 	.welcome {

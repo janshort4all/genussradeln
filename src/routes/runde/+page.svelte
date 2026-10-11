@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Dices from '@lucide/svelte/icons/dices';
@@ -84,6 +85,45 @@
 	function step(delta: number) {
 		draft.km = String(Math.min(LONG_MAX, Math.max(LONG_MIN, km + delta)));
 	}
+
+	// Der Knopf unten bleibt beim Scrollen stehen. Damit niemand drückt, ohne zu wissen, dass es noch Länge und Wunsch zu wählen gibt
+	// (Jan, 14.10.2026), steht darüber ein Hinweis – bis beide Abschnitte gesehen oder verändert wurden; danach die gewählte Auswahl.
+	let lengthSection: HTMLElement | undefined = $state();
+	let wishSection: HTMLElement | undefined = $state();
+	let seenLength = $state(false);
+	let seenWish = $state(false);
+	$effect(() => {
+		if (!lengthSection || !wishSection) return;
+		const watch = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (!entry.isIntersecting) continue;
+					if (entry.target === lengthSection) seenLength = true;
+					if (entry.target === wishSection) seenWish = true;
+				}
+			},
+			{ threshold: 0.5 }
+		);
+		watch.observe(lengthSection);
+		watch.observe(wishSection);
+		return () => watch.disconnect();
+	});
+	const startKm = draft.km;
+	const startWish = draft.wish;
+	$effect(() => {
+		if (draft.km !== startKm) seenLength = true;
+		if (draft.wish !== startWish) seenWish = true;
+	});
+	const WISH_WORDS = { water: 'am Wasser', forest: 'durch den Wald', fields: 'durch Felder und Dörfer', any: 'überrasche mich' } as const;
+	const cue = $derived(
+		!seenLength && !seenWish
+			? 'Weiter unten wählen Sie Länge und Wunsch'
+			: !seenLength
+				? 'Weiter oben: die Länge der Runde'
+				: !seenWish
+					? 'Weiter unten: Ihr Wunsch'
+					: ''
+	);
 
 	let busy = $state(false);
 	let problem = $state('');
@@ -171,7 +211,7 @@
 		{/if}
 	</section>
 
-	<section class="sheet" aria-labelledby="length-title">
+	<section class="sheet" aria-labelledby="length-title" bind:this={lengthSection}>
 		<StepHeader
 			id="length-title"
 			number={2}
@@ -205,7 +245,7 @@
 		{/if}
 	</section>
 
-	<section class="sheet" aria-labelledby="wish-title">
+	<section class="sheet" aria-labelledby="wish-title" bind:this={wishSection}>
 		<StepHeader
 			id="wish-title"
 			number={3}
@@ -221,6 +261,13 @@
 	     kleinen Block am Seitenende. Die Fehlermeldung steht im selben Block, damit sie nicht außer Sicht erscheint. -->
 	<div class="cta">
 		<p class="problem" role="alert">{problem}</p>
+		<p class="cue" class:summary={!cue}>
+			{#if cue}
+				<ArrowDown size={22} strokeWidth={2.75} aria-hidden="true" /> {cue}
+			{:else}
+				<Check size={22} strokeWidth={3} aria-hidden="true" /> {km} km · {WISH_WORDS[draft.wish]}
+			{/if}
+		</p>
 
 		<button type="submit" class="find" disabled={busy}>
 			<!-- sanfte Hügel am unteren Rand, nur Schmuck – bewusst nichts hinter Symbol und Schrift -->
@@ -309,12 +356,29 @@
 		bottom: calc(var(--bottom-bar-height) + env(safe-area-inset-bottom));
 		z-index: 5;
 		margin: 0 -1rem;
-		padding: 1.5rem 1rem 0.75rem;
-		background: linear-gradient(0deg, var(--color-bg) 62%, rgb(247 242 229 / 0) 100%);
+		padding: 1.25rem 1rem 0.75rem;
+		/* der Hinweis und der Knopf liegen im undurchsichtigen Teil, nur darüber blendet der Verlauf aus */
+		background: linear-gradient(0deg, var(--color-bg) 84%, rgb(247 242 229 / 0) 100%);
 	}
 
 	.cta .problem {
 		margin-bottom: 0.5rem;
+	}
+
+	/* Hinweis über dem Knopf: erst „weiter unten wählen“, dann die gewählte Auswahl */
+	.cue {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.375rem;
+		margin: 0 0 0.5rem;
+		color: var(--color-green);
+		font-weight: 700;
+		text-align: center;
+	}
+
+	.cue.summary {
+		color: var(--color-text);
 	}
 
 	.reassure {

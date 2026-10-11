@@ -18,6 +18,7 @@
 	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import Volume2 from '@lucide/svelte/icons/volume-2';
 	import BackLink from '$lib/components/BackLink.svelte';
+	import MoreLink from '$lib/components/MoreLink.svelte';
 	import BatteryHint from '$lib/components/BatteryHint.svelte';
 	import ElevationProfile from '$lib/components/ElevationProfile.svelte';
 	import DetourSheet from '$lib/components/DetourSheet.svelte';
@@ -45,9 +46,16 @@
 
 	let { data } = $props();
 
-	// Welcher Bereich unten markiert ist: kam man aus „Meine Touren“, bleibt „Meine Touren“ markiert
+	// Welcher Bereich unten markiert ist: der, aus dem man kam (Meine Touren, Zielplanung, Rundenplanung, sonst Start)
 	$effect(() => {
-		area.tab = data.tour.backHref === 'meine-touren' ? 'meine-touren' : undefined;
+		area.tab =
+			data.tour.backHref === 'meine-touren'
+				? 'meine-touren'
+				: data.planned?.request.round
+					? 'runde'
+					: data.tour.backHref === 'vorschlaege'
+						? 'ziel'
+						: 'start';
 		return () => (area.tab = undefined);
 	});
 
@@ -338,6 +346,7 @@
 				</ul>
 			{/if}
 		</div>
+		<MoreLink compact />
 	</div>
 </div>
 

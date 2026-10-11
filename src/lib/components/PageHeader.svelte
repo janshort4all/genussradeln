@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { asset } from '$app/paths';
 	import BackLink from '$lib/components/BackLink.svelte';
+	import MoreLink from '$lib/components/MoreLink.svelte';
 
 	/**
 	 * Kopf der Seiten im Stil der Startseite (Entwurf von Jan, 10.10.2026): schmaler Streifen mit dem Titelbild, links
@@ -29,6 +30,8 @@
 	{#if backHref}
 		<div class="back"><BackLink href={backHref} label={backLabel} /></div>
 	{/if}
+	<!-- „Mehr“: Zahnrad oben rechts auf jeder Seite (Jan, 14.10.2026) -->
+	<div class="gear"><MoreLink /></div>
 	<div class="text">
 		<h1>{title}</h1>
 		{#if lead}<p>{lead}</p>{/if}
@@ -53,6 +56,13 @@
 		padding: 0.25rem 1rem 1rem;
 		overflow: hidden;
 		background: var(--color-bg);
+	}
+
+	.gear {
+		position: absolute;
+		top: 0.5rem;
+		right: 1rem;
+		z-index: 2;
 	}
 
 	.photo {
