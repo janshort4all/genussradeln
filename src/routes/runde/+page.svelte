@@ -218,24 +218,13 @@
 		<p class="problem" role="alert">{problem}</p>
 
 		<button type="submit" class="find" disabled={busy}>
-			<!-- Wiesen und Bäume im Hintergrund, nur Schmuck -->
-			<svg class="find-art" viewBox="0 0 300 60" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
-				<path d="M0 44 Q40 22 90 40 T170 36 T300 42 V60 H0 Z" fill="#3b5742" />
-				<path d="M0 52 Q60 40 140 50 T300 48 V60 H0 Z" fill="#33503a" />
-				<g fill="#4a6a4f">
-					<circle cx="24" cy="30" r="9" />
-					<rect x="22.5" y="36" width="3" height="10" />
-					<circle cx="46" cy="34" r="7" />
-					<rect x="44.5" y="38" width="3" height="8" />
-					<circle cx="262" cy="28" r="10" />
-					<rect x="260.5" y="35" width="3" height="11" />
-					<circle cx="282" cy="33" r="7" />
-					<rect x="280.5" y="37" width="3" height="9" />
-				</g>
+			<!-- sanfte Hügel am unteren Rand, nur Schmuck – bewusst nichts hinter Symbol und Schrift -->
+			<svg class="find-art" viewBox="0 0 300 60" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+				<path d="M0 52 Q50 44 100 51 T200 50 T300 49 V60 H0 Z" fill="#8e4425" opacity="0.55" />
 			</svg>
-			<Sparkles size={26} strokeWidth={2.25} aria-hidden="true" />
+			<Sparkles size={24} strokeWidth={2.25} aria-hidden="true" />
 			<span>{busy ? 'Standort wird bestimmt …' : 'Schöne Runden finden'}</span>
-			<span class="trailing" aria-hidden="true"><ChevronRight size={28} strokeWidth={2.5} /></span>
+			<span class="trailing" aria-hidden="true"><ChevronRight size={26} strokeWidth={2.5} /></span>
 		</button>
 	</section>
 </form>
@@ -307,23 +296,23 @@
 		display: none;
 	}
 
-	/* Hauptknopf: dunkelgrün mit Wiese im Hintergrund (Entwurf) – weiße Schrift 11 : 1 */
+	/* Hauptknopf: Terrakotta wie jede Hauptaktion (Jan, 14.10.2026: ging in Dunkelgrün unter) – weiße Schrift 5 : 1 */
 	.find {
 		position: relative;
 		isolation: isolate;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.625rem;
+		gap: 0.5rem;
 		width: 100%;
 		min-height: 4rem;
-		padding: 0.75rem 3rem 0.75rem 1rem;
+		padding: 0.75rem 2.75rem 0.75rem 0.75rem;
 		overflow: hidden;
 		border: 2px solid transparent;
 		border-radius: var(--radius);
-		background: var(--color-green);
-		box-shadow: 0 3px 0 #18241d;
-		color: var(--color-surface);
+		background: var(--color-orange);
+		box-shadow: 0 3px 0 var(--color-orange-dark);
+		color: #fff;
 		font-family: var(--font-text);
 		font-size: var(--text-large);
 		font-weight: 700;
@@ -332,11 +321,11 @@
 	}
 
 	.find:hover {
-		background: #1d2c23;
+		background: var(--color-orange-dark);
 	}
 
 	.find:focus-visible {
-		outline: 3px solid var(--color-orange);
+		outline: 3px solid var(--color-green);
 		outline-offset: 3px;
 	}
 
