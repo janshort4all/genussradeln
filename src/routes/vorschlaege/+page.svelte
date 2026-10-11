@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { asset, resolve } from '$app/paths';
 	import Bike from '@lucide/svelte/icons/bike';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import X from '@lucide/svelte/icons/x';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import { onMount } from 'svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
@@ -18,6 +20,7 @@
 	import { loadRoadMask } from '$lib/scoring/roads';
 	import { tourLine, type PlannedTour } from '$lib/tour/model';
 	import { session } from '$lib/tour/session.svelte';
+	import { formatDuration } from '$lib/tour/sample';
 
 	let request = $state(session.request);
 	/** Rundtour („Einfach eine schöne Runde drehen“) statt Weg zu einem Ziel */
@@ -32,12 +35,20 @@
 	/** PC: Karte und Liste stehen nebeneinander – dort wählt das Zeigen mit der Maus */
 	const isWide = () => window.matchMedia('(min-width: 64rem)').matches;
 
-	/** „Karte ansehen“ an einer Karte: den Weg auf der Karte hervorheben und die Karte ins Bild holen */
-	function show(id: string) {
+	let routeMap: RouteMap | undefined = $state();
+	/** der Weg, dessen Infofenster auf der Karte offen ist */
+	let popupId: string | undefined = $state();
+
+	/** Weg auf der Karte angetippt (Linie oder Nummernschild): hervorheben und Infofenster mit „Tour ansehen“ zeigen */
+	function openOnMap(id: string) {
 		selectedId = id;
-		if (isWide()) return;
-		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-		mapBox?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+		popupId = id;
+	}
+
+	/** „Karte ansehen“ an einer Karte: gleich die große Karte mit diesem Weg und seinem Infofenster */
+	function show(id: string) {
+		openOnMap(id);
+		routeMap?.openLargeMap();
 	}
 
 	// Länge der Wege (Knöpfe unter der Karte, wie im Entwurf): nur Größen, die es gibt – und nur, wenn es überhaupt eine Auswahl gibt
@@ -206,6 +217,28 @@
 			<Button icon={RefreshCw} onclick={compute}>Noch einmal versuchen</Button>
 		</div>
 	{:else}
+		{#snippet routePopup()}
+			{@const item = shown.find(({ tour }) => tour.id === popupId)}
+			{#if item}
+				<div class="popup" style:--route-color={routeColor(item.index)}>
+					<button type="button" class="close" aria-label="Fenster schließen" onclick={() => (popupId = undefined)}>
+						<X size={24} strokeWidth={2.5} aria-hidden="true" />
+					</button>
+					<div class="head">
+						<span class="num" aria-hidden="true">{item.index + 1}</span>
+						<div>
+							<strong>{item.tour.label ?? item.tour.title}</strong>
+							<span class="pfacts">
+								{(item.tour.stats.distance / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} km ·
+								{formatDuration(item.tour.minutes)} · {item.tour.stats.climb}
+							</span>
+						</div>
+					</div>
+					<a class="open" href={resolve('/tour/[id]', { id: item.tour.id })}>Tour ansehen <ChevronRight size={24} strokeWidth={2.5} aria-hidden="true" /></a>
+				</div>
+			{/if}
+		{/snippet}
+
 		<div class="wide">
 			<div class="map" bind:this={mapBox}>
 				<div class="map-canvas">
@@ -217,7 +250,9 @@
 							{ lngLat: request.destination.lngLat, kind: 'destination' }
 						]}
 						selectedId={activeId}
-						onselect={(id) => (selectedId = id)}
+						onselect={openOnMap}
+						popup={popupId && shown.some(({ tour }) => tour.id === popupId) ? routePopup : undefined}
+						bind:this={routeMap}
 					/>
 				</div>
 			</div>
@@ -267,6 +302,80 @@
 <style>
 	.more {
 		margin: 0 0 1.5rem;
+	}
+
+	/* Infofenster über der Karte: Nummer in der Wegfarbe, Name, drei Zahlen, ein großer Knopf */
+	.popup {
+		position: relative;
+		display: grid;
+		gap: 0.5rem;
+		padding: 0.625rem 3.5rem 0.625rem 0.75rem;
+		border: 2px solid var(--route-color);
+		border-radius: 1rem;
+		background: var(--color-surface);
+		box-shadow: 0 4px 16px rgb(36 53 57 / 0.3);
+	}
+
+	.popup .close {
+		position: absolute;
+		top: 0.25rem;
+		right: 0.25rem;
+		display: grid;
+		place-items: center;
+		width: var(--tap);
+		height: var(--tap);
+		border: 0;
+		border-radius: 50%;
+		background: none;
+		color: var(--color-green);
+		cursor: pointer;
+	}
+
+	.popup .head {
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+	}
+
+	.popup .head > div {
+		display: grid;
+		min-width: 0;
+		line-height: 1.2;
+	}
+
+	.popup .num {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 2.25rem;
+		height: 2.25rem;
+		border-radius: 50%;
+		background: var(--route-color);
+		color: #fff;
+		font-weight: 700;
+	}
+
+	.popup .pfacts {
+		color: var(--color-text);
+		font-size: var(--text-small);
+	}
+
+	.popup .open {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.375rem;
+		min-height: var(--tap);
+		border-radius: var(--radius);
+		background: var(--color-green);
+		color: var(--color-surface);
+		font-weight: 700;
+		text-decoration: none;
+	}
+
+	.popup .open:focus-visible {
+		outline: 3px solid var(--color-orange);
+		outline-offset: 2px;
 	}
 
 	/* Handy: Karte steht über der Liste und scrollt mit (die kleinen Zeichnungen an den Karten zeigen, welcher Weg welcher ist) */

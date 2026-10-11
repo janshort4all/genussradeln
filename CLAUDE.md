@@ -296,7 +296,7 @@ Noch offen aus M8: Akku-Einschätzung; Teilen-Link gibt es schon.
 Gewählter Weg dicker, oben, mit Pfeilen; die anderen dünner. Darunter Knöpfe Alle/Kurz/Mittel/Lang (`SIZES` in der Seite; nur Größen,
 die es gibt, und nur bei mindestens zwei – sonst keine Auswahl nötig). Karten (`RouteCard`): Nummer in Wegfarbe, Zeichnung des Wegs
 (`RouteThumb`, ohne Karte) mit Knopf „Karte ansehen“ (wählt den Weg, holt die Karte ins Bild), Link zum Tourdetail über die ganze Karte.
-Die Karte steht am Handy **nicht mehr fest** (die Zeichnungen sagen, welcher Weg welcher ist), am PC bleibt sie links stehen.
+**Weg antippen (Jan, 14.10.2026):** Tippen auf ein Schild oder eine Linie öffnet ein **Infofenster** unten in der Karte (`RouteMap` Prop `popup`, Snippet `routePopup` in der Seite): Nummer in Wegfarbe, Name, „18,3 km · 1 Std. 15 Min. · flach“, Knopf „Tour ansehen“, Schließen. „Karte ansehen“ an einer Karte öffnet gleich die **große Karte** (`RouteMap.openLargeMap`) mit diesem Weg, eingepasst (`fitRoutes`: in der großen Karte nur der gewählte Weg, unten Platz fürs Fenster) und mit demselben Fenster; ein anderes Schild in der großen Karte setzt die Ansicht auf diesen Weg. Die Zeile „So kurz wie der direkte Weg“ unter den Karten entfiel (bei Runden sinnlos; sonst nur noch „x km länger als der direkte Weg“ ab 300 m). Die Karte steht am Handy **nicht mehr fest** (die Zeichnungen sagen, welcher Weg welcher ist), am PC bleibt sie links stehen.
 `RouteMap` zeichnet bei mehreren Wegen alle und setzt Schilder nur für Wege mit `number`; der Knopf heißt jetzt „Karte vergrößern“.
 
 ### Tour anpassen (F6)

@@ -54,7 +54,10 @@
 		</button>
 	</div>
 	<p class="highlight">{tour.highlight}</p>
-	<p class="muted extra">{extraDistanceText(tour.extraDistance)}</p>
+	<!-- nur wenn der Weg wirklich länger ist als der direkte (bei Runden gibt es keinen direkten Weg; „so kurz wie …“ sagt nichts – Jan, 14.10.2026) -->
+	{#if !tour.request.round && tour.extraDistance >= 300}
+		<p class="muted extra">{extraDistanceText(tour.extraDistance)}</p>
+	{/if}
 </article>
 
 <style>

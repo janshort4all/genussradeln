@@ -78,6 +78,8 @@
 		preview?: MapPreview;
 		/** Fenster am unteren Rand der großen Karte (spannende Umwege) */
 		sheet?: Snippet;
+		/** Infofenster über der Karte, klein und groß (z. B. der angetippte Weg mit „Tour ansehen“) */
+		popup?: Snippet;
 		/** Beschreibung für Screenreader */
 		label: string;
 	}
@@ -94,6 +96,7 @@
 		onhighlight,
 		preview,
 		sheet,
+		popup,
 		label
 	}: Props = $props();
 
@@ -165,10 +168,28 @@
 		if (expanded) history.back();
 	}
 
+	/**
+	 * Alle Wege einpassen. In der großen Karte mit mehreren Wegen nur den gewählten (Jan, 14.10.2026: „im Detail ansehen“) –
+	 * unten bleibt Platz für das Infofenster.
+	 */
 	function fitRoutes(m: MapLibreMap) {
-		const b = boundsOf(routes.map((r) => r.coordinates));
-		if (Number.isFinite(b.west)) m.fitBounds([b.west, b.south, b.east, b.north], { padding: PADDING, duration: 0 });
+		const detail = expanded && routes.length > 1 && activeId !== undefined;
+		const lines = detail ? routes.filter((r) => r.id === activeId).map((r) => r.coordinates) : routes.map((r) => r.coordinates);
+		const b = boundsOf(lines);
+		const padding = detail && popup ? { ...PADDING, bottom: 230, top: 90, left: 50, right: 50 } : PADDING;
+		if (Number.isFinite(b.west)) m.fitBounds([b.west, b.south, b.east, b.north], { padding, duration: 0 });
 	}
+
+	// große Karte: wird ein anderer Weg gewählt, die Ansicht auf ihn setzen
+	$effect(() => {
+		void activeId;
+		if (!map || !expanded || routes.length < 2) return;
+		const m = map;
+		setTimeout(() => {
+			m.resize();
+			fitRoutes(m);
+		}, 60);
+	});
 
 	$effect(() => {
 		const large = expanded;
@@ -478,6 +499,9 @@
 	{#if expanded && sheet}
 		<div class="sheet-slot" bind:this={sheetSlot}>{@render sheet()}</div>
 	{/if}
+	{#if popup}
+		<div class="popup-slot">{@render popup()}</div>
+	{/if}
 	<!-- Vorlagen für die Stopp-Symbole; MapLibre hängt sie in die Karte um -->
 	<div class="stop-pool" aria-hidden="true">
 		{#each routes as r (r.id)}
@@ -631,6 +655,21 @@
 		max-height: 58%;
 		overflow-y: auto;
 		border-radius: 1.5rem 1.5rem 0 0;
+	}
+
+	/* Infofenster über der Karte: unten, auf der ganzen Breite */
+	.popup-slot {
+		position: absolute;
+		left: 0.5rem;
+		right: 0.5rem;
+		bottom: 0.5rem;
+		z-index: 4;
+	}
+
+	.route-map.expanded .popup-slot {
+		left: 0.75rem;
+		right: 0.75rem;
+		bottom: max(0.75rem, env(safe-area-inset-bottom));
 	}
 
 	/* Schilder „Bisher“ / „Neu“ der Vorschau */
