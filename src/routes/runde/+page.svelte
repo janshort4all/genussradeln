@@ -1,15 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import ArrowDown from '@lucide/svelte/icons/arrow-down';
-	import ArrowDownLeft from '@lucide/svelte/icons/arrow-down-left';
-	import ArrowDownRight from '@lucide/svelte/icons/arrow-down-right';
-	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import ArrowRight from '@lucide/svelte/icons/arrow-right';
-	import ArrowUp from '@lucide/svelte/icons/arrow-up';
-	import ArrowUpLeft from '@lucide/svelte/icons/arrow-up-left';
-	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
-	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Clock from '@lucide/svelte/icons/clock';
 	import MapPin from '@lucide/svelte/icons/map-pin';
@@ -58,20 +49,6 @@
 		{ value: 'fields', label: 'Durch Felder und Dörfer', icon: Wheat },
 		{ value: 'any', label: 'Überrasche mich', icon: Shuffle }
 	];
-
-	/** Wunschrichtung (freiwillig): Grad ab Norden */
-	const directions = [
-		{ value: '0', label: 'Norden', icon: ArrowUp },
-		{ value: '45', label: 'Nordosten', icon: ArrowUpRight },
-		{ value: '90', label: 'Osten', icon: ArrowRight },
-		{ value: '135', label: 'Südosten', icon: ArrowDownRight },
-		{ value: '180', label: 'Süden', icon: ArrowDown },
-		{ value: '225', label: 'Südwesten', icon: ArrowDownLeft },
-		{ value: '270', label: 'Westen', icon: ArrowLeft },
-		{ value: '315', label: 'Nordwesten', icon: ArrowUpLeft },
-		{ value: 'any', label: 'Egal', icon: Shuffle, wide: true }
-	];
-	const directionLabel = $derived(directions.find((d) => d.value === draft.direction)?.label ?? 'Egal');
 
 	const km = $derived(Number(draft.km));
 	const isLong = $derived(km > LENGTHS[LENGTHS.length - 1]);
@@ -129,12 +106,7 @@
 			destination: start,
 			effort,
 			returnMode: 'one-way',
-			round: {
-				km,
-				seed,
-				...(draft.wish !== 'any' ? { wish: draft.wish } : {}),
-				...(draft.direction !== 'any' ? { heading: Number(draft.direction) } : {})
-			}
+			round: { km, seed, ...(draft.wish !== 'any' ? { wish: draft.wish } : {}) }
 		});
 		goto(resolve('/vorschlaege'));
 	}
@@ -217,23 +189,6 @@
 			<Sparkles size={30} strokeWidth={2} aria-hidden="true" /> Worauf haben Sie Lust?
 		</h2>
 		<ChoiceGroup legend="Worauf haben Sie Lust?" hideLegend name="wish" columns={2} bind:value={draft.wish} choices={wishes} />
-
-		<!-- Richtung ist freiwillig und deshalb eingeklappt – so bleibt die Seite übersichtlich -->
-		<details class="direction">
-			<summary>
-				<span>Richtung: <strong>{directionLabel}</strong></span>
-				<ChevronDown size={24} strokeWidth={2.5} aria-hidden="true" />
-			</summary>
-			<p class="muted">In welche Richtung soll die Runde von Ihrem Start aus führen?</p>
-			<ChoiceGroup
-				legend="Richtung der Runde"
-				hideLegend
-				name="direction"
-				columns={3}
-				bind:value={draft.direction}
-				choices={directions}
-			/>
-		</details>
 
 		<p class="problem" role="alert">{problem}</p>
 
@@ -319,43 +274,6 @@
 	.note :global(svg) {
 		flex: none;
 		color: var(--color-green);
-	}
-
-	.direction {
-		margin: 0 0 1rem;
-	}
-
-	.direction summary {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-		min-height: 3.5rem;
-		padding: 0.5rem 1rem;
-		border: 2px solid var(--color-border);
-		border-radius: var(--radius);
-		background: var(--color-surface);
-		color: var(--color-green);
-		font-weight: 700;
-		cursor: pointer;
-		list-style: none;
-	}
-
-	.direction summary::-webkit-details-marker {
-		display: none;
-	}
-
-	.direction summary:focus-visible {
-		outline: 3px solid var(--color-orange);
-		outline-offset: 3px;
-	}
-
-	.direction[open] summary :global(svg) {
-		rotate: 180deg;
-	}
-
-	.direction .muted {
-		margin: 0.75rem 0;
 	}
 
 	.day {

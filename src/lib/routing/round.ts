@@ -19,6 +19,7 @@ import { WATER } from '$lib/scoring/landscape';
 import { analyzeRoute, beautyScore, lineOf, type RouteStats } from '$lib/scoring/score';
 import {
 	BEAUTY_CLASS_WEIGHTS,
+	NAMING,
 	ROUND,
 	SCORE,
 	SHORE_CELLS_FINE,
@@ -200,7 +201,7 @@ export function loopVias(
 /** Anteil der Strecke, der zum Wunsch passt (für die Zusatzpunkte) */
 function wishShare(stats: RouteStats, wish?: RoundWish): number {
 	if (wish === 'water') return stats.shoreWater ?? stats.water;
-	if (wish === 'forest') return stats.forestThrough ?? stats.forest;
+	if (wish === 'forest') return stats.forest;
 	if (wish === 'fields') return stats.fields;
 	return 0;
 }
@@ -290,13 +291,9 @@ export async function planRound(request: TourRequest, deps: PlanDeps): Promise<P
 	const rnd = random(round.seed);
 	const base = rnd() * 360;
 	const wish = round.wish;
-	// Wunschrichtung: ein Fächer um diese Richtung; sonst rundherum ab einem zufälligen Winkel
-	const wanted = round.heading;
+	// rundherum ab einem zufälligen Winkel (mit Wunsch mehr Richtungen: mehr Auswahl)
 	const count = wish ? ROUND.wishDirections : ROUND.directions;
-	const headings =
-		wanted !== undefined
-			? Array.from({ length: count }, (_, k) => wanted + (k - (count - 1) / 2) * ROUND.headingSpreadDeg)
-			: Array.from({ length: count }, (_, k) => base + (k * 360) / count);
+	const headings = Array.from({ length: count }, (_, k) => base + (k * 360) / count);
 
 	const found = await mapLimited(headings, 4, async (heading): Promise<RoundCandidate | undefined> => {
 		// Kreisumfang × Umwegfaktor der Straßen ≈ gewünschte Länge
@@ -341,7 +338,22 @@ export async function planRound(request: TourRequest, deps: PlanDeps): Promise<P
 		return undefined;
 	});
 
-	const candidates = found.filter((c): c is RoundCandidate => !!c).sort((a, b) => b.score - a.score);
+	let candidates = found.filter((c): c is RoundCandidate => !!c).sort((a, b) => b.score - a.score);
+	// Wunsch: nur Runden, die ihn wirklich erfüllen – lieber weniger Vorschläge als welche, die nichts damit zu tun haben
+	if (wish) {
+		const shares = candidates.map((c) => wishShare(c.stats, wish));
+		const best = Math.max(0, ...shares);
+		const floor = Math.max(ROUND.wishMin[wish], best * ROUND.wishMin.relative);
+		candidates = candidates.filter((c, i) => {
+			if (shares[i] < floor) return false;
+			// „Am Wasser“ nur mit einem benannten Fluss oder See am Weg – sonst liegt der Weg nur zufällig nahe an irgendeinem Wasser
+			if (wish === 'water' && deps.names) {
+				const names = routeNames(c.line, deps.names, deps.landscape, deps.fine);
+				return names.landmarks.some((l) => (l.kind === 'river' || l.kind === 'lake') && l.share >= NAMING.minLandmarkShare);
+			}
+			return true;
+		});
+	}
 	if (!candidates.length) throw new NoRouteError('Keine passende Runde gefunden');
 	const chosen: RoundCandidate[] = [];
 	for (const c of candidates) {

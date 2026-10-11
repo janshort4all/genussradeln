@@ -153,16 +153,18 @@ ganze Strecke – 2 km am See bei 19 km ändern ihn kaum. Idee: Zusatzpunkte je 
 - `ROUND.directions` (10) Richtungen ab einem zufälligen Winkel (`request.round.seed`, neue Suche bzw. Knopf
   „Andere Runden vorschlagen“ → neue Runden, Wunsch Jan): je drei Hilfspunkte auf einem Kreis durch den Start, jeder an die
   schönste Stelle seiner Umgebung geschoben; Kreis nachregeln, bis die Länge höchstens **10 %** abweicht (Wunsch Jan).
-- **Wunsch „Worauf haben Sie Lust?“ und Wunschrichtung (Jan, 11.10.2026, Seite /runde):** `request.round.wish` (`water` | `forest` | `fields`,
-  fehlt = überrasche mich) und `request.round.heading` (Grad ab Norden, fehlt = egal; ein Fächer von `ROUND.wishDirections` Richtungen
-  im Abstand `headingSpreadDeg` um die Wunschrichtung). Mit Wunsch: 16 statt 10 Richtungen; Gewichte für die Suche nach schönen Stellen
-  `WISH_WEIGHTS`; Zusatzpunkte `ROUND.wishBonus` × Anteil, der zum Wunsch passt. „Am Wasser“ zieht die Hilfspunkte ans Ufer eines **Flusses
-  ≥ 10 km** (`riverBank`, Verlauf aus `streams.json`, Reichweite `shoreReach` × Radius; sonst `shoreNear` an Seen). Gemessen an der Rheinrunde
-  ab Krefeld-Linn (48 km): ohne Wunsch eine von fünf Runden „Nahe am Rhein“ (bis 22 % der Strecke ≤ 450 m vom Fluss), mit „Am Wasser“ vier von fünf
-  (21–28 %). **Weniger als die Vorab-Rechnung (47 %):** Die Kreisform bleibt, Runden, die dem Fluss enger folgen, scheitern an der Längenvorgabe
-  (± 10 %) oder am Überlappungs-Test. Ein Uferstreifen (`shoreBand`, wie bei „Gewässern folgen“) brachte in der Vorab-Rechnung nur + 0–8 Punkte, kostet
-  aber 3–5 × die Rechenzeit je Anfrage → ausgeschaltet (`enabled: false`). Nächster Schritt, falls nötig: Uferrunde als eigene Form (am einen Ufer
-  hinauf, über Brücke/Fähre, am anderen zurück). „Durch den Wald“ / „Durch Felder“ ändern die Runden bisher kaum.
+- **Wunsch „Worauf haben Sie Lust?“ (Jan, 11.10.2026, Seite /runde):** `request.round.wish` (`water` | `forest` | `fields`, fehlt = überrasche
+  mich). Eine **Wunschrichtung** gab es kurz (acht Pfeile), Jan nahm sie wieder heraus („zu verwirrend, killt die einfache Steuerung“) –
+  nicht wieder einbauen. Mit Wunsch: 16 statt 10 Richtungen; Gewichte für die Suche nach schönen Stellen `WISH_WEIGHTS`; Zusatzpunkte
+  `ROUND.wishBonus` × Anteil, der zum Wunsch passt. „Am Wasser“ zieht die Hilfspunkte ans Ufer eines **Flusses ≥ 10 km** (`riverBank`, Verlauf
+  aus `streams.json`, Reichweite `shoreReach` × Radius; sonst `shoreNear` an Seen). **Streng gefiltert (Jan, 11.10.2026: „lieber weniger
+  Vorschläge, dafür die, die zum Filter passen“):** mit Wunsch bleiben nur Runden, deren Anteil mindestens `ROUND.wishMin` (Wasser: Ufer ≥ 25 %,
+  Wald: nah am Wald ≥ 35 %, Felder ≥ 55 %) **und** mindestens 0,8 × der beste Anteil beträgt; „Am Wasser“ verlangt zusätzlich einen benannten Fluss
+  oder See am Weg (≥ 15 % der Strecke). Bleibt nichts übrig, meldet die Seite „Dazu haben wir hier keine passende Runde gefunden“. Gemessen: Moers 25 km
+  „Am Wasser“ → 2 Runden (Elfrather See, Rhein; Ufer 42–45 %), Krefeld-Linn 48 km → 3 (Rhein/Anger, Ufer 28–33 %), Krefeld-Linn 25 km → keine. Der
+  Uferstreifen (`shoreBand`, wie bei „Gewässern folgen“) brachte nur + 0–8 Punkte bei 3–5 × Rechenzeit → ausgeschaltet. Die Runde bleibt ein Kreis;
+  Runden, die dem Fluss enger folgen, scheitern an der Längenvorgabe (± 10 %) oder am Überlappungs-Test. „Durch den Wald“ gibt in der Region oft keine
+  Treffer (wenig Wald). Nächster Schritt, falls nötig: Uferrunde als eigene Form (am einen Ufer hinauf, über Brücke/Fähre, am anderen zurück).
   Titel: ein Fluss heißt „… entlang“ erst ab `NAMING.alongShare` (40 % der Strecke nahe am Fluss), darunter „Nahe am Rhein“.
 - Prüfung je Stück rund um einen Hilfspunkt (`roundShapeProblem`): Stummel/Kreis/Zipfel → Hilfspunkt an den Anfang des
   Abstechers verlegen und neu rechnen. Gemeinsame Zufahrt am Start ist normal; höchstens 30 % der zweiten Hälfte auf der

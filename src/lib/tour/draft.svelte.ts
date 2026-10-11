@@ -17,14 +17,11 @@ export const draft: {
 	km: string;
 	/** Runde: Landschaftswunsch („any“ = überrasche mich) */
 	wish: RoundWish | 'any';
-	/** Runde: Wunschrichtung in Grad ab Norden als Text („any“ = egal) */
-	direction: string;
 } = $state({
 	startMode: ownStart ? 'address' : 'here',
 	startPlace: ownStart ? last.start : undefined,
 	destination: last && !last.round ? last.destination : undefined,
 	returnMode: last && !last.round ? last.returnMode : 'one-way',
 	km: String(last?.round?.km ?? 20),
-	wish: last?.round?.wish ?? 'any',
-	direction: last?.round?.heading !== undefined ? String(last.round.heading) : 'any'
+	wish: last?.round?.wish ?? 'any'
 });

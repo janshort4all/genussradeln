@@ -203,8 +203,13 @@
 	{:else if status === 'noroute' && isRound}
 		<div class="message" role="alert">
 			<p>
-				<strong>Mit dieser Länge haben wir hier keine schöne Runde gefunden.</strong><br />
-				Bitte versuchen Sie eine andere Länge oder einen anderen Startpunkt.
+				{#if request.round?.wish}
+					<strong>Dazu haben wir hier keine passende Runde gefunden.</strong><br />
+					Bitte wählen Sie „Überrasche mich“, eine andere Länge oder einen anderen Startpunkt.
+				{:else}
+					<strong>Mit dieser Länge haben wir hier keine schöne Runde gefunden.</strong><br />
+					Bitte versuchen Sie eine andere Länge oder einen anderen Startpunkt.
+				{/if}
 			</p>
 			<Button variant="primary" href={resolve('/runde')}>Wunsch ändern</Button>
 		</div>

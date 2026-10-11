@@ -34,8 +34,6 @@ export interface TourRequest {
 		seed: number;
 		/** Landschaftswunsch (fehlt = überrasche mich) */
 		wish?: RoundWish;
-		/** Wunschrichtung in Grad ab Norden (fehlt = egal) */
-		heading?: number;
 	};
 }
 

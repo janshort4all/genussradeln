@@ -286,8 +286,11 @@ export const ROUND = {
 	 * von der Flussmitte entfernt auf der Seite des gewünschten Punkts (dort verlaufen die Uferwege).
 	 */
 	river: { minLengthM: 10000, longRiverM: 30000, longRiverBonusM: 2000, bankM: 260 },
-	/** Wunschrichtung: so viele Richtungen im Fächer um die Wunschrichtung, Abstand in Grad */
-	headingSpreadDeg: 10
+	/**
+	 * Mit Wunsch zeigt die App nur Runden, die ihn wirklich erfüllen (Jan, 11.10.2026): mindestens so viel Anteil der
+	 * Strecke (absolut) und mindestens `relative` × der beste Anteil unter den Kandidaten. Lieber weniger Vorschläge.
+	 */
+	wishMin: { water: 0.25, forest: 0.35, fields: 0.55, relative: 0.8 }
 } as const;
 
 /**
