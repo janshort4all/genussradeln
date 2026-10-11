@@ -2,6 +2,7 @@
 	import { asset, resolve } from '$app/paths';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { onDestroy } from 'svelte';
+	import Download from '@lucide/svelte/icons/download';
 	import Flag from '@lucide/svelte/icons/flag';
 	import MapIcon from '@lucide/svelte/icons/map';
 	import Minus from '@lucide/svelte/icons/minus';
@@ -12,6 +13,7 @@
 	import Sun from '@lucide/svelte/icons/sun';
 	import Moon from '@lucide/svelte/icons/moon';
 	import Repeat from '@lucide/svelte/icons/repeat';
+	import Share2 from '@lucide/svelte/icons/share-2';
 	import Volume2 from '@lucide/svelte/icons/volume-2';
 	import VolumeX from '@lucide/svelte/icons/volume-x';
 	import BackLink from '$lib/components/BackLink.svelte';
@@ -35,6 +37,9 @@
 	import { STOP_LABELS } from '$lib/stops/kinds';
 	import { loadPois } from '$lib/stops/pois';
 	import { distance } from '$lib/geo/geo';
+	import { RideRecorder, rideMinutesRecorded, type RideRecord } from '$lib/navigation/recorder';
+	import { canShareRide, downloadRide, shareRide } from '$lib/navigation/ride-file';
+	import { removeRide, saveRide } from '$lib/storage/rides';
 	import { tourLine } from '$lib/tour/model';
 
 	let { data } = $props();
@@ -109,6 +114,90 @@
 	let releaseScreen: ScreenLock | undefined;
 	// Der Browser hat das Wachhalten des Bildschirms nicht erlaubt → Hinweis in der Fahrtansicht
 	let screenWarning = $state(false);
+
+	// Fahrt aufzeichnen (Testbetrieb): Standortmeldungen und was die App angezeigt hat, nur auf dem Gerät; am Ende als Datei zu speichern.
+	// Voreinstellung „an“, die Person kann es vor der Fahrt abschalten – und merkt es sich.
+	const RECORD_KEY = 'genuss-fahrt-aufzeichnen';
+	function readRecordChoice(): boolean {
+		try {
+			return localStorage.getItem(RECORD_KEY) !== 'aus';
+		} catch {
+			return true;
+		}
+	}
+	let recordRide = $state(readRecordChoice());
+	function setRecordChoice(on: boolean) {
+		recordRide = on;
+		try {
+			localStorage.setItem(RECORD_KEY, on ? 'an' : 'aus');
+		} catch {
+			// Speicher gesperrt – dann gilt die Wahl nur für diese Fahrt
+		}
+	}
+	let recorder: RideRecorder | undefined;
+	let rideRecord: RideRecord | undefined = $state();
+	let reachedGoal = $state(false);
+	let saveNote = $state('');
+	const canShare = $derived(rideRecord ? canShareRide(rideRecord) : false);
+
+	// Meldet das GPS länger nichts, steht die Anzeige still – dann soll das sichtbar sein (und in der Aufzeichnung stehen)
+	const STALE_SECONDS = 15;
+	let lastFixAt = Date.now();
+	let stale = $state(false);
+	let wasStale = false;
+	let ticker: ReturnType<typeof setInterval> | undefined;
+	let tickCount = 0;
+	const signalNote = $derived(
+		stale
+			? 'Der Standort wird gerade nicht aktualisiert – die Anzeige kann veraltet sein.'
+			: view?.weak && view.state.started
+				? 'Der Standort ist gerade ungenau – die Anzeige wartet auf bessere Meldungen.'
+				: ''
+	);
+
+	async function persist() {
+		if (recorder) await saveRide(recorder.record).catch(() => {});
+	}
+
+	function startTicker() {
+		stopTicker();
+		lastFixAt = Date.now();
+		ticker = setInterval(() => {
+			stale = phase === 'running' && !simulating && Date.now() - lastFixAt > STALE_SECONDS * 1000;
+			if (stale && !wasStale) recorder?.event(`Keine Standortmeldung seit ${STALE_SECONDS} s`);
+			wasStale = stale;
+			// unterwegs alle ~20 s sichern, falls der Browser die Seite beendet
+			if (++tickCount % 7 === 0) void persist();
+		}, 3000);
+	}
+
+	function stopTicker() {
+		clearInterval(ticker);
+		ticker = undefined;
+		stale = false;
+		wasStale = false;
+	}
+
+	/** Aufzeichnung abschließen: fertige Fahrt für die Speichern-Knöpfe bereithalten */
+	function endRecording(reached: boolean) {
+		reachedGoal = reached;
+		if (!recorder) return;
+		recorder.finish();
+		rideRecord = JSON.parse(JSON.stringify(recorder.record));
+		void saveRide(recorder.record).catch(() => {});
+		recorder = undefined;
+	}
+
+	function saveRideFile() {
+		if (!rideRecord) return;
+		downloadRide(rideRecord);
+		saveNote = 'Die Datei liegt jetzt im Ordner „Downloads“ Ihres Handys.';
+	}
+
+	async function sendRide() {
+		if (!rideRecord) return;
+		saveNote = (await shareRide(rideRecord)) ? '' : 'Das Verschicken hat nicht geklappt. Bitte speichern Sie die Datei stattdessen.';
+	}
 	// Ton: aus/an (Jan, 12.10.2026: „Ton aus“ und „Nochmal“ in der Fahrtansicht)
 	let muted = $state(false);
 
@@ -154,7 +243,13 @@
 		if (!track || phase !== 'running') return;
 		const next = guide(track, navState, fix, tour.destinationName);
 		navState = next.state;
+		if (recorder) {
+			if (next.state.offRoute !== !!view?.state.offRoute) recorder.event(next.state.offRoute ? 'Strecke verlassen' : 'Wieder auf der Strecke');
+			if (next.weak && !view?.weak) recorder.event(`Meldung zu ungenau (${Math.round(fix.accuracy ?? 0)} m) – nicht benutzt`);
+		}
 		view = next;
+		lastFixAt = Date.now();
+		recorder?.fix(fix, next);
 		// alle Ansagen dieser Meldung in einem Satz – eine neue Ansage bricht sonst die vorige ab
 		if (next.speak.length) voice.say(next.speak.map((a) => a.text).join(' '), next.speak.some((a) => a.beep));
 		if (next.state.finished) finish();
@@ -164,7 +259,22 @@
 		if (!track) return;
 		voice.unlock();
 		simulating = simulate;
+		rideRecord = undefined;
+		saveNote = '';
+		recorder = undefined;
+		if (recordRide) {
+			recorder = new RideRecorder({
+				tourId: tour.id,
+				title: tour.title,
+				meters: track.total,
+				planned: line.map(([lon, lat]) => [lon, lat] as [number, number]),
+				device: simulate ? 'Probefahrt am PC' : navigator.userAgent
+			});
+			recorder.event('Start');
+			void persist();
+		}
 		phase = 'running';
+		startTicker();
 		await enterFullscreen();
 		releaseScreen = await keepScreenOn();
 		screenWarning = !releaseScreen.active && !simulate;
@@ -172,6 +282,7 @@
 			? simulateRide(track, onFix)
 			: followPosition(onFix, (p) => {
 					problem = p;
+					recorder?.event(`Standort-Problem: ${p}`);
 					if (p === 'denied' || p === 'unsupported') {
 						stopAll();
 						phase = 'problem';
@@ -180,6 +291,8 @@
 	}
 
 	function stopAll() {
+		stopTicker();
+		void persist();
 		stopFollowing?.();
 		stopFollowing = undefined;
 		releaseScreen?.();
@@ -189,28 +302,50 @@
 
 	/** „Beenden“ in der Fahrtansicht: anhalten und nachfragen – nichts geht durch einen Fehlgriff verloren */
 	function askToEnd() {
+		recorder?.event('„Beenden“ angetippt');
 		setOverview(false);
 		stopAll();
 		phase = 'confirm-end';
 	}
 
 	function pause() {
+		recorder?.event('Pause');
 		setOverview(false);
 		stopAll();
 		phase = 'paused';
 	}
 
 	async function resume() {
+		recorder?.event('Weiter');
 		phase = 'running';
+		startTicker();
 		releaseScreen = await keepScreenOn();
 		screenWarning = !releaseScreen.active && !simulating;
 		stopFollowing = simulating && track ? simulateRide(track, onFix) : followPosition(onFix, (p) => (problem = p));
 	}
 
 	function finish() {
+		recorder?.event('Ziel erreicht');
 		stopAll();
+		endRecording(true);
 		phase = 'finished';
 		void exitFullscreen();
+	}
+
+	/** „Ja, beenden“: war die Fahrt aufgezeichnet, kommt zuerst die Seite zum Speichern der Datei */
+	function endRide() {
+		if (recorder && recorder.fixCount >= 5) {
+			recorder.event('Beendet');
+			stopAll();
+			endRecording(false);
+			phase = 'finished';
+			void exitFullscreen();
+			return;
+		}
+		// zu kurz zum Auswerten: nichts aufheben
+		if (recorder) void removeRide(recorder.record.id).catch(() => {});
+		recorder = undefined;
+		void leave();
 	}
 
 	let leaving = false;
@@ -231,6 +366,10 @@
 
 	// Bildschirm war kurz aus (Wachhalten wird dann vom Browser beendet) → wieder anfordern
 	async function onVisibility() {
+		if (phase === 'running') {
+			recorder?.event(document.visibilityState === 'hidden' ? 'Seite im Hintergrund (Bildschirm aus oder andere App)' : 'Seite wieder sichtbar');
+			if (document.visibilityState === 'hidden') void persist();
+		}
 		if (document.visibilityState === 'visible' && phase === 'running' && !releaseScreen) {
 			releaseScreen = await keepScreenOn();
 			screenWarning = !releaseScreen.active && !simulating;
@@ -271,6 +410,10 @@
 				<li>Der Bildschirm bleibt während der Fahrt an. Mit „Pause“ darf er wieder ausgehen.</li>
 				<li>Gleich fragt das Handy, ob die App Ihren Standort nutzen darf – bitte mit „Erlauben“ antworten.</li>
 			</ul>
+			<label class="record">
+				<input type="checkbox" checked={recordRide} onchange={(e) => setRecordChoice(e.currentTarget.checked)} />
+				<span>Fahrt aufzeichnen – für den Test. Die Aufzeichnung bleibt auf Ihrem Handy, bis Sie sie selbst verschicken.</span>
+			</label>
 			<button type="button" class="go" onclick={() => start(false)}>Navigation starten</button>
 			{#if canSimulate}
 				<button type="button" class="secondary" onclick={() => start(true)}>Probefahrt am PC (ohne GPS)</button>
@@ -293,14 +436,25 @@
 	{:else if phase === 'finished'}
 		<div class="screen center">
 			<TurnArrow kind="finish" size={120} />
-			<h1>Geschafft!</h1>
-			<p>Sie sind am Ziel. Schöne Pause!</p>
-			<button type="button" class="go" onclick={leave}>Zur Tour</button>
+			<h1>{reachedGoal ? 'Geschafft!' : 'Fahrt beendet'}</h1>
+			<p>{reachedGoal ? 'Sie sind am Ziel. Schöne Pause!' : 'Die Navigation ist beendet.'}</p>
+			{#if rideRecord}
+				<p class="record-note">
+					Ihre Fahrt wurde aufgezeichnet ({rideMinutesRecorded(rideRecord)} {rideMinutesRecorded(rideRecord) === 1 ? 'Minute' : 'Minuten'}). Bitte speichern Sie sie als Datei und schicken Sie
+					sie uns – so sehen wir, was gefahren wurde.
+				</p>
+				<button type="button" class="go" onclick={saveRideFile}><Download size={26} aria-hidden="true" /> Fahrt speichern</button>
+				{#if canShare}
+					<button type="button" class="secondary" onclick={sendRide}><Share2 size={26} aria-hidden="true" /> Fahrt verschicken</button>
+				{/if}
+				{#if saveNote}<p role="status" class="record-note">{saveNote}</p>{/if}
+			{/if}
+			<button type="button" class={rideRecord ? 'secondary' : 'go'} onclick={leave}>Zur Tour</button>
 		</div>
 	{:else}
 		<!-- Fahrt: oben die Anweisung, in der Mitte die Karte, unten Rest und Knöpfe -->
 		<section class="instruction" aria-live="polite">
-			{#if !view}
+			{#if !view || (view.weak && !view.state.started)}
 				<p class="action">Standort wird gesucht …</p>
 			{:else if view.offRoute}
 				<TurnArrow kind="straight" rotate={view.offRoute.bearing - view.heading} />
@@ -379,6 +533,9 @@
 			{#if nextStop && view}
 				<p class="next-stop">Einkehr: {nextStop.name} in {distanceText(nextStop.along - view.state.along)}</p>
 			{/if}
+			{#if signalNote}
+				<p class="warning" role="status">{signalNote}</p>
+			{/if}
 			{#if screenWarning}
 				<p class="warning" role="status">
 					Ihr Handy hält den Bildschirm nicht von selbst an. Bitte stellen Sie in den Einstellungen die Bildschirmzeit auf „nie“
@@ -407,7 +564,7 @@
 					</button>
 				{:else}
 					<h2 id="pause-title">Navigation wirklich beenden?</h2>
-					<button type="button" class="go" onclick={leave}>Ja, beenden</button>
+					<button type="button" class="go" onclick={endRide}>Ja, beenden</button>
 					<button type="button" class="secondary" onclick={resume}>Nein, weiterfahren</button>
 				{/if}
 			</div>
@@ -466,6 +623,29 @@
 	.facts {
 		font-size: var(--text-large);
 		font-weight: 700;
+	}
+
+	.record {
+		display: flex;
+		gap: 0.75rem;
+		align-items: flex-start;
+		min-height: var(--tap);
+		padding: 0.75rem 0.875rem;
+		border: 2px solid var(--nav-muted);
+		border-radius: var(--radius);
+		color: var(--nav-text);
+	}
+
+	.record input {
+		flex: none;
+		width: 1.75rem;
+		height: 1.75rem;
+		margin: 0.125rem 0 0;
+		accent-color: var(--nav-accent);
+	}
+
+	.record-note {
+		color: var(--nav-text);
 	}
 
 	.hints {

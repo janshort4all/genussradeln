@@ -3,6 +3,7 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Lock from '@lucide/svelte/icons/lock';
 	import MapPinPlus from '@lucide/svelte/icons/map-pin-plus';
+	import Route from '@lucide/svelte/icons/route';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 </script>
 
@@ -23,6 +24,16 @@
 			<ChevronRight size={26} strokeWidth={2.5} aria-hidden="true" />
 		</a>
 	</li>
+	<li>
+		<a href={resolve('/fahrten')}>
+			<span class="round-icon" aria-hidden="true"><Route size={26} strokeWidth={2.25} /></span>
+			<span class="text">
+				<strong>Aufgezeichnete Fahrten</strong>
+				<span>Ihre Testfahrten als Datei speichern oder verschicken.</span>
+			</span>
+			<ChevronRight size={26} strokeWidth={2.5} aria-hidden="true" />
+		</a>
+	</li>
 </ul>
 
 <section class="info sheet">
@@ -31,8 +42,8 @@
 		Ihre Daten bleiben bei Ihnen
 	</h2>
 	<p>
-		Diese Testversion braucht kein Konto. Gemerkte Touren und Ihre Eingaben bleiben auf Ihrem Gerät. Wir sammeln keine
-		Nutzungsdaten.
+		Diese Testversion braucht kein Konto. Gemerkte Touren, Ihre Eingaben und aufgezeichnete Fahrten bleiben auf Ihrem Gerät. Wir
+		sammeln keine Nutzungsdaten – eine aufgezeichnete Fahrt sehen wir nur, wenn Sie die Datei selbst verschicken.
 	</p>
 </section>
 

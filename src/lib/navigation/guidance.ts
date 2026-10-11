@@ -24,10 +24,23 @@ export const NAV = {
 	longStraightM: 1000,
 	/** Suchfenster auf der Strecke ab dem letzten Stand (verhindert Sprünge auf den Rückweg) */
 	searchAheadM: 800,
-	searchBackM: 60
+	searchBackM: 60,
+	/**
+	 * Mehr als so viele Meter Ungenauigkeit (z. B. Ortung über Funkzellen): die Meldung zählt nicht für die Position –
+	 * sonst springt die Anzeige. Dann zeigt die App „Standort ungenau“.
+	 */
+	maxAccuracyM: 60,
+	/** schneller als so viele Meter pro Sekunde fährt niemand (50 km/h) – daraus folgt, wie weit die Position höchstens vorrücken kann */
+	maxSpeedMs: 14,
+	/** Spielraum zusätzlich zu Tempo × Zeit (GPS-Rauschen, Strecke ist ein Stück kürzer als die Fahrt) */
+	jumpSlackM: 30,
+	/** so weit voraus darf man nach einer Abkürzung wieder an die Strecke anschließen */
+	rejoinAheadM: 5000
 } as const;
 
 export interface NavState {
+	/** Zeit (ms) der letzten Meldung, die für die Position zählte */
+	time?: number;
 	/** Meter ab Start entlang der Strecke */
 	along: number;
 	started: boolean;
@@ -42,6 +55,11 @@ export interface Fix {
 	lngLat: LngLat;
 	/** Genauigkeit in Metern laut GPS */
 	accuracy?: number;
+	/** Zeitpunkt der Messung (ms) – damit lässt sich beurteilen, wie weit die Position seit der letzten Meldung höchstens gekommen ist */
+	time?: number;
+	/** Tempo (m/s) und Richtung (Grad) laut GPS – nur für die Aufzeichnung */
+	speed?: number | null;
+	heading?: number | null;
 }
 
 export interface Announcement {
@@ -60,6 +78,8 @@ export interface NavView {
 	remaining: number;
 	/** Anzeige-Position: auf der Strecke, oder der echte Standort, wenn man daneben ist */
 	position: LngLat;
+	/** Die letzte Meldung war zu ungenau und wurde nicht für die Position benutzt */
+	weak?: boolean;
 	/** Fahrtrichtung laut Strecke (für die mitgedrehte Karte) */
 	heading: number;
 	/** neben der Strecke: wie weit und in welche Richtung (Grad ab Norden) es zurückgeht */
@@ -80,19 +100,46 @@ export function guide(track: RouteTrack, previous: NavState, fix: Fix, goalName?
 		speak.push({ text, beep });
 	};
 
-	// 1. Wo auf der Strecke? Beim ersten Mal am Anfang suchen (bei Rundwegen liegt das Ende am selben Ort)
+	// 0. Zu ungenaue Meldung (Ortung über Funkzellen, Tunnel, dichte Bebauung): nicht für die Position benutzen.
+	//    Sonst springt die Anzeige um hundert Meter und eine Abzweigung wird übersprungen.
+	if ((fix.accuracy ?? 0) > NAV.maxAccuracyM) {
+		const along = state.along;
+		const maneuver = state.started ? track.nextManeuver(along) : undefined;
+		return {
+			state,
+			maneuver,
+			distance: maneuver ? maneuver.at - along : undefined,
+			remaining: Math.max(0, track.total - along),
+			position: state.started ? track.pointAt(along) : fix.lngLat,
+			heading: track.bearingAt(along),
+			weak: true,
+			speak
+		};
+	}
+
+	// 1. Wo auf der Strecke? Beim ersten Mal am Anfang suchen (bei Rundwegen liegt das Ende am selben Ort).
+	//    Danach nur in einem Fenster ab dem letzten Stand, das nach Zeit und Höchsttempo begrenzt ist: Die Position kann
+	//    nicht in einer Sekunde 90 m vorrücken, nur weil das GPS einmal danebenlag.
+	const seconds = fix.time !== undefined && state.time !== undefined ? Math.max(0, (fix.time - state.time) / 1000) : undefined;
+	const reach =
+		seconds === undefined
+			? NAV.searchAheadM
+			: Math.min(NAV.searchAheadM, seconds * NAV.maxSpeedMs + (fix.accuracy ?? 0) + NAV.jumpSlackM);
 	let loc = state.started
-		? track.locate(fix.lngLat, state.along, NAV.searchAheadM, NAV.searchBackM)
+		? track.locate(fix.lngLat, state.along, reach, NAV.searchBackM + (fix.accuracy ?? 0))
 		: track.locate(fix.lngLat, 0, 1500);
-	if (!loc || loc.offset > 200) loc = track.locate(fix.lngLat, state.started ? state.along - NAV.searchBackM : 0) ?? loc;
+	// Erste Meldung weit weg vom Anfang (App neu gestartet, mitten in der Tour eingestiegen): überall suchen
+	if (!state.started && (!loc || loc.offset > 200)) loc = track.locate(fix.lngLat) ?? loc;
 	if (!loc) return { state, remaining: track.total, position: fix.lngLat, heading: 0, speak };
 
 	const limit = Math.max(NAV.offRouteM, (fix.accuracy ?? 0) * 1.5);
-	// Abkürzung genommen? Weiter vorne wieder auf der Strecke → dort weitermachen
-	if (loc.offset > limit && state.started) {
-		const ahead = track.locate(fix.lngLat, state.along);
-		if (ahead && ahead.offset <= NAV.backOnRouteM) loc = ahead;
+	// Abkürzung genommen? Erst wenn schon die Meldung davor neben der Strecke lag (ein Ausreißer genügt nicht) und man weiter
+	// vorne wieder auf ihr ist → dort weitermachen, und zwar an der ersten passenden Stelle, nicht an einer viel späteren
+	if (loc.offset > limit && state.started && state.offCount >= 1) {
+		const ahead = track.firstWithin(fix.lngLat, state.along, NAV.rejoinAheadM, NAV.backOnRouteM);
+		if (ahead) loc = ahead;
 	}
+	if (fix.time !== undefined && loc.offset <= limit) state.time = fix.time;
 
 	if (!state.started) {
 		state.started = true;
@@ -111,7 +158,8 @@ export function guide(track: RouteTrack, previous: NavState, fix: Fix, goalName?
 		say('back', 'Wieder auf der Strecke.');
 	}
 
-	if (!state.offRoute) state.along = loc.along;
+	// Weit neben der Strecke (z. B. ein Ausreißer) rückt die Position nicht vor
+	if (!state.offRoute && loc.offset <= limit) state.along = loc.along;
 	const along = state.along;
 	const heading = track.bearingAt(along);
 	const remaining = Math.max(0, track.total - along);

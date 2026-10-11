@@ -126,9 +126,16 @@ export function followPosition(onFix: (fix: Fix) => void, onProblem: (problem: P
 		(pos) => {
 			const now = Date.now();
 			const standing = pos.coords.speed !== null && pos.coords.speed < 1;
-			if (now - last < (standing ? 3000 : 1000)) return;
+			// 800 statt 1000 ms: Meldungen kommen etwa im Sekundentakt – mit knapp 1000 ms Abstand würde sonst jede zweite verworfen
+			if (now - last < (standing ? 3000 : 800)) return;
 			last = now;
-			onFix({ lngLat: [pos.coords.longitude, pos.coords.latitude], accuracy: pos.coords.accuracy });
+			onFix({
+				lngLat: [pos.coords.longitude, pos.coords.latitude],
+				accuracy: pos.coords.accuracy,
+				time: pos.timestamp,
+				speed: pos.coords.speed,
+				heading: pos.coords.heading
+			});
 		},
 		(error) => onProblem(error.code === error.PERMISSION_DENIED ? 'denied' : 'unavailable'),
 		{ enableHighAccuracy: true, maximumAge: 1000, timeout: 30_000 }
@@ -151,7 +158,7 @@ export function simulateRide(track: RouteTrack, onFix: (fix: Fix) => void, speed
 		// kurz nach dem Start einmal 80 m neben die Strecke „verfahren“
 		if (tick >= 25 && tick <= 30) p = offset(p, track.bearingAt(along) + 90, 80);
 		const jitter = offset(p, Math.random() * 360, Math.random() * 4);
-		onFix({ lngLat: jitter, accuracy: 6 });
+		onFix({ lngLat: jitter, accuracy: 6, time: Date.now() });
 		if (along >= track.total) clearInterval(timer);
 	}, 1000);
 	return () => clearInterval(timer);

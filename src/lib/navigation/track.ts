@@ -91,7 +91,11 @@ export class RouteTrack {
 			const dx = (b[0] - a[0]) * kx;
 			const dy = (b[1] - a[1]) * ky;
 			const len2 = dx * dx + dy * dy;
-			const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2));
+			// Das Fenster gilt auch innerhalb eines langen geraden Stücks: nur der Teil davon, der im Fenster liegt
+			const segLen = this.cum[i + 1] - this.cum[i];
+			const lo = segLen > 0 ? Math.max(0, (from - back - this.cum[i]) / segLen) : 0;
+			const hi = segLen > 0 ? Math.min(1, (from + ahead - this.cum[i]) / segLen) : 1;
+			const t = len2 === 0 ? 0 : Math.max(lo, Math.min(hi, Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2))));
 			const offset = Math.hypot(ax + t * dx, ay + t * dy);
 			if (!best || offset < best.offset) {
 				best = {
@@ -102,6 +106,37 @@ export class RouteTrack {
 			}
 		}
 		return best;
+	}
+
+	/**
+	 * Die erste Stelle ab Meter `from` (höchstens `ahead` Meter weit), die höchstens `maxOffset` Meter von `p` entfernt ist –
+	 * nicht die nächste überhaupt. Wer die Strecke verlassen hat und wieder auf sie trifft, schließt so an der nächsten
+	 * Stelle an und nicht an einem viel späteren Stück, das zufällig auf derselben Straße liegt (Hin- und Rückweg).
+	 */
+	firstWithin(p: LngLat, from: number, ahead: number, maxOffset: number): Location | undefined {
+		const kx = Math.cos(p[1] * RAD) * EARTH_RADIUS * RAD;
+		const ky = EARTH_RADIUS * RAD;
+		for (let i = 0; i + 1 < this.points.length; i++) {
+			if (this.cum[i + 1] < from) continue;
+			if (this.cum[i] > from + ahead) break;
+			const a = this.points[i];
+			const b = this.points[i + 1];
+			const ax = (a[0] - p[0]) * kx;
+			const ay = (a[1] - p[1]) * ky;
+			const dx = (b[0] - a[0]) * kx;
+			const dy = (b[1] - a[1]) * ky;
+			const len2 = dx * dx + dy * dy;
+			const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2));
+			const offset = Math.hypot(ax + t * dx, ay + t * dy);
+			if (offset <= maxOffset) {
+				return {
+					along: this.cum[i] + t * (this.cum[i + 1] - this.cum[i]),
+					offset,
+					point: [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
+				};
+			}
+		}
+		return undefined;
 	}
 
 	/** Punkt bei Meter `along` */
