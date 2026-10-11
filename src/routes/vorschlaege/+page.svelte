@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { asset, resolve } from '$app/paths';
-	import Bike from '@lucide/svelte/icons/bike';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import X from '@lucide/svelte/icons/x';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import { onMount } from 'svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
+	import RideLoader from '$lib/components/RideLoader.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import RouteCard from '$lib/components/RouteCard.svelte';
 	import RouteMap from '$lib/map/RouteMap.svelte';
@@ -150,12 +150,13 @@
 	/>
 
 	{#if status === 'loading'}
-		<div class="message" role="status">
-			<Bike size={40} aria-hidden="true" />
-			<p>
-				<strong>{isRound ? 'Wir suchen schöne Runden …' : 'Wir suchen die schönsten Wege …'}</strong><br />Das dauert
-				nur einen Moment.
+		<!-- Wartebild: ein orangefarbenes E-Bike fährt durch die Landschaft, der Text steht darunter -->
+		<div class="waiting" role="status">
+			<div class="stage"><RideLoader /></div>
+			<p class="first">
+				<strong>{isRound ? 'Wir suchen schöne Runden' : 'Wir suchen die schönsten Wege'}<span class="dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></strong>
 			</p>
+			<p class="second">Das dauert nur einen Moment.</p>
 		</div>
 	{:else if status === 'unavailable'}
 		<div class="message" role="alert">
@@ -269,6 +270,72 @@
 <style>
 	.more {
 		margin: 0 0 1.5rem;
+	}
+
+	/* Wartebild */
+	.waiting {
+		display: grid;
+		gap: 0.25rem;
+		justify-items: center;
+		margin: 0.5rem 0 1rem;
+		text-align: center;
+	}
+
+	.stage {
+		width: 100%;
+		height: clamp(11rem, 30vh, 15rem);
+		margin-bottom: 1rem;
+		overflow: hidden;
+		border-radius: 1.5rem;
+		background: var(--color-blue-light);
+		box-shadow: 0 4px 14px rgb(36 53 57 / 0.12);
+	}
+
+	.waiting p {
+		margin: 0;
+	}
+
+	.first {
+		color: var(--color-green);
+		font-family: var(--font-title);
+		font-size: var(--text-h2);
+		line-height: 1.2;
+	}
+
+	.second {
+		color: var(--color-text-muted);
+		font-size: var(--text-large);
+	}
+
+	/* drei Punkte, die nacheinander aufleuchten */
+	.dots i {
+		font-style: normal;
+		animation: blink 1.2s infinite;
+	}
+
+	.dots i:nth-child(2) {
+		animation-delay: 0.2s;
+	}
+
+	.dots i:nth-child(3) {
+		animation-delay: 0.4s;
+	}
+
+	@keyframes blink {
+		0%,
+		60%,
+		100% {
+			opacity: 0.25;
+		}
+		30% {
+			opacity: 1;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.dots i {
+			animation: none;
+		}
 	}
 
 	/* Infofenster über der Karte: Nummer in der Wegfarbe, Name, drei Zahlen, ein großer Knopf */
@@ -393,11 +460,6 @@
 		border-radius: 1rem;
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);
-	}
-
-	.message[role='status'] {
-		grid-template-columns: auto 1fr;
-		align-items: center;
 	}
 
 	.message p {
