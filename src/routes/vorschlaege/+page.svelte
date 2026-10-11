@@ -4,6 +4,8 @@
 	import X from '@lucide/svelte/icons/x';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import { onMount } from 'svelte';
+	import BackLink from '$lib/components/BackLink.svelte';
+	import MoreLink from '$lib/components/MoreLink.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import RideLoader from '$lib/components/RideLoader.svelte';
 	import Button from '$lib/components/Button.svelte';
@@ -70,8 +72,8 @@
 	const heading = $derived(
 		isRound
 			? status === 'done'
-				? `${tours.length === 1 ? 'Eine Runde' : `${tours.length} Runden`} ab ${request?.start.name}`
-				: `Ihre Runden ab ${request?.start.name}`
+				? `${tours.length === 1 ? 'Eine schöne Route' : `${tours.length} schöne Routen`} für Sie gefunden.`
+				: 'Ihre Runden'
 			: `${status === 'done' ? countWords(tours.length) : 'Ihre Wege'} ${towards}`
 	);
 
@@ -140,16 +142,24 @@
 	<p>Bitte sagen Sie uns zuerst, wohin Sie möchten.</p>
 	<Button variant="primary" href={resolve('/ziel')}>Ziel wählen</Button>
 {:else}
+	<!-- Beim Warten kein Titelbild: nur das Fahrrad und der Text darunter (Jan, 14.10.2026) – oben bleiben Zurück-Weg und Zahnrad -->
+	{#if status === 'loading'}
+		<div class="slim">
+			<BackLink href={isRound ? resolve('/runde') : resolve('/ziel')} label="Wunsch ändern" />
+			<MoreLink />
+		</div>
+	{:else}
 	<PageHeader
 		image="/vorschlaege.jpg"
 		calm
 		title={heading}
 		lead={request.round
-				? `${request.round.km} km${request.round.wish ? ` · ${{ water: 'am Wasser', forest: 'durch den Wald', fields: 'durch Felder und Dörfer' }[request.round.wish]}` : ''}`
+				? undefined
 				: `ab ${request.start.name} · ${request.returnMode === 'one-way' ? 'nur hin' : 'hin und zurück'}`}
 		backHref={isRound ? resolve('/runde') : resolve('/ziel')}
 		backLabel="Wunsch ändern"
 	/>
+	{/if}
 
 	{#if status === 'loading'}
 		<!-- Wartebild: ein orangefarbenes E-Bike fährt durch die Landschaft, der Text steht darunter -->
@@ -285,6 +295,15 @@
 		margin-bottom: 1rem;
 	}
 
+	/* schmale Zeile oben beim Warten: Zurück-Weg links, Zahnrad rechts */
+	.slim {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		margin-bottom: 0.75rem;
+	}
+
 	/* Wartebild */
 	.waiting {
 		display: grid;
@@ -296,7 +315,7 @@
 
 	.stage {
 		width: 100%;
-		height: clamp(11rem, 30vh, 15rem);
+		height: clamp(13rem, 38vh, 20rem);
 		margin-bottom: 1rem;
 		overflow: hidden;
 		border-radius: 1.5rem;
