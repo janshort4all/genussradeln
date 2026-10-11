@@ -11,7 +11,7 @@
 	<title>Genuss-Radeln – Mehr</title>
 </svelte:head>
 
-<PageHeader title="Mehr" lead="Weitere Funktionen und Hinweise." backHref={resolve('/')} backLabel="Zur Startseite" />
+<PageHeader title="Mehr" lead="Weitere Funktionen." backHref={resolve('/')} backLabel="Zur Startseite" />
 
 <ul class="list">
 	<li>

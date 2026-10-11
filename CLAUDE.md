@@ -37,6 +37,11 @@ beschrieben in `docs/lastenheft.md` → Abschnitt „Bedienung“.
     Aufgezeichnete Fahrten). Die Leiste steht auf allen Seiten außer in der Navigation; dort bleiben „Beenden“, „Pause“, „Nochmal“, „Ton“ und die
     Zoomknöpfe sichtbar. Welcher Bereich markiert ist, bestimmt `current` in `BottomBar.svelte` aus der Seite; Vorschläge und Tour-Seite gehören zu
     „Ziel“ bzw. „Runde“ (Tour-Seite: `area.tab`, bei gemerkten Touren „Meine Touren“). **Bei jeder neuen Seite dort eintragen.**
+9d. **Ein Kopf für alle Seiten (Jan, 14.10.2026: „der Stil muss überall gleich sein“; Vorbild „Eine schöne Runde drehen“ + Ausfaden wie auf der Startseite):**
+    `PageHeader` hat keine Varianten mehr: dasselbe Titelbild (`teaser.jpg`), feste Höhe (18 rem, am PC 19 rem), Foto rechts, nach links und unten ausgeblendet, Zurück-Weg,
+    Zahnrad, Überschrift (höchstens 2 Zeilen), **kurzer** Satz (höchstens 2 Zeilen, ca. 35 Zeichen) und grüner Strich; das erste Element darunter ragt 3 rem ins Bild
+    (`.page-header + *` liegt darüber). Die Startseite ist höchstens genauso hoch (kleiner nur bei niedrigen Fenstern). Neue Seiten: nur `<PageHeader title lead backHref backLabel />`,
+    nichts selbst am Kopf formatieren. Prüfen: Kopfhöhe aller Seiten messen (soll gleich sein).
 9c. **Browser/PC (Jan, 14.10.2026: „Startseite nicht browseroptimiert, Titelbild nicht bis zum Rand, ich muss scrollen, um beide Felder zu sehen“):** Titelbilder
     (`PageHeader`, Startseite) reichen auf **jeder** Fenstergröße bis an den Fensterrand; Text und Zahnrad bleiben an der Inhaltsspalte ausgerichtet. Dafür setzt
     `+layout.svelte` am `.page` die Variablen `--col` (Spaltenbreite; Startseite 64 rem, Kartenseiten 80 rem), `--pad` und `--bleed` (Abstand Fensterrand–Inhalt);

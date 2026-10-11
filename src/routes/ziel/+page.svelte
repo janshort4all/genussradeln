@@ -79,7 +79,7 @@
 
 <PageHeader
 	title="Wohin möchten Sie?"
-	lead="Wir bauen Ihnen den schönsten Weg dorthin."
+	lead="Wir bauen den schönsten Weg."
 	backHref={resolve('/')}
 	backLabel="Zur Startseite"
 />
@@ -99,8 +99,8 @@
 		name="start"
 		bind:value={draft.startMode}
 		choices={[
-			{ value: 'here', label: 'Hier, wo ich bin', icon: LocateFixed },
-			{ value: 'address', label: 'An einer Adresse', icon: MapPin }
+			{ value: 'here', label: 'Hier, wo\nich bin', icon: LocateFixed },
+			{ value: 'address', label: 'An einer\nAdresse', icon: MapPin }
 		]}
 	/>
 	{#if draft.startMode === 'address'}
@@ -112,8 +112,8 @@
 		name="return"
 		bind:value={draft.returnMode}
 		choices={[
-			{ value: 'one-way', label: 'Nur hin', icon: ArrowRight },
-			{ value: 'other-way', label: 'Hin und zurück als Runde', icon: Undo2 }
+			{ value: 'one-way', label: 'Nur hin\n\u00a0', icon: ArrowRight },
+			{ value: 'other-way', label: 'Hin und zurück\nals Runde', icon: Undo2 }
 		]}
 	/>
 

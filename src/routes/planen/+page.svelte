@@ -11,7 +11,7 @@
 
 <PageHeader
 	title="Selbst planen"
-	lead="Tippen Sie Punkte auf der Karte an. Die App verbindet sie über schöne Wege."
+	lead="Tippen Sie Punkte auf der Karte an."
 	backHref={resolve('/mehr')}
 	backLabel="Zurück zu „Mehr“"
 />

@@ -85,8 +85,9 @@
 	.hero {
 		position: relative;
 		isolation: isolate;
-		/* so hoch, dass beide Felder darunter ohne Scrollen sichtbar sind: Fensterhöhe minus Leiste minus Platz für Überschrift und zwei Felder */
-		height: clamp(12rem, calc(100svh - var(--bottom-bar-height) - 26rem), 28rem);
+		/* höchstens so hoch wie der Kopf der anderen Seiten (18 rem, am PC 19 rem – beim Hin- und Herklicken springt nichts), bei niedrigen Fenstern
+		   niedriger, damit beide Felder darunter ohne Scrollen sichtbar sind: Fensterhöhe minus Leiste minus Platz für Überschrift und zwei Felder */
+		height: clamp(12rem, calc(100svh - var(--bottom-bar-height) - 26rem), 18rem);
 		margin: -0.5rem 0 1.25rem;
 		margin-inline: calc(-1 * var(--bleed));
 		overflow: hidden;
@@ -294,7 +295,7 @@
 	/* breite Fenster: Titelbild über die ganze Breite, die beiden Felder nebeneinander – darunter ist nur eine Reihe, das Bild darf höher sein */
 	@media (min-width: 48rem) {
 		.hero {
-			height: clamp(16rem, calc(100svh - var(--bottom-bar-height) - 19rem), 32rem);
+			height: clamp(16rem, calc(100svh - var(--bottom-bar-height) - 19rem), 19rem);
 		}
 
 		.photo {

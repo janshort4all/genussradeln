@@ -143,8 +143,8 @@
 	<PageHeader
 		title={heading}
 		lead={request.round
-			? `Rundkurs · ca. ${request.round.km} km${request.round.wish ? ` · ${{ water: 'am Wasser', forest: 'durch den Wald', fields: 'durch Felder und Dörfer' }[request.round.wish]}` : ''}`
-			: `ab ${request.start.name} · ${request.returnMode === 'one-way' ? 'nur hin' : 'hin und zurück als Runde'}`}
+				? `${request.round.km} km${request.round.wish ? ` · ${{ water: 'am Wasser', forest: 'durch den Wald', fields: 'durch Felder und Dörfer' }[request.round.wish]}` : ''}`
+				: `ab ${request.start.name} · ${request.returnMode === 'one-way' ? 'nur hin' : 'hin und zurück'}`}
 		backHref={isRound ? resolve('/runde') : resolve('/ziel')}
 		backLabel="Wunsch ändern"
 	/>

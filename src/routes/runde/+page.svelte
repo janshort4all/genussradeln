@@ -138,10 +138,8 @@
 </svelte:head>
 
 <PageHeader
-	large
-	image="/teaser.jpg"
 	title="Eine schöne Runde drehen"
-	lead="Wir finden für Sie die passende Route – entspannt und in Ihrer Nähe."
+	lead="Entspannt und in Ihrer Nähe."
 	backHref={resolve('/')}
 	backLabel="Zur Startseite"
 />

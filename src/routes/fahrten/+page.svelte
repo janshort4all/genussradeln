@@ -51,7 +51,7 @@
 
 <PageHeader
 	title="Aufgezeichnete Fahrten"
-	lead="Ihre Fahrten aus dem Test, nur auf diesem Handy."
+	lead="Ihre Testfahrten auf diesem Handy."
 	backHref={resolve('/mehr')}
 	backLabel="Zurück zu „Mehr“"
 />
