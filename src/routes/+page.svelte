@@ -49,7 +49,7 @@
 				</svg>
 				<span class="text">
 					<strong>Zu einem Ziel</strong>
-					<span>Start und Ziel eingeben und Route finden.</span>
+					<span>Sie sagen, wohin – wir finden den schönsten Weg.</span>
 				</span>
 				<span class="go" aria-hidden="true"><ChevronRight size={30} strokeWidth={3} /></span>
 			</a>
@@ -72,7 +72,7 @@
 				</svg>
 				<span class="text">
 					<strong>Eine schöne Runde drehen</strong>
-					<span>Schöne Rundtouren in Ihrer Umgebung.</span>
+					<span>Schöne Rundtouren ab Ihrer Haustür.</span>
 				</span>
 				<span class="go" aria-hidden="true"><ChevronRight size={30} strokeWidth={3} /></span>
 			</a>
@@ -170,21 +170,28 @@
 		margin: 0 0 1rem;
 	}
 
+	/* beide Felder immer gleich hoch und gleich aufgebaut (Jan, 14.10.2026: „ein Button ist größer als der andere – wirkt lieblos“) */
 	.cards {
 		display: grid;
+		grid-auto-rows: 1fr;
 		gap: 1rem;
 		margin: 0;
 		padding: 0;
 		list-style: none;
 	}
 
+	/* das Feld füllt seine Zeile ganz aus – dadurch sind beide gleich hoch */
+	.cards > li {
+		display: grid;
+	}
+
 	.card {
 		position: relative;
 		display: flex;
 		align-items: center;
-		gap: 1rem;
-		min-height: 8.5rem;
-		padding: 1.25rem 1rem;
+		gap: 0.75rem;
+		min-height: 7.5rem;
+		padding: 1rem;
 		border-radius: 1.5rem;
 		overflow: hidden;
 		text-decoration: none;
@@ -198,8 +205,8 @@
 
 	.art {
 		flex: none;
-		width: 5rem;
-		height: 5rem;
+		width: 4rem;
+		height: 4rem;
 	}
 
 	.text {
@@ -209,20 +216,25 @@
 		min-width: 0;
 		font-size: var(--text-base);
 		line-height: 1.3;
+		/* keine Silbentrennung mitten im Wort („einge-ben“ sah schlecht aus) */
+		hyphens: manual;
+		overflow-wrap: normal;
+		text-wrap: pretty;
 	}
 
 	.text strong {
 		font-family: var(--font-title);
 		font-size: var(--text-h2);
 		line-height: 1.15;
+		text-wrap: balance;
 	}
 
 	.go {
 		flex: none;
 		display: grid;
 		place-items: center;
-		width: 3.5rem;
-		height: 3.5rem;
+		width: 3rem;
+		height: 3rem;
 		border-radius: 50%;
 		background: var(--color-surface);
 		color: var(--color-text);
@@ -238,25 +250,25 @@
 		color: #fff;
 	}
 
-	/* „Eine Runde“: Olivgrün (abgedunkelt, weiße Schrift 5,9 : 1) – klar als Knopf zu erkennen und vom Dunkelgrün zu unterscheiden */
+	/* „Eine schöne Runde drehen“: Terrakotta wie jede Hauptaktion der App (weiße Schrift 5 : 1) – wärmer Gegenpol zum Dunkelgrün,
+	   fällt sofort auf und ist nicht mit dem anderen Feld zu verwechseln */
 	.round {
 		background:
-			radial-gradient(120% 60% at 80% 125%, rgb(232 235 214 / 0.22) 0 55%, transparent 56%),
-			radial-gradient(100% 55% at 10% 130%, rgb(232 235 214 / 0.14) 0 55%, transparent 56%),
-			#5f6e33;
+			radial-gradient(120% 60% at 80% 125%, rgb(255 255 255 / 0.14) 0 55%, transparent 56%),
+			radial-gradient(100% 55% at 10% 130%, rgb(255 255 255 / 0.1) 0 55%, transparent 56%),
+			var(--color-orange);
 		color: #fff;
+	}
+
+	.round .go {
+		color: var(--color-orange-dark);
 	}
 
 	/* ganz schmale Handys und große Systemschrift: Pfeil und Bild werden kleiner, der Text behält den Platz */
 	@media (max-width: 24rem) {
 		.art {
-			width: 3.5rem;
-			height: 3.5rem;
-		}
-
-		.go {
-			width: 3rem;
-			height: 3rem;
+			width: 3.25rem;
+			height: 3.25rem;
 		}
 	}
 
