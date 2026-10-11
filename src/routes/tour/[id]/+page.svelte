@@ -48,7 +48,7 @@
 		changed = undefined;
 	});
 
-	// übernommene Änderungen (Umwege, getauschte Stationen), jüngste zuletzt – für „Rückgängig“
+	// übernommene Änderungen (spannende Umwege), jüngste zuletzt – für „Rückgängig“
 	let undoStack: { before: PlannedTour; text: string }[] = $state([]);
 	const lastUndo = $derived(undoStack[undoStack.length - 1]);
 	// Spannende Umwege: nur in der großen Karte, erst nach „Spannende Umwege suchen“

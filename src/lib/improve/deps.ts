@@ -1,4 +1,4 @@
-/** Daten und Routenplaner für die Bausteine im Tourdetail (Umwege, Stationen): einmal laden, überall verwenden */
+/** Daten und Routenplaner für die Bausteine im Tourdetail (spannende Umwege): einmal laden, überall verwenden */
 import { asset } from '$app/paths';
 import { loadNames } from '$lib/naming/names';
 import { route } from '$lib/routing/graphhopper';

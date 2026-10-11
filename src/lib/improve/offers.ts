@@ -1,6 +1,6 @@
 /**
- * Austausch eines Stücks der Tour: ersetzt die Punkte `from`…`to` einer Teilstrecke durch einen neuen Weg (Stationen
- * tauschen, siehe stations.ts). Es wird nichts neu berechnet – Weg, Abbiegehinweise und Kennzahlen stimmen mit dem überein,
+ * Austausch eines Stücks der Tour: ersetzt die Punkte `from`…`to` einer Teilstrecke durch einen neuen Weg (spannende
+ * Umwege, siehe highlights.ts). Es wird nichts neu berechnet – Weg, Abbiegehinweise und Kennzahlen stimmen mit dem überein,
  * was die Karte gezeigt hat. (Die frühere Suche nach „schöneren Umwegen“ entfiel am 12.10.2026: zu unübersichtlich.)
  */
 import { distance, type LngLat } from '$lib/geo/geo';

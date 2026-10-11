@@ -1,4 +1,4 @@
-/** Worte für Mehrweg und Fahrzeit (Umwege und Stationen) */
+/** Worte für Mehrweg und Fahrzeit (spannende Umwege) */
 
 /** „1,8“ – Kilometer mit einer Nachkommastelle, ohne Vorzeichen */
 export function kmText(meters: number): string {
