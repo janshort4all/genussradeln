@@ -18,7 +18,7 @@
 	import { loadStreams } from '$lib/routing/streams';
 	import { loadFineMap } from '$lib/scoring/fine';
 	import { loadRoadMask } from '$lib/scoring/roads';
-	import { tourLine, type PlannedTour } from '$lib/tour/model';
+	import { tourLine } from '$lib/tour/model';
 	import { session } from '$lib/tour/session.svelte';
 	import { formatDuration } from '$lib/tour/sample';
 
@@ -51,24 +51,8 @@
 		routeMap?.openLargeMap();
 	}
 
-	// Länge der Wege (Knöpfe unter der Karte, wie im Entwurf): nur Größen, die es gibt – und nur, wenn es überhaupt eine Auswahl gibt
-	type Size = 'short' | 'medium' | 'long';
-	const SIZES: { id: Size; name: string; range: string }[] = [
-		{ id: 'short', name: 'Kurz', range: 'bis 20 km' },
-		{ id: 'medium', name: 'Mittel', range: '20–40 km' },
-		{ id: 'long', name: 'Lang', range: 'ab 40 km' }
-	];
-	const sizeOf = (t: PlannedTour): Size => (t.stats.distance < 20_000 ? 'short' : t.stats.distance < 40_000 ? 'medium' : 'long');
-	let filter: Size | 'all' = $state('all');
-	const sizesPresent = $derived(SIZES.filter((size) => tours.some((t) => sizeOf(t) === size.id)));
-	const showFilter = $derived(sizesPresent.length > 1);
-	const chosenFilter = $derived<Size | 'all'>(showFilter && sizesPresent.some((size) => size.id === filter) ? filter : 'all');
-	/** Die Wege, die gerade gezeigt werden – mit ihrer festen Nummer und Farbe (die bleiben beim Filtern gleich) */
-	const shown = $derived(
-		tours
-			.map((tour, index) => ({ tour, index, line: tourLine(tour) }))
-			.filter(({ tour }) => chosenFilter === 'all' || sizeOf(tour) === chosenFilter)
-	);
+	/** Die Wege mit ihrer festen Nummer und Farbe (Filter Kurz / Mittel / Lang entfiel auf Wunsch von Jan, 14.10.2026) */
+	const shown = $derived(tours.map((tour, index) => ({ tour, index, line: tourLine(tour) })));
 	const activeId = $derived(shown.some(({ tour }) => tour.id === selectedId) ? selectedId : shown[0]?.tour.id);
 
 	// „nach Kempen“ für Orte, sonst „bis Burg Linn“ (ohne Artikel passt „bis“ immer).
@@ -97,7 +81,6 @@
 		request = { ...request, round: { ...request.round, seed: Math.floor(Math.random() * 2 ** 31) } };
 		session.setRequest(request);
 		window.scrollTo({ top: 0 });
-		filter = 'all';
 		compute();
 	}
 
@@ -258,22 +241,6 @@
 			</div>
 
 			<div class="list">
-				<!-- Wie im Entwurf: Alle oder nur kurze, mittlere, lange – erscheint nur, wenn es eine Auswahl gibt -->
-				{#if showFilter}
-					<div class="filter" role="group" aria-label="Länge der Touren">
-						<button type="button" class="chip" aria-pressed={chosenFilter === 'all'} onclick={() => (filter = 'all')}>
-							<strong>{isRound ? 'Alle Runden' : 'Alle Wege'}</strong>
-							<span>({tours.length})</span>
-						</button>
-						{#each sizesPresent as size (size.id)}
-							<button type="button" class="chip" aria-pressed={chosenFilter === size.id} onclick={() => (filter = size.id)}>
-								<strong>{size.name}</strong>
-								<span>{size.range}</span>
-							</button>
-						{/each}
-					</div>
-				{/if}
-
 				<ol class="tours">
 					{#each shown as { tour, index, line } (tour.id)}
 						<!-- PC: Zeigen auf eine Karte hebt ihren Weg auf der Karte hervor -->
@@ -386,47 +353,6 @@
 
 	.map-canvas {
 		height: clamp(16rem, 46vh, 26rem);
-	}
-
-	/* Knöpfe „Alle / Kurz / Mittel / Lang“ – wie im Entwurf; bei großer Schrift rutschen sie in eine zweite Zeile */
-	.filter {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin: 0 0 1rem;
-	}
-
-	.chip {
-		display: grid;
-		align-content: center;
-		justify-items: center;
-		flex: 1 1 0;
-		min-width: 6.5rem;
-		min-height: 3.5rem;
-		padding: 0.25rem 0.5rem;
-		border: 2px solid var(--color-border);
-		border-radius: 1rem;
-		background: var(--color-surface);
-		color: var(--color-green);
-		font: inherit;
-		line-height: 1.25;
-		text-align: center;
-		cursor: pointer;
-	}
-
-	.chip span {
-		font-size: var(--text-small);
-		color: var(--color-text-muted);
-	}
-
-	.chip[aria-pressed='true'] {
-		border-color: var(--color-green);
-		background: var(--color-green);
-		color: var(--color-surface);
-	}
-
-	.chip[aria-pressed='true'] span {
-		color: var(--color-surface);
 	}
 
 	/* PC: Karte groß links und beim Scrollen stehend, Knöpfe und Vorschläge rechts (Lastenheft B9) */

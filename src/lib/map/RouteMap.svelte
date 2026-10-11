@@ -52,7 +52,7 @@
 	import X from '@lucide/svelte/icons/x';
 	import type { Map as MapLibreMap, Marker, MarkerOptions } from 'maplibre-gl';
 	import { stopIcons } from '$lib/components/icons';
-	import { boundsOf, distanceToLine, resample } from '$lib/geo/geo';
+	import { boundsOf, distance, distanceToLine, resample } from '$lib/geo/geo';
 	import { badgeSpots } from './badges';
 
 	/**
@@ -238,12 +238,20 @@
 				// Wege zeichnen, sobald der Kartenstil da ist – nicht erst, wenn alle Kacheln geladen sind
 				instance.once('style.load', () => (loaded = true));
 				instance.once('load', () => (loaded = true));
-				for (const marker of markers) {
-					const element = document.createElement('div');
-					element.className = `map-marker ${marker.kind}`;
-					element.setAttribute('aria-hidden', 'true');
-					new maplibre.Marker({ element }).setLngLat(marker.lngLat).addTo(instance);
-				}
+				// Start und Ziel als beschriftetes Schild mit Spitze („Start“, „Ziel“, bei Runden „Start und Ziel“) – kein farbiger Punkt, den man für
+					// einen Weg halten könnte (Jan, 14.10.2026)
+					const start = markers.find((m) => m.kind === 'start');
+					const goal = markers.find((m) => m.kind === 'destination');
+					const together = !!start && !!goal && distance(start.lngLat, goal.lngLat) < 300;
+					const signs = together ? [{ lngLat: start!.lngLat, text: 'Start und Ziel' }] : markers.map((m) => ({ lngLat: m.lngLat, text: m.kind === 'start' ? 'Start' : 'Ziel' }));
+					for (const sign of signs) {
+						const element = document.createElement('div');
+						element.className = 'map-marker';
+						element.textContent = sign.text;
+						element.setAttribute('aria-hidden', 'true');
+						// die Spitze unter dem Schild zeigt auf den Punkt
+						new maplibre.Marker({ element, anchor: 'bottom', offset: [0, 10] }).setLngLat(sign.lngLat).addTo(instance);
+					}
 				createMarker = (element, lngLat, options) =>
 					new maplibre.Marker({ element, ...options }).setLngLat(lngLat).addTo(instance);
 				map = instance;
@@ -610,23 +618,29 @@
 		color: var(--color-text-muted);
 	}
 
-	/* Start- und Zielmarkierung */
+	/* Start- und Zielschild: helle Fläche, dunkelgrüner Rand und Schrift, Spitze nach unten – deutlich etwas anderes als die farbigen Nummernschilder der Wege */
 	.route-map :global(.map-marker) {
-		width: 1.5rem;
-		height: 1.5rem;
-		border-radius: 50%;
-		border: 3px solid var(--color-surface);
+		/* (nicht position ändern: MapLibre setzt das Schild selbst absolut auf den Punkt) */
+		padding: 0.125rem 0.625rem;
+		border: 3px solid var(--color-green);
+		border-radius: 0.75rem;
+		background: var(--color-surface);
+		color: var(--color-green);
+		font-size: var(--text-small);
+		font-weight: 700;
+		line-height: 1.2;
+		white-space: nowrap;
 		box-shadow: 0 1px 4px rgb(36 53 57 / 0.4);
 	}
 
-	.route-map :global(.map-marker.start) {
-		background: var(--color-green);
-	}
-
-	.route-map :global(.map-marker.destination) {
-		width: 1.75rem;
-		height: 1.75rem;
-		background: var(--color-orange);
+	.route-map :global(.map-marker::after) {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 100%;
+		margin-left: -0.5rem;
+		border: 0.5rem solid transparent;
+		border-top-color: var(--color-green);
 	}
 
 	.stop-pool {
