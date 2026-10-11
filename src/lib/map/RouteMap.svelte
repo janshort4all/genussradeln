@@ -48,7 +48,7 @@
 	import Trees from '@lucide/svelte/icons/trees';
 	import Waves from '@lucide/svelte/icons/waves';
 	import X from '@lucide/svelte/icons/x';
-	import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
+	import type { Map as MapLibreMap, Marker, MarkerOptions } from 'maplibre-gl';
 	import { stopIcons } from '$lib/components/icons';
 	import { boundsOf, distanceToLine, resample } from '$lib/geo/geo';
 
@@ -94,7 +94,7 @@
 		label
 	}: Props = $props();
 
-	let createMarker: ((element: HTMLElement, lngLat: LngLat) => Marker) | undefined = $state();
+	let createMarker: ((element: HTMLElement, lngLat: LngLat, options?: MarkerOptions) => Marker) | undefined = $state();
 	const stopElements: Record<string, HTMLElement> = $state({});
 	const stopMarkers = new Map<string, Marker>();
 	const highlightElements: Record<string, HTMLElement> = $state({});
@@ -213,7 +213,8 @@
 					element.setAttribute('aria-hidden', 'true');
 					new maplibre.Marker({ element }).setLngLat(marker.lngLat).addTo(instance);
 				}
-				createMarker = (element, lngLat) => new maplibre.Marker({ element }).setLngLat(lngLat).addTo(instance);
+				createMarker = (element, lngLat, options) =>
+					new maplibre.Marker({ element, ...options }).setLngLat(lngLat).addTo(instance);
 				map = instance;
 			} catch (error) {
 				console.warn('Karte kann nicht angezeigt werden:', error);
@@ -318,7 +319,7 @@
 	// Stopp-Symbole: Svelte zeichnet die Elemente (unten), MapLibre setzt sie an ihre Stelle auf der Karte
 	$effect(() => {
 		if (!createMarker) return;
-		const wanted = new Set(stops.map((s) => s.id));
+		const wanted = new Set(preview ? [] : stops.map((s) => s.id));
 		for (const [id, marker] of stopMarkers) {
 			if (!wanted.has(id)) {
 				marker.remove();
@@ -327,14 +328,14 @@
 		}
 		for (const stop of stops) {
 			const element = stopElements[stop.id];
-			if (element && !stopMarkers.has(stop.id)) stopMarkers.set(stop.id, createMarker(element, stop.lngLat));
+			if (wanted.has(stop.id) && element && !stopMarkers.has(stop.id)) stopMarkers.set(stop.id, createMarker(element, stop.lngLat));
 		}
 	});
 
 	// Highlights: Symbole mit Namen – nur in der großen Karte (die kleine bleibt ruhig)
 	$effect(() => {
 		if (!createMarker) return;
-		const shown = preview && selectedHighlightId ? highlights.filter((h) => h.id === selectedHighlightId) : highlights;
+		const shown = preview ? [] : highlights;
 		const wanted = new Set(expanded ? shown.map((h) => h.id) : []);
 		for (const [id, marker] of highlightMarkers) {
 			if (!wanted.has(id)) {
@@ -344,7 +345,8 @@
 		}
 		for (const h of highlights) {
 			const element = highlightElements[h.id];
-			if (wanted.has(h.id) && element && !highlightMarkers.has(h.id)) highlightMarkers.set(h.id, createMarker(element, h.lngLat));
+			if (wanted.has(h.id) && element && !highlightMarkers.has(h.id))
+				highlightMarkers.set(h.id, createMarker(element, h.lngLat, { anchor: 'bottom', offset: [0, -4] }));
 		}
 	});
 
@@ -392,7 +394,11 @@
 			const element = document.createElement('div');
 			element.className = `preview-pill ${kind}`;
 			element.textContent = text;
-			previewMarkers.push(createMarker!(element, at));
+			// neben der Linie statt darauf: „Neu“ oberhalb, „Bisher“ unterhalb
+			const above = kind === 'new';
+			previewMarkers.push(
+				createMarker!(element, at, { anchor: above ? 'bottom' : 'top', offset: [0, above ? -10 : 10] })
+			);
 		};
 		const sign = draw.extraMeters >= 100 ? `+${(draw.extraMeters / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} km` : draw.extraMeters <= -100 ? `${(-draw.extraMeters / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} km kürzer` : 'gleich lang';
 		pill('Bisher', 'old', far(draw.oldLine, draw.newLine));
@@ -400,10 +406,15 @@
 		const b = boundsOf([draw.oldLine, draw.newLine]);
 		if (Number.isFinite(b.west)) {
 			// in der großen Karte bleibt die untere Hälfte für das Fenster frei
-			requestAnimationFrame(() => {
-				const bottom = expanded ? (sheetSlot?.offsetHeight ?? Math.round(window.innerHeight * 0.5)) + 24 : 50;
-				m.fitBounds([b.west, b.south, b.east, b.north], { padding: { top: 90, bottom, left: 40, right: 70 }, duration: 400, maxZoom: 16 });
-			});
+			// kurz warten, bis das Fenster seine Höhe hat (setTimeout statt requestAnimationFrame: läuft auch, wenn die Seite im Hintergrund ist)
+			setTimeout(() => {
+				// unten bleibt Platz für das Fenster (höchstens gut die Hälfte der Karte, sonst bliebe fast nichts zum Ansehen)
+				m.resize(); // die Größe der Karte stimmt sonst nicht, wenn sie gerade erst groß geworden ist
+				const height = m.getContainer().clientHeight;
+				const bottom = expanded ? Math.min((sheetSlot?.offsetHeight ?? height * 0.5) + 16, height * 0.55) : 50;
+				const top = expanded ? Math.min(90, height * 0.15) : 90;
+				m.fitBounds([b.west, b.south, b.east, b.north], { padding: { top, bottom, left: 60, right: 60 }, duration: 0, maxZoom: 16 });
+			}, 60);
 		}
 		return () => {
 			for (const marker of previewMarkers) marker.remove();
@@ -580,7 +591,7 @@
 
 	/* Schilder „Bisher“ / „Neu“ der Vorschau */
 	.route-map :global(.preview-pill) {
-		padding: 0.25rem 0.75rem;
+		padding: 0.125rem 0.625rem;
 		border-radius: 999px;
 		border: 2px solid var(--color-surface);
 		color: #fff;

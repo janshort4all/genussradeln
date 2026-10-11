@@ -251,6 +251,7 @@ haben eine eigene Größenskala (`sizeCapPoints.lake` 8 statt 20 Punkte) und 12 
 Haferbruchsee +7,1 km, Uettelsheimer See +3,6 km. **Anzeige vereinfacht:** Liste nur Name + „+4 km“; gewähltes Ziel: Vergleich „Bisher“ → „Mit Umweg“
 (Strecke und Fahrzeit in großen Zahlen), darunter ein gelbes Feld „+3,8 km · +15 Min.“, dann „Übernehmen“ / „Nein, danke“ – kein Fließtext mehr.
 Während der Vorschau zeigt die Karte nur das gewählte Ziel, die übrige Tour blass ohne Pfeile, und zoomt so, dass das Fenster nichts verdeckt.
+**Schilder (Jan, 12.10.2026: „Buttons verdecken den Weg“):** „Bisher“ steht unterhalb, „Neu · +x km“ oberhalb der Linie (nicht darauf), kleiner; während der Vorschau sind Highlight-Symbole und Stopps (Café, Eis) ausgeblendet; die Ansicht springt ohne Animation und passt das Stück über dem Fenster ein (`m.resize()` vorher – die Kartengröße stimmt sonst nicht, wenn sie gerade erst groß wurde; `setTimeout` statt `requestAnimationFrame`, das in Hintergrund-Tabs nicht läuft). Die Highlight-Symbole stehen über ihrem Punkt (Anker unten).
 Am PC lag die große Karte unter der unteren Leiste (die stehende Kartenspalte bildet eine eigene Ebene) – behoben. Vorgänger (wieder entfernt): „Noch schöner fahren?“ (automatisch, kleine Umwege) und „Stationen tauschen“
 (Orte am Weg mit Ausweichstücken) – beide Jan zu unübersichtlich bzw. zu klein.
 
