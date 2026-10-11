@@ -187,6 +187,13 @@
 		voice.stop();
 	}
 
+	/** „Beenden“ in der Fahrtansicht: anhalten und nachfragen – nichts geht durch einen Fehlgriff verloren */
+	function askToEnd() {
+		setOverview(false);
+		stopAll();
+		phase = 'confirm-end';
+	}
+
 	function pause() {
 		setOverview(false);
 		stopAll();
@@ -362,7 +369,13 @@
 		</div>
 
 		<section class="status">
-			<p><strong>noch {remainingKm} km</strong> · an {arrival}</p>
+			<div class="progress">
+				<p><strong>noch {remainingKm} km</strong> · an {arrival}</p>
+				<!-- eindeutig beschriftet: bei „Pause“ denkt niemand an „Beenden“ (Jan, 13.10.2026) -->
+				<button type="button" class="end-button" onclick={askToEnd}>
+					<Flag size={22} aria-hidden="true" /> Beenden
+				</button>
+			</div>
 			{#if nextStop && view}
 				<p class="next-stop">Einkehr: {nextStop.name} in {distanceText(nextStop.along - view.state.along)}</p>
 			{/if}
@@ -646,6 +659,24 @@
 
 	.status p {
 		margin: 0;
+	}
+
+	.progress {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.end-button {
+		flex: none;
+		width: auto;
+		min-height: 3rem;
+		padding: 0.25rem 1rem;
+		border: 2px solid var(--nav-accent);
+		background: transparent;
+		color: var(--nav-accent);
+		font-size: var(--text-base);
 	}
 
 	.next-stop {
