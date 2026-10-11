@@ -61,6 +61,8 @@ html {
 	text-size-adjust: 100%;
 	/* am Seitenende nicht weiterziehen können (kein Gummiband mit leerer Fläche) */
 	overscroll-behavior-y: none;
+	/* Titelbilder sind 100vw breit (am PC inkl. Rollbalken): kein seitliches Wackeln */
+	overflow-x: clip;
 }
 
 body {

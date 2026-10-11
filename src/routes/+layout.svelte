@@ -50,12 +50,17 @@
 {/if}
 
 <style>
+	/* --col: Breite der Spalte, --pad: Seitenrand, --bleed: Abstand vom Fensterrand bis zum Inhalt – damit Titelbilder bis an den
+	   Fensterrand reichen (auch am PC) und Text und Zahnrad trotzdem an der Spalte ausgerichtet bleiben */
 	.page {
-		max-width: var(--page-width);
+		--col: var(--page-width);
+		--pad: 1rem;
+		--bleed: calc((100vw - min(100vw, var(--col))) / 2 + var(--pad));
+		max-width: var(--col);
 		margin: 0 auto;
 		/* unten genau so viel Platz wie die Leiste hoch ist: am Seitenende liegt der Inhalt unmittelbar über der Leiste, darunter ist nichts mehr
 		   zu scrollen (Jan, 14.10.2026: „leerer Bereich“) */
-		padding: 0.5rem 1rem calc(var(--bottom-bar-height) + env(safe-area-inset-bottom));
+		padding: 0.5rem var(--pad) calc(var(--bottom-bar-height) + env(safe-area-inset-bottom));
 	}
 
 	/* der Abstand zwischen Elementen steht nur zwischen ihnen, nie nach dem letzten: sonst bleibt am Seitenende (und unten in Karten) eine Lücke.
@@ -64,11 +69,16 @@
 		margin-bottom: 0 !important;
 	}
 
+	/* Startseite am PC: breitere Spalte, die beiden Felder stehen nebeneinander */
+	.page:has(:global(.landing)) {
+		--col: 64rem;
+	}
+
 	/* Seiten mit Karte dürfen am PC breiter sein (Karte links, Angaben rechts) */
 	@media (min-width: 64rem) {
 		.page:has(:global(.wide)) {
-			max-width: 80rem;
-			padding-inline: 2rem;
+			--col: 80rem;
+			--pad: 2rem;
 		}
 	}
 </style>

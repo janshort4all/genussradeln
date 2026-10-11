@@ -242,6 +242,13 @@
 			</div>
 
 			<div class="list">
+				<!-- „Andere Runden zeigen“: gleich unter der Karte, wo man die fünf Wege sieht und sich fragt, ob es noch mehr gibt – kein Hauptknopf, daher mit Rand -->
+				{#if isRound}
+					<div class="again top">
+						<Button icon={RefreshCw} onclick={otherRounds}>Andere Runden zeigen</Button>
+					</div>
+				{/if}
+
 				<ol class="tours">
 					{#each shown as { tour, index, line } (tour.id)}
 						<!-- PC: Zeigen auf eine Karte hebt ihren Weg auf der Karte hervor -->
@@ -258,8 +265,8 @@
 					{/each}
 				</ol>
 				{#if isRound}
-					<div class="more">
-						<Button icon={RefreshCw} onclick={otherRounds}>Andere Runden vorschlagen</Button>
+					<div class="again">
+						<Button icon={RefreshCw} onclick={otherRounds}>Andere Runden zeigen</Button>
 					</div>
 				{/if}
 			</div>
@@ -268,8 +275,12 @@
 {/if}
 
 <style>
-	.more {
+	.again {
 		margin: 0 0 1.5rem;
+	}
+
+	.again.top {
+		margin-bottom: 1rem;
 	}
 
 	/* Wartebild */

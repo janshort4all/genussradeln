@@ -52,8 +52,9 @@
 		flex-direction: column;
 		justify-content: space-between;
 		min-height: 11.5rem;
-		margin: -0.5rem -1rem 1.5rem;
-		padding: 0.25rem 1rem 1rem;
+		margin: -0.5rem 0 1.5rem;
+		margin-inline: calc(-1 * var(--bleed, 1rem));
+		padding: 0.25rem var(--bleed, 1rem) 1rem;
 		overflow: hidden;
 		background: var(--color-bg);
 	}
@@ -61,7 +62,7 @@
 	.gear {
 		position: absolute;
 		top: 0.5rem;
-		right: 1rem;
+		right: var(--bleed, 1rem);
 		z-index: 2;
 	}
 
@@ -142,8 +143,7 @@
 
 	@media (min-width: 40rem) {
 		.page-header {
-			margin: 0.5rem 0 1.75rem;
-			border-radius: 1.5rem;
+			margin-bottom: 1.75rem;
 			min-height: 12.5rem;
 		}
 

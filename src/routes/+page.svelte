@@ -13,6 +13,7 @@
 	<title>Genuss-Radeln – Was möchten Sie tun?</title>
 </svelte:head>
 
+<div class="landing">
 <header class="hero">
 	<img class="photo" src={asset('/hero.jpg')} alt="" width="1200" height="600" fetchpriority="high" />
 	<div class="fade" aria-hidden="true"></div>
@@ -77,14 +78,17 @@
 		</li>
 	</ul>
 </section>
+</div>
 
 <style>
 	/* Titelbild über die ganze Breite (bis an den Rand), Text links auf aufgehelltem Himmel und Wasser */
 	.hero {
 		position: relative;
 		isolation: isolate;
-		height: clamp(19rem, 60vw, 24rem);
-		margin: -0.5rem -1rem 1.5rem;
+		/* so hoch, dass beide Felder darunter ohne Scrollen sichtbar sind: Fensterhöhe minus Leiste minus Platz für Überschrift und zwei Felder */
+		height: clamp(12rem, calc(100svh - var(--bottom-bar-height) - 26rem), 28rem);
+		margin: -0.5rem 0 1.25rem;
+		margin-inline: calc(-1 * var(--bleed));
 		overflow: hidden;
 		background: var(--color-bg);
 	}
@@ -113,7 +117,7 @@
 	.wordmark {
 		position: absolute;
 		top: 0.875rem;
-		left: 1rem;
+		left: var(--bleed);
 		width: min(8.5rem, 36%);
 		height: auto;
 	}
@@ -121,12 +125,12 @@
 	.settings {
 		position: absolute;
 		top: 0.875rem;
-		right: 1rem;
+		right: var(--bleed);
 	}
 
 	.welcome {
 		position: absolute;
-		left: 1rem;
+		left: var(--bleed);
 		right: 46%;
 		bottom: 1.25rem;
 	}
@@ -158,6 +162,8 @@
 	/* beide Felder immer gleich hoch und gleich aufgebaut (Jan, 14.10.2026: „ein Button ist größer als der andere – wirkt lieblos“) */
 	.cards {
 		display: grid;
+		/* Handy: untereinander; breite Fenster: nebeneinander (zwei Spalten, sobald sie je 20 rem breit werden können) */
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
 		grid-auto-rows: 1fr;
 		gap: 1rem;
 		margin: 0;
@@ -257,19 +263,50 @@
 		}
 	}
 
-	/* größere Fenster: Titelbild mit runden Ecken innerhalb der Seite */
-	@media (min-width: 40rem) {
+	/* niedrige Fenster (kleine Handys, Browserleisten): Platz für beide Felder geht vor – Satz im Titelbild und Beschreibungen in den Feldern entfallen,
+	   die Felder werden flacher */
+	@media (max-height: 46rem) {
+		.welcome p,
+		.stroke,
+		.text > span {
+			display: none;
+		}
+
+		.card {
+			min-height: 6rem;
+			padding-block: 0.75rem;
+		}
+
+		.art {
+			width: 3.5rem;
+			height: 3.5rem;
+		}
+
+		.text strong {
+			font-size: 1.5rem;
+		}
+
 		.hero {
-			margin: 0.5rem 0 2rem;
-			border-radius: 1.5rem;
+			height: clamp(11rem, calc(100svh - var(--bottom-bar-height) - 21rem), 28rem);
+		}
+	}
+
+	/* breite Fenster: Titelbild über die ganze Breite, die beiden Felder nebeneinander – darunter ist nur eine Reihe, das Bild darf höher sein */
+	@media (min-width: 48rem) {
+		.hero {
+			height: clamp(16rem, calc(100svh - var(--bottom-bar-height) - 19rem), 32rem);
 		}
 
 		.photo {
-			object-position: 78% 50%;
+			object-position: 70% 40%;
 		}
 
 		.welcome {
-			right: 45%;
+			right: 50%;
+		}
+
+		h1 {
+			font-size: clamp(2.25rem, 4vw, 3.25rem);
 		}
 	}
 </style>

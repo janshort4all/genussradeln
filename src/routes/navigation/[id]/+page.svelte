@@ -214,6 +214,12 @@
 	function endRecording(reached: boolean) {
 		reachedGoal = reached;
 		if (!recorder) return;
+		// gar keine Standortmeldung: nichts zum Speichern
+		if (recorder.fixCount === 0) {
+			void removeRide(recorder.record.id).catch(() => {});
+			recorder = undefined;
+			return;
+		}
 		recorder.finish();
 		rideRecord = JSON.parse(JSON.stringify(recorder.record));
 		void saveRide(recorder.record).catch(() => {});
@@ -385,20 +391,17 @@
 		void exitFullscreen();
 	}
 
-	/** „Ja, beenden“: war die Fahrt aufgezeichnet, kommt zuerst die Seite zum Speichern der Datei */
+	/**
+	 * „Ja, beenden“: immer zuerst der Abschlussbildschirm – auch bei kurzer Fahrt. Dort steht „Fahrt speichern“, sobald überhaupt etwas
+	 * aufgezeichnet ist (Jan, 14.10.2026: nach dem Beenden fehlte das Speichern, weil bei weniger als 5 Meldungen gleich zur Startseite
+	 * gesprungen wurde).
+	 */
 	function endRide() {
-		if (recorder && recorder.fixCount >= 5) {
-			recorder.event('Beendet');
-			stopAll();
-			endRecording(false);
-			phase = 'finished';
-			void exitFullscreen();
-			return;
-		}
-		// zu kurz zum Auswerten: nichts aufheben
-		if (recorder) void removeRide(recorder.record.id).catch(() => {});
-		recorder = undefined;
-		void leaveForHome();
+		recorder?.event('Beendet');
+		stopAll();
+		endRecording(false);
+		phase = 'finished';
+		void exitFullscreen();
 	}
 
 	let leaving = false;

@@ -81,7 +81,7 @@
 				class:with-icon={choice.icon}
 				class:photo={choice.photo && choice.art}
 				class:tall={choice.tall}
-				class:wide={choice.wide}
+				class:full-row={choice.wide}
 				style:grid-column={choice.wide ? '1 / -1' : undefined}
 			>
 				<input
@@ -170,13 +170,13 @@
 	}
 
 	/* Zeile mit Pfeil rechts (z. B. „Länger als 50 km“): Symbol und Text nebeneinander */
-	.option.wide {
+	.option.full-row {
 		flex-direction: row;
 		min-height: 3.5rem;
 		gap: 0.75rem;
 	}
 
-	.option.wide :global(.chevron) {
+	.option.full-row :global(.chevron) {
 		position: absolute;
 		right: 1rem;
 		color: var(--color-green);
