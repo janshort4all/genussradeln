@@ -18,7 +18,9 @@ const PALETTE = {
 		label: '#CFD8DC',
 		halo: '#000000',
 		route: '#F1B34C',
-		routeCasing: '#000000'
+		routeCasing: '#000000',
+		/** schon gefahren: blass */
+		routeBehind: '#3c484d'
 	},
 	light: {
 		background: '#F7F2E5',
@@ -29,7 +31,8 @@ const PALETTE = {
 		label: '#243539',
 		halo: '#F7F2E5',
 		route: '#B0552F',
-		routeCasing: '#FDFBF5'
+		routeCasing: '#FDFBF5',
+		routeBehind: '#B9AE8E'
 	}
 } as const;
 

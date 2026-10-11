@@ -32,6 +32,7 @@
 	import { highlightStops, stopsAlongRoute } from '$lib/stops/along';
 	import { STOP_LABELS } from '$lib/stops/kinds';
 	import { loadPois } from '$lib/stops/pois';
+	import { distance } from '$lib/geo/geo';
 	import { tourLine } from '$lib/tour/model';
 
 	let { data } = $props();
@@ -40,11 +41,41 @@
 	const track = $derived(planned ? new RouteTrack(planned.legs) : undefined);
 	const line = $derived(planned ? tourLine(planned) : []);
 
+
 	type Phase = 'ready' | 'running' | 'paused' | 'confirm-end' | 'finished' | 'problem';
 	let phase: Phase = $state('ready');
 	let problem: PositionProblem | undefined = $state();
 	let theme: NavTheme = $state('dark');
 	let view: NavView | undefined = $state();
+
+	// Die Strecke in drei Teile: vor Ihnen (nur das sieht man in der Fahrtansicht), schon gefahren und der weitere Verlauf
+	// (beides nur in der Übersicht). Am Start laufen Hin- und Rückweg sonst beide auf den Standort zu (Jan, 13.10.2026).
+	const AHEAD_M = 2500;
+	/** nur alle 25 m neu zeichnen – die Karte muss nicht bei jeder GPS-Meldung die Linie neu aufbauen */
+	const alongSteps = $derived(Math.round((view?.state.along ?? 0) / 25) * 25);
+	const behindLine = $derived(track ? track.segment(0, alongSteps) : []);
+	const aheadLine = $derived(track ? track.segment(alongSteps, alongSteps + AHEAD_M) : []);
+	const restLine = $derived(track ? track.segment(alongSteps + AHEAD_M, track.total) : []);
+
+	/** Schilder für die Übersicht: Start, Ziel – bei Hin- und Rückweg dazu „Hinweg“ und „Rückweg“ */
+	const signs = $derived.by(() => {
+		if (!track || !line.length) return [];
+		const out: { lngLat: [number, number]; text: string }[] = [];
+		const roundTrip = distance(line[0], line[line.length - 1]) < 300;
+		if (track.legCount > 1) {
+			const turn = track.legEnds[0];
+			out.push({ lngLat: line[0], text: 'Start und Ziel' });
+			out.push({ lngLat: track.pointAt(turn), text: 'Wendepunkt' });
+			out.push({ lngLat: track.pointAt(turn / 2), text: 'Hinweg' });
+			out.push({ lngLat: track.pointAt((turn + track.total) / 2), text: 'Rückweg' });
+		} else if (roundTrip) {
+			out.push({ lngLat: line[0], text: 'Start und Ziel' });
+		} else {
+			out.push({ lngLat: line[0], text: 'Start' });
+			out.push({ lngLat: line[line.length - 1], text: 'Ziel' });
+		}
+		return out;
+	});
 	let simulating = $state(false);
 
 	// Übersicht über die ganze Strecke: Karte zeigt alles (Norden oben, verschiebbar). Nach einer Weile geht es von selbst
@@ -281,7 +312,11 @@
 
 		<div class="map">
 			<NavMap
-				{line}
+				behind={behindLine}
+				ahead={aheadLine}
+				rest={restLine}
+				whole={line}
+				labels={signs}
 				position={view?.position}
 				heading={view?.heading ?? track.bearingAt(0)}
 				{zoom}

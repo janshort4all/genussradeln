@@ -114,6 +114,17 @@ export class RouteTrack {
 		return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 	}
 
+	/** Der Teil der Strecke von Meter `from` bis Meter `to` (mit den Eckpunkten dazwischen); leer, wenn kürzer als 1 m */
+	segment(from: number, to: number): LngLat[] {
+		const a = Math.max(0, Math.min(from, this.total));
+		const b = Math.max(a, Math.min(to, this.total));
+		if (b - a < 1) return [];
+		const out: LngLat[] = [this.pointAt(a)];
+		for (let i = this.segmentAt(a) + 1; i < this.points.length && this.cum[i] < b; i++) out.push(this.points[i]);
+		out.push(this.pointAt(b));
+		return out;
+	}
+
 	/** Fahrtrichtung bei Meter `along` (über die nächsten Meter geglättet), Grad ab Norden */
 	bearingAt(along: number, lookAhead = 25): number {
 		const from = this.pointAt(Math.max(0, Math.min(along, this.total - 1)));
