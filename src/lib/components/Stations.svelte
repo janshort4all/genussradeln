@@ -1,190 +1,102 @@
 <script lang="ts">
 	import Check from '@lucide/svelte/icons/check';
 	import MapPin from '@lucide/svelte/icons/map-pin';
-	import { untrack } from 'svelte';
-	import { loadPlanDeps } from '$lib/improve/deps';
-	import { applyOffer } from '$lib/improve/offers';
-	import { stationOptions, stationsOf, type Station, type StationOption } from '$lib/improve/stations';
+	import type { StationsController } from '$lib/improve/stations.svelte';
+	import { clockText, kmText, minutesText, plusText } from '$lib/improve/wording';
 	import OfferMap from '$lib/map/OfferMap.svelte';
-	import type { PlanDeps } from '$lib/routing/plan';
-	import { RoutingUnavailableError } from '$lib/routing/graphhopper';
 	import { tourLine, type PlannedTour } from '$lib/tour/model';
 
 	/**
 	 * „Diese Tour führt vorbei an …“: die Stationen der Tour in Fahrtrichtung. Ein Tipp auf eine Station zeigt Alternativen in
 	 * der Nähe – mit Karte, Mehrweg in Kilometern und Minuten. Nichts ändert sich vor „Übernehmen“.
+	 * (In der großen Karte gibt es dasselbe als Fenster am unteren Rand: StationSheet.svelte.)
 	 */
-	interface Props {
-		tour: PlannedTour;
-		/** die Tour hat sich geändert (Übernehmen); `text` beschreibt die Änderung für „Rückgängig“ */
-		onchange: (tour: PlannedTour, text: string) => void;
-		/** die Stationen (für die nummerierten Punkte auf der Karte) */
-		stations?: Station[];
-		/** die gewählte Station (wird auf der Karte hervorgehoben) */
-		selectedId?: string;
-	}
+	let { tour, controller }: { tour: PlannedTour; controller: StationsController } = $props();
 
-	let { tour, onchange, stations = $bindable([]), selectedId = $bindable() }: Props = $props();
-
-	let deps: PlanDeps | undefined;
-	let status: 'loading' | 'ready' | 'none' = $state('loading');
-
-	// Stationen berechnen, sobald Namensdaten und Tour da sind (und nach jeder Änderung der Tour neu)
-	$effect(() => {
-		const current = tour;
-		let cancelled = false;
-		untrack(() => {
-			status = 'loading';
-			selectedId = undefined;
-		});
-		(async () => {
-			deps = await loadPlanDeps();
-			if (cancelled) return;
-			stations = deps.names ? stationsOf(current, deps.names) : [];
-			status = stations.length ? 'ready' : 'none';
-		})().catch((error) => {
-			console.warn('Stationen nicht verfügbar:', error);
-			if (!cancelled) status = 'none';
-		});
-		return () => (cancelled = true);
-	});
-
-	// Alternativen zur gewählten Station
-	let options: StationOption[] = $state([]);
-	let optionsStatus: 'idle' | 'searching' | 'done' | 'unavailable' = $state('idle');
-	let chosenId: string | undefined = $state();
-	const selected = $derived(stations.find((s) => s.id === selectedId));
-	const number = (s: Station) => stations.indexOf(s) + 1;
-	const chosen = $derived(options.find((o) => o.id === chosenId));
-
-	$effect(() => {
-		const station = selected;
-		const names = deps?.names;
-		const current = untrack(() => tour);
-		untrack(() => {
-			options = [];
-			chosenId = undefined;
-			optionsStatus = station ? 'searching' : 'idle';
-		});
-		if (!station || !names || !deps) return;
-		const controller = new AbortController();
-		stationOptions(current, station, names, { ...deps, signal: controller.signal })
-			.then((found) => {
-				if (controller.signal.aborted) return;
-				options = found;
-				chosenId = found[0]?.id;
-				optionsStatus = 'done';
-			})
-			.catch((error) => {
-				if (controller.signal.aborted || (error as Error).name === 'AbortError') return;
-				console.warn('Alternativen nicht verfügbar:', error);
-				optionsStatus = error instanceof RoutingUnavailableError ? 'unavailable' : 'done';
-			});
-		return () => controller.abort();
-	});
-
-	function accept() {
-		if (!chosen || !deps || !selected) return;
-		onchange(applyOffer(tour, chosen.offer, deps), `${chosen.title} (statt „${selected.name}“)`);
-	}
-
-	const km = (meters: number) => (Math.abs(meters) / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
-	function plus(meters: number): string {
-		if (Math.abs(meters) < 100) return 'gleich lang';
-		return meters > 0 ? `+${km(meters)} km` : `${km(meters)} km kürzer`;
-	}
-	function minutesText(minutes: number): string {
-		if (minutes === 0) return 'gleiche Fahrzeit';
-		return minutes > 0 ? `+${minutes} Min.` : `${-minutes} Min. weniger`;
-	}
-	function clockText(minutes: number): string {
-		const rounded = Math.round(minutes / 5) * 5;
-		const hours = Math.floor(rounded / 60);
-		const rest = rounded % 60;
-		return hours ? `${hours}:${String(rest).padStart(2, '0')} Std.` : `${rest} Min.`;
-	}
 	const mapLine = $derived(tourLine(tour));
 </script>
 
-{#if status !== 'none'}
-	<section class="stations" aria-labelledby="stations-title">
+{#if controller.status !== 'none'}
+	<section class="stations" id="stations" aria-labelledby="stations-title">
 		<h2 id="stations-title" class="section-title">
 			<span class="round-icon" aria-hidden="true"><MapPin size={22} strokeWidth={2.25} /></span>
 			Diese Tour führt vorbei an
 		</h2>
 
-		{#if status === 'loading'}
+		{#if controller.status === 'loading'}
 			<p class="muted" role="status">Wir schauen, woran Ihre Tour vorbeiführt …</p>
 		{:else}
-			<p class="hint">Tippen Sie auf einen Ort, wenn Sie lieber woanders vorbeifahren möchten.</p>
+			<p class="hint">Tippen Sie auf einen Ort – hier oder auf der Karte –, wenn Sie lieber woanders vorbeifahren möchten.</p>
 			<ul class="chips">
-				{#each stations as station (station.id)}
+				{#each controller.stations as station (station.id)}
 					<li>
 						<button
 							type="button"
 							class="chip"
-							class:on={station.id === selectedId}
-							aria-pressed={station.id === selectedId}
-							onclick={() => (selectedId = station.id === selectedId ? undefined : station.id)}
+							class:on={station.id === controller.selectedId}
+							aria-pressed={station.id === controller.selectedId}
+							onclick={() => controller.select(station.id)}
 						>
-							<span class="num" aria-hidden="true">{number(station)}</span>
+							<span class="num" aria-hidden="true">{controller.number(station)}</span>
 							<span>{station.name}</span>
 						</button>
 					</li>
 				{/each}
 			</ul>
 
-			{#if selected}
+			{#if controller.selected}
+				{@const selected = controller.selected}
 				<div class="panel" role="region" aria-label="Alternativen zu {selected.name}">
-					{#if optionsStatus === 'searching'}
+					{#if controller.optionsStatus === 'searching'}
 						<p class="muted" role="status">Wir suchen Alternativen zu „{selected.name}“ …</p>
-					{:else if optionsStatus === 'unavailable'}
+					{:else if controller.optionsStatus === 'unavailable'}
 						<p class="muted">Die Suche ist gerade nicht möglich. Bitte versuchen Sie es später noch einmal.</p>
-					{:else if !options.length}
+					{:else if !controller.options.length}
 						<p class="muted">Zu „{selected.name}“ haben wir hier keine Alternative gefunden, die sich lohnt.</p>
-						<button type="button" class="decline" onclick={() => (selectedId = undefined)}>Schließen</button>
+						<button type="button" class="decline" onclick={() => controller.close()}>Schließen</button>
 					{:else}
 						<h3>Statt „{selected.name}“ lieber …</h3>
 						<ul class="options">
-							{#each options as option (option.id)}
+							{#each controller.options as option (option.id)}
 								<li>
 									<button
 										type="button"
 										class="option"
-										class:on={option.id === chosenId}
-										aria-pressed={option.id === chosenId}
-										onclick={() => (chosenId = option.id)}
+										class:on={option.id === controller.chosenId}
+										aria-pressed={option.id === controller.chosenId}
+										onclick={() => controller.choose(option.id)}
 									>
 										<span class="option-title">{option.title}</span>
-										<span class="option-facts">{plus(option.offer.extraMeters)} · {minutesText(option.offer.extraMinutes)}</span>
+										<span class="option-facts">{plusText(option.offer.extraMeters)} · {minutesText(option.offer.extraMinutes)}</span>
 									</button>
 								</li>
 							{/each}
 						</ul>
 
-						{#if chosen}
+						{#if controller.chosen}
+							{@const chosen = controller.chosen}
 							{#key chosen.id}
 								<div class="map">
 									<OfferMap
 										tour={mapLine}
 										oldLine={chosen.offer.oldLine}
 										newLine={chosen.offer.newLine}
-										newLabel="Neu · {plus(chosen.offer.extraMeters)}"
+										newLabel="Neu · {plusText(chosen.offer.extraMeters)}"
 										label="Karte: Der bisherige Weg (orange) und der neue Weg (grün, gestrichelt)"
 									/>
 								</div>
 							{/key}
 							<p class="total">
-								Danach: {km(tour.stats.distance + chosen.offer.extraMeters)} km, ca. {clockText(tour.minutes + chosen.offer.extraMinutes)}
-								<span class="was">(jetzt {km(tour.stats.distance)} km, {clockText(tour.minutes)})</span>
+								Danach: {kmText(tour.stats.distance + chosen.offer.extraMeters)} km, ca. {clockText(tour.minutes + chosen.offer.extraMinutes)}
+								<span class="was">(jetzt {kmText(tour.stats.distance)} km, {clockText(tour.minutes)})</span>
 							</p>
 						{/if}
 
 						<div class="buttons">
-							<button type="button" class="accept" onclick={accept} disabled={!chosen}>
+							<button type="button" class="accept" onclick={() => controller.accept()} disabled={!controller.chosen}>
 								<Check size={24} strokeWidth={3} aria-hidden="true" /> Übernehmen
 							</button>
-							<button type="button" class="decline" onclick={() => (selectedId = undefined)}>Nein, danke</button>
+							<button type="button" class="decline" onclick={() => controller.close()}>Nein, danke</button>
 						</div>
 					{/if}
 				</div>
@@ -201,6 +113,7 @@
 		border-radius: 1.5rem;
 		background: var(--color-surface);
 		box-shadow: 0 4px 14px rgb(36 53 57 / 0.1);
+		scroll-margin-top: 0.75rem;
 	}
 
 	.section-title {

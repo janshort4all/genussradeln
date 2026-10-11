@@ -243,6 +243,12 @@ neu gerechnet (Hilfspunkt bei Zipfel/Stummel an den Anfang des Abstechers verleg
 Teilstrecke schlug zu oft an und ist hier weggelassen). Karte mit „Bisher“/„Neu“, Mehrweg in km und Minuten, „Übernehmen“/„Nein, danke“ – dieselben
 Bausteine wie die Umwege (`Offer`, `applyOffer`, `OfferMap`). **„Rückgängig“ liegt auf der Seite** und gilt für Umwege und Stationen gemeinsam
 (`undoStack` in `tour/[id]/+page.svelte`). Gemessen an der Rheinrunde ab Krefeld-Linn: 5 Stationen, je 0–4 Alternativen (ca. 0,2–0,5 s je Station am PC).
+**In der großen Karte (Jan, 12.10.2026: „unten im Menü ist am Handy frickelig“):** Die Nummern auf der Karte sind echte Knöpfe (≥ 44 px). In der
+großen Karte öffnet ein Tipp darauf ein Fenster am unteren Rand (`StationSheet.svelte`, über das `sheet`-Snippet von `RouteMap`): Alternativen, Mehrweg und
+Fahrzeit, „Übernehmen“ / „Nein, danke“; die **Vorschau liegt direkt auf der Karte** (`RouteMap`: `preview` → orange „Bisher“, grün gestrichelt „Neu · +1,7 km“,
+Karte zoomt auf die Stelle und lässt die untere Hälfte frei). Auf der kleinen Karte springt ein Tipp zur Liste. Liste und Fenster teilen sich einen Zustand
+(`StationsController` in `improve/stations.svelte.ts`, Seite hält ihn); Worte für Mehrweg/Fahrzeit in `improve/wording.ts`. Die Umwege („Noch schöner
+fahren?“) gibt es bisher nur unten auf der Seite.
 Grenzen: Namen aus den Kartendaten sind manchmal sperrig („Durch „In der Elt““); nach dem Tausch erkennt die App die alte Station oft noch am Weg
 (Umkreis 700 m/2,5 km). Stufe 2 („Unterwegs vorbei an …“ vor der Suche) ist noch nicht gebaut.
 

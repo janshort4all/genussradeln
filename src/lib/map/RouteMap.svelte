@@ -19,6 +19,14 @@
 		kind: StopKind;
 	}
 
+	/** Vorschau eines Tauschs: bisheriges Stück (orange) und neuer Weg (grün, gestrichelt) */
+	export interface MapPreview {
+		oldLine: LngLat[];
+		newLine: LngLat[];
+		/** Mehrweg in Metern (für das Schild „Neu · +1,8 km“) */
+		extraMeters: number;
+	}
+
 	/** Station der Tour („Diese Tour führt vorbei an …“): nummerierter Punkt */
 	export interface MapStation {
 		id: string;
@@ -31,14 +39,14 @@
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	// MapLibre rechnet Kartendaten in einem Worker; Vite baut ihn als eigenes Modul (siehe vite.config.ts → worker)
 	import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
-	import { onMount } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { pushState } from '$app/navigation';
 	import { page } from '$app/state';
 	import Maximize2 from '@lucide/svelte/icons/maximize-2';
 	import X from '@lucide/svelte/icons/x';
 	import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
 	import { stopIcons } from '$lib/components/icons';
-	import { boundsOf } from '$lib/geo/geo';
+	import { boundsOf, distanceToLine, resample } from '$lib/geo/geo';
 
 	/**
 	 * Karte mit einem oder mehreren Wegen (MapLibre + OpenFreeMap).
@@ -57,6 +65,12 @@
 		stations?: MapStation[];
 		/** gewählte Station (hervorgehoben) */
 		selectedStationId?: string;
+		/** Station angetippt (zweiter Wert: die große Karte ist offen) */
+		onstation?: (id: string, expanded: boolean) => void;
+		/** Vorschau eines Tauschs, wird auf der Karte eingezeichnet */
+		preview?: MapPreview;
+		/** Fenster am unteren Rand der großen Karte (z. B. Alternativen zu einer Station) */
+		sheet?: Snippet;
 		/** Beschreibung für Screenreader */
 		label: string;
 	}
@@ -70,6 +84,9 @@
 		focusStopId,
 		stations = [],
 		selectedStationId,
+		onstation,
+		preview,
+		sheet,
 		label
 	}: Props = $props();
 
@@ -318,6 +335,67 @@
 		}
 	});
 
+	// Vorschau eines Tauschs: Linien und Schilder „Bisher“ / „Neu“, die Karte zeigt die Stelle
+	let previewMarkers: Marker[] = [];
+	$effect(() => {
+		if (!map || !loaded || !createMarker) return;
+		const m = map;
+		const draw = preview;
+		const ids = ['preview-old-casing', 'preview-old', 'preview-new-casing', 'preview-new'];
+		for (const marker of previewMarkers) marker.remove();
+		previewMarkers = [];
+		for (const id of ids) if (m.getLayer(id)) m.removeLayer(id);
+		for (const id of ['preview-old', 'preview-new']) if (m.getSource(id)) m.removeSource(id);
+		if (!draw) return;
+		const feature = (coordinates: LngLat[]) =>
+			({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates } }) as const;
+		m.addSource('preview-old', { type: 'geojson', data: feature(draw.oldLine), tolerance: 1.5 });
+		m.addSource('preview-new', { type: 'geojson', data: feature(draw.newLine), tolerance: 1.5 });
+		const round = { 'line-join': 'round', 'line-cap': 'round' } as const;
+		m.addLayer({ id: 'preview-old-casing', type: 'line', source: 'preview-old', layout: round, paint: { 'line-color': '#FDFBF5', 'line-width': 12 } });
+		m.addLayer({ id: 'preview-old', type: 'line', source: 'preview-old', layout: round, paint: { 'line-color': '#B0552F', 'line-width': 8 } });
+		m.addLayer({ id: 'preview-new-casing', type: 'line', source: 'preview-new', layout: round, paint: { 'line-color': '#FDFBF5', 'line-width': 12 } });
+		m.addLayer({
+			id: 'preview-new',
+			type: 'line',
+			source: 'preview-new',
+			layout: { 'line-join': 'round', 'line-cap': 'butt' },
+			paint: { 'line-color': '#4B5A22', 'line-width': 8, 'line-dasharray': [1.6, 1.1] }
+		});
+		// Schilder: dort, wo sich die beiden Wege am deutlichsten unterscheiden
+		const far = (line: LngLat[], other: LngLat[]): LngLat => {
+			let best = line[Math.floor(line.length / 2)];
+			let bestDistance = 40;
+			for (const p of resample(line, 40)) {
+				const d = distanceToLine(p, other);
+				if (d > bestDistance) {
+					bestDistance = d;
+					best = p;
+				}
+			}
+			return best;
+		};
+		const pill = (text: string, kind: 'old' | 'new', at: LngLat) => {
+			const element = document.createElement('div');
+			element.className = `preview-pill ${kind}`;
+			element.textContent = text;
+			previewMarkers.push(createMarker!(element, at));
+		};
+		const sign = draw.extraMeters >= 100 ? `+${(draw.extraMeters / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} km` : draw.extraMeters <= -100 ? `${(-draw.extraMeters / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} km kürzer` : 'gleich lang';
+		pill('Bisher', 'old', far(draw.oldLine, draw.newLine));
+		pill(`Neu · ${sign}`, 'new', far(draw.newLine, draw.oldLine));
+		const b = boundsOf([draw.oldLine, draw.newLine]);
+		if (Number.isFinite(b.west)) {
+			// in der großen Karte bleibt die untere Hälfte für das Fenster frei
+			const bottom = expanded ? Math.round(window.innerHeight * 0.5) : 50;
+			m.fitBounds([b.west, b.south, b.east, b.north], { padding: { top: 90, bottom, left: 40, right: 70 }, duration: 400, maxZoom: 16 });
+		}
+		return () => {
+			for (const marker of previewMarkers) marker.remove();
+			previewMarkers = [];
+		};
+	});
+
 	// Zum gewählten Stopp springen (ohne Animation, wenn der Nutzer weniger Bewegung wünscht)
 	$effect(() => {
 		const stop = stops.find((s) => s.id === focusStopId);
@@ -342,16 +420,22 @@
 			<Maximize2 size={22} strokeWidth={2.5} aria-hidden="true" /> Große Karte
 		</button>
 	{/if}
+	{#if expanded && sheet}
+		<div class="sheet-slot">{@render sheet()}</div>
+	{/if}
 	<!-- Vorlagen für die Stopp-Symbole; MapLibre hängt sie in die Karte um -->
 	<div class="stop-pool" aria-hidden="true">
 			{#each stations as station (station.id)}
-				<div
+				<button
+					type="button"
 					bind:this={stationElements[station.id]}
 					class="station-marker"
 					class:selected={station.id === selectedStationId}
+					aria-label="Station {station.number} auswählen"
+					onclick={() => onstation?.(station.id, expanded)}
 				>
 					{station.number}
-				</div>
+				</button>
 			{/each}
 		{#each stops as stop (stop.id)}
 			{@const style = stopIcons[stop.kind]}
@@ -464,12 +548,46 @@
 		box-shadow: 0 1px 4px rgb(36 53 57 / 0.35);
 	}
 
-	/* Station: Zahl im dunkelgrünen Kreis, gewählte orange und größer */
+	/* Fenster am unteren Rand der großen Karte */
+	.sheet-slot {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 3;
+		max-height: 58%;
+		overflow-y: auto;
+		border-radius: 1.5rem 1.5rem 0 0;
+	}
+
+	/* Schilder „Bisher“ / „Neu“ der Vorschau */
+	.route-map :global(.preview-pill) {
+		padding: 0.25rem 0.75rem;
+		border-radius: 999px;
+		border: 2px solid var(--color-surface);
+		color: #fff;
+		font-size: var(--text-small);
+		font-weight: 700;
+		white-space: nowrap;
+		box-shadow: 0 1px 4px rgb(36 53 57 / 0.4);
+	}
+
+	.route-map :global(.preview-pill.old) {
+		background: #b0552f;
+	}
+
+	.route-map :global(.preview-pill.new) {
+		background: #4b5a22;
+	}
+
+	/* Station: Zahl im dunkelgrünen Kreis (antippbar, ≥ 44 px), gewählte orange und größer */
 	.route-map :global(.station-marker) {
 		display: grid;
 		place-items: center;
-		width: 2rem;
-		height: 2rem;
+		width: 2.75rem;
+		height: 2.75rem;
+		padding: 0;
+		cursor: pointer;
 		border-radius: 50%;
 		border: 2px solid var(--color-surface);
 		background: var(--color-green);
@@ -480,8 +598,8 @@
 	}
 
 	.route-map :global(.station-marker.selected) {
-		width: 2.5rem;
-		height: 2.5rem;
+		width: 3.25rem;
+		height: 3.25rem;
 		background: var(--color-orange);
 		z-index: 2;
 	}
