@@ -99,18 +99,28 @@
 		margin-bottom: -3rem;
 	}
 
+	/* Foto nur in der rechten Hälfte, links weich ausgeblendet: Überschrift und Satz stehen auf ruhigem Grund,
+	   die Gesichter der beiden bleiben frei (Marketing-Prüfung, 14.10.2026: Text lag auf den Radfahrern) */
 	.large .photo {
-		object-position: 100% 50%;
+		left: auto;
+		right: 0;
+		width: 82%;
+		object-position: 82% 50%;
+		-webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 40%);
+		mask-image: linear-gradient(90deg, transparent 0%, #000 40%);
 	}
 
 	.large .fade {
-		background:
-			linear-gradient(90deg, rgb(247 242 229 / 0.9) 0%, rgb(247 242 229 / 0.7) 40%, rgb(247 242 229 / 0) 78%),
-			linear-gradient(0deg, rgb(247 242 229 / 0.55) 0%, rgb(247 242 229 / 0) 22%);
+		background: linear-gradient(0deg, rgb(247 242 229 / 0.55) 0%, rgb(247 242 229 / 0) 22%);
 	}
 
 	.large .text {
-		max-width: 72%;
+		max-width: 56%;
+	}
+
+	.large h1,
+	.large p {
+		text-wrap: balance;
 	}
 
 	.stroke {
@@ -141,7 +151,12 @@
 		}
 
 		.large .photo {
-			object-position: 85% 50%;
+			object-position: 75% 50%;
+			width: 70%;
+		}
+
+		.large .text {
+			max-width: 46%;
 		}
 	}
 </style>

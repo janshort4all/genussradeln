@@ -60,5 +60,6 @@
 		grid-column: 2 / -1;
 		margin: 0;
 		color: var(--color-text-muted);
+		text-wrap: pretty;
 	}
 </style>

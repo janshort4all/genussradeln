@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import Check from '@lucide/svelte/icons/check';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Dices from '@lucide/svelte/icons/dices';
 	import Heart from '@lucide/svelte/icons/heart';
@@ -9,7 +10,6 @@
 	import Minus from '@lucide/svelte/icons/minus';
 	import Navigation from '@lucide/svelte/icons/navigation';
 	import Plus from '@lucide/svelte/icons/plus';
-	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import Trees from '@lucide/svelte/icons/trees';
 	import Waves from '@lucide/svelte/icons/waves';
@@ -143,7 +143,7 @@
 			number={1}
 			icon={MapPin}
 			title="Wo starten Sie?"
-			hint="Wählen Sie Ihren Startpunkt für die Runde."
+			hint="Wählen Sie Ihren Startpunkt."
 		/>
 		<ChoiceGroup
 			legend="Wo starten Sie?"
@@ -158,6 +158,8 @@
 		/>
 		{#if draft.startMode === 'address'}
 			<PlaceSearch label="Startpunkt" placeholder="z. B. Ihre Straße und Hausnummer" bind:value={draft.startPlace} />
+		{:else}
+			<p class="hint">Beim Suchen fragt Ihr Handy kurz, ob die App Ihren Standort nutzen darf – bitte mit „Erlauben“ antworten.</p>
 		{/if}
 	</section>
 
@@ -167,7 +169,7 @@
 			number={2}
 			icon={Waypoints}
 			title="Wie lang soll die Runde sein?"
-			hint="Wählen Sie eine ungefähre Länge. Die Fahrzeit ist ein Richtwert."
+			hint="Wählen Sie eine ungefähre Länge."
 		/>
 		<ChoiceGroup
 			legend="Wie lang soll die Runde sein?"
@@ -201,20 +203,13 @@
 			number={3}
 			icon={Heart}
 			title="Worauf haben Sie Lust?"
-			hint="Wählen Sie, was Ihnen besonders gut gefällt."
+			hint="Wählen Sie, was Ihnen gefällt."
 		/>
 		<ChoiceGroup legend="Worauf haben Sie Lust?" hideLegend name="wish" columns={2} bind:value={draft.wish} choices={wishes} />
 	</section>
 
-	<section class="sheet" aria-labelledby="find-title">
-		<StepHeader
-			id="find-title"
-			number={4}
-			icon={SlidersHorizontal}
-			title="Schöne Runden finden"
-			hint="Wir suchen jetzt passende Routen in Ihrer Umgebung. Sie können die Ergebnisse im nächsten Schritt in Ruhe auswählen."
-		/>
-
+	<!-- Schluss: gleich der Knopf, ohne eigene Karte mit demselben Titel (Marketing-Prüfung, 14.10.2026) – weniger Scrollen, ein klarer Schritt -->
+	<div class="finish">
 		<p class="problem" role="alert">{problem}</p>
 
 		<button type="submit" class="find" disabled={busy}>
@@ -222,11 +217,15 @@
 			<svg class="find-art" viewBox="0 0 300 60" preserveAspectRatio="none" aria-hidden="true" focusable="false">
 				<path d="M0 52 Q50 44 100 51 T200 50 T300 49 V60 H0 Z" fill="#8e4425" opacity="0.55" />
 			</svg>
-			<Sparkles size={24} strokeWidth={2.25} aria-hidden="true" />
+			<Sparkles size={26} strokeWidth={2.25} aria-hidden="true" />
 			<span>{busy ? 'Standort wird bestimmt …' : 'Schöne Runden finden'}</span>
-			<span class="trailing" aria-hidden="true"><ChevronRight size={26} strokeWidth={2.5} /></span>
+			<span class="trailing" aria-hidden="true"><ChevronRight size={28} strokeWidth={2.5} /></span>
 		</button>
-	</section>
+		<p class="reassure">
+			<Check size={22} strokeWidth={3} aria-hidden="true" />
+			<span><strong>Kostenlos und ohne Anmeldung.</strong><br />Die Ergebnisse wählen Sie danach in Ruhe aus.</span>
+		</p>
+	</div>
 </form>
 
 <style>
@@ -286,6 +285,34 @@
 		font-weight: 700;
 	}
 
+	/* Hinweis unter „Hier, wo ich bin“ */
+	.hint {
+		margin: 0 0 0.25rem;
+		color: var(--color-text-muted);
+		text-wrap: pretty;
+	}
+
+	.finish {
+		margin: 0 0 1.5rem;
+	}
+
+	.reassure {
+		display: flex;
+		align-items: flex-start;
+		justify-content: center;
+		gap: 0.5rem;
+		margin: 0.875rem 0.5rem 0;
+		color: var(--color-text);
+		text-align: left;
+		text-wrap: pretty;
+	}
+
+	.reassure :global(svg) {
+		flex: none;
+		margin-top: 0.1875rem;
+		color: var(--color-green);
+	}
+
 	.problem {
 		margin: 0 0 1rem;
 		color: var(--color-orange-dark);
@@ -305,8 +332,8 @@
 		justify-content: center;
 		gap: 0.5rem;
 		width: 100%;
-		min-height: 4rem;
-		padding: 0.75rem 2.75rem 0.75rem 0.75rem;
+		min-height: 4.5rem;
+		padding: 0.75rem 3rem 0.75rem 1rem;
 		overflow: hidden;
 		border: 2px solid transparent;
 		border-radius: var(--radius);
