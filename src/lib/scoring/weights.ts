@@ -310,44 +310,18 @@ export const WISH_WEIGHTS: Record<'water' | 'forest' | 'fields', [number, number
 export const IMPROVE_DIRECT = { maxExtraRatio: 0.12, minGain: 0.04 } as const;
 
 /**
- * Schönere Umwege für eine gewählte Tour (F7, Wunsch Jan, 10.10.2026): Die Tour wird in Abschnitte geteilt, die
- * schwächsten bekommen einen eigenen Weg von ihrem Anfang zu ihrem Ende; angeboten wird, was deutlich schöner und
- * nicht zu viel länger ist.
+ * Prüfung eines Austauschs (Stationen, Stufe 3): Der neue Weg muss sich deutlich vom alten unterscheiden – eine echte
+ * Umfahrung von mehreren hundert Metern, kein kleiner Hüpfer zur Seite (Wunsch Jan, 10.10.2026) – und darf nicht auf
+ * dem Rest der Tour zurückfahren.
  */
 export const OFFERS = {
-	/** Länge der untersuchten Abschnitte (kurze Schwachstelle, längerer Abschnitt) und Schrittweite beim Verschieben */
-	windowsM: [1500, 3000],
-	stepM: 500,
-	/** so viele schwache Abschnitte werden je Tour untersucht (bei Hin- und Rückweg: je Weg etwas weniger) */
-	tryWindows: 5,
-	/** untersuchte Abschnitte halten diesen Abstand zueinander (Meter) */
-	minSpacingM: 1200,
-	/** nicht in den ersten und letzten Metern der Tour (dort muss der Weg ohnehin an Start und Ziel vorbei) */
-	freeEndsM: 300,
-	/** höchster Mehrweg je Vorschlag: ratio × Abschnitt + baseM, aber nie mehr als maxM */
-	extraRatio: 0.2,
-	extraBaseM: 2000,
-	maxExtraM: 3000,
-	/** mindestens so viel schöner (Schönheitspunkte, wie beautyScore) – sonst lohnt der Umweg nicht */
-	minGain: 0.2,
-	/** Abzug je Mehr-Kilometer bei der Wahl zwischen mehreren Wegen für denselben Abschnitt */
-	perExtraKm: 0.04,
-	/** höchstens so viele Vorschläge */
-	maxOffers: 3,
 	/** der neue Weg darf höchstens so viel (Anteil) auf dem übrigen Teil der Tour verlaufen */
 	maxOverlapWithRest: 0.25,
-	/** … und muss sich vom ersetzten Stück unterscheiden: höchstens so viel gemeinsame Strecke */
-	maxOverlapWithOld: 0.8,
-	/**
-	 * Echte Umfahrung, kein kleiner Hüpfer zur Seite (Wunsch Jan, 10.10.2026): Der neue Weg muss sich mindestens
-	 * `minDeviationM` vom alten entfernen und über mindestens `minDifferentM` Strecke weiter als `apartM` vom alten
-	 * verlaufen.
-	 */
+	/** mindestens so weit vom alten Weg weg (Meter) … */
 	minDeviationM: 300,
+	/** … und über so viel Strecke weiter als `apartM` vom alten Weg entfernt */
 	minDifferentM: 700,
-	apartM: 80,
-	/** Vorschläge liegen mindestens so weit auseinander (Meter) */
-	minApartM: 1000
+	apartM: 80
 } as const;
 
 /**

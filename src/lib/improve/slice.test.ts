@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { offset, type LngLat } from '$lib/geo/geo';
 import type { RoutePath } from '$lib/routing/graphhopper';
 import type { TourLeg } from '$lib/tour/model';
-import { cumulative, deviation, slicePath, spliceLeg, windowsOf } from './slice';
+import { deviation, spliceLeg } from './slice';
 
 const start: LngLat = [6.55, 51.35];
 const eastLine = (meters: number, step = 100): LngLat[] =>
@@ -26,62 +26,6 @@ describe('deviation', () => {
 		const { max, different } = deviation(arc, old, 80);
 		expect(max).toBeGreaterThan(450);
 		expect(different).toBeGreaterThan(2000);
-	});
-});
-
-describe('windowsOf', () => {
-	it('lässt Anfang und Ende der Tour frei', () => {
-		const cum = cumulative(eastLine(10000));
-		const windows = windowsOf(cum, 3000, 500, 300);
-		expect(windows.length).toBeGreaterThan(5);
-		for (const w of windows) {
-			expect(cum[w.from]).toBeGreaterThanOrEqual(299);
-			expect(cum[w.to]).toBeLessThanOrEqual(9701);
-			expect(w.meters).toBeGreaterThan(2900);
-			expect(w.meters).toBeLessThan(3100);
-		}
-	});
-
-	it('nimmt bei einer kurzen Tour kürzere Abschnitte', () => {
-		const cum = cumulative(eastLine(2500));
-		const windows = windowsOf(cum, 3000, 500, 300);
-		expect(windows.length).toBeGreaterThan(0);
-		expect(Math.max(...windows.map((w) => w.meters))).toBeLessThan(2000);
-	});
-
-	it('findet nichts auf sehr kurzen Wegen', () => {
-		expect(windowsOf(cumulative(eastLine(500)), 3000, 500, 300)).toEqual([]);
-	});
-});
-
-describe('slicePath', () => {
-	it('schneidet die Abschnitts-Angaben passend zu', () => {
-		const line = eastLine(1000);
-		const path: RoutePath = {
-			distance: 1000,
-			time: 0,
-			ascend: 0,
-			descend: 0,
-			coordinates: withHeight(line),
-			details: {
-				road_class: [
-					[0, 4, 'residential'],
-					[4, 10, 'cycleway']
-				],
-				bike_network: [],
-				surface: [],
-				smoothness: [],
-				street_name: [],
-				average_slope: []
-			}
-		};
-		const part = slicePath(path, 2, 6);
-		expect(part.coordinates).toHaveLength(5);
-		expect(part.details.road_class).toEqual([
-			[0, 2, 'residential'],
-			[2, 4, 'cycleway']
-		]);
-		expect(part.distance).toBeCloseTo(400, -1);
 	});
 });
 

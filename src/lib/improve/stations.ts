@@ -234,10 +234,7 @@ export async function stationOptions(
 			extraMeters: extra,
 			extraMinutes: minutesOf(path.distance, climbOf(path.coordinates), effort) - baseMinutes,
 			title: '',
-			why: '',
-			gain: 0,
-			startM: cum[from],
-			endM: cum[to]
+			why: ''
 		};
 	};
 

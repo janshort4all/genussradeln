@@ -1,6 +1,6 @@
-/** Teilstücke eines Wegs: Abschnitte ausschneiden und einen neuen Weg an die Stelle eines Abschnitts setzen */
+/** Teilstücke eines Wegs: Abweichung messen und einen neuen Weg an die Stelle eines Abschnitts setzen */
 import { bearing, distance, distanceToLine, resample, type LngLat } from '$lib/geo/geo';
-import type { DetailInterval, RouteDetails, RouteInstruction, RoutePath } from '$lib/routing/graphhopper';
+import type { DetailInterval, RouteInstruction, RoutePath } from '$lib/routing/graphhopper';
 import type { TourLeg } from '$lib/tour/model';
 
 /**
@@ -24,68 +24,6 @@ export function cumulative(line: LngLat[]): number[] {
 	const cum = [0];
 	for (let i = 1; i < line.length; i++) cum.push(cum[i - 1] + distance(line[i - 1], line[i]));
 	return cum;
-}
-
-/** Ein Abschnitt eines Wegs: von Punkt `from` bis Punkt `to` (Indizes der Koordinaten) */
-export interface Window {
-	from: number;
-	to: number;
-	/** Länge in Metern */
-	meters: number;
-}
-
-/**
- * Abschnitte der Länge `size`, alle `step` Meter verschoben – ohne die ersten und letzten `freeEnds` Meter. Ist der Weg
- * kürzer als zwei Abschnitte, wird ein kürzerer Abschnitt aus dem mittleren Teil genommen.
- */
-export function windowsOf(cum: number[], size: number, step: number, freeEnds: number): Window[] {
-	const total = cum[cum.length - 1];
-	const first = Math.min(freeEnds, total * 0.1);
-	const last = total - first;
-	const length = Math.min(size, (last - first) * 0.6);
-	if (length < 400) return [];
-	const out: Window[] = [];
-	const indexAt = (meters: number) => {
-		const i = cum.findIndex((c) => c >= meters);
-		return i < 0 ? cum.length - 1 : i;
-	};
-	for (let start = first; start + length <= last + 1; start += step) {
-		const from = indexAt(start);
-		const to = indexAt(start + length);
-		if (to > from) out.push({ from, to, meters: cum[to] - cum[from] });
-	}
-	return out;
-}
-
-function clip<T>(intervals: DetailInterval<T>[] | undefined, from: number, to: number): DetailInterval<T>[] {
-	const out: DetailInterval<T>[] = [];
-	for (const [f, t, v] of intervals ?? []) {
-		const start = Math.max(f, from);
-		const end = Math.min(t, to);
-		if (end > start) out.push([start - from, end - from, v]);
-	}
-	return out;
-}
-
-/** Das Stück von Punkt `from` bis Punkt `to` als eigener Weg (mit zugeschnittenen Abschnitts-Angaben) */
-export function slicePath(path: RoutePath, from: number, to: number): RoutePath {
-	const coordinates = path.coordinates.slice(from, to + 1);
-	const d = path.details;
-	const details: RouteDetails = {
-		road_class: clip(d.road_class, from, to),
-		bike_network: clip(d.bike_network, from, to),
-		surface: clip(d.surface, from, to),
-		smoothness: clip(d.smoothness, from, to),
-		street_name: clip(d.street_name, from, to),
-		average_slope: clip(d.average_slope, from, to),
-		road_environment: clip(d.road_environment, from, to),
-		max_speed: clip(d.max_speed, from, to)
-	};
-	let meters = 0;
-	for (let i = 1; i < coordinates.length; i++) {
-		meters += distance([coordinates[i - 1][0], coordinates[i - 1][1]], [coordinates[i][0], coordinates[i][1]]);
-	}
-	return { distance: meters, time: 0, ascend: 0, descend: 0, coordinates, details };
 }
 
 /**

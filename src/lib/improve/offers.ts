@@ -1,25 +1,19 @@
 /**
- * Schönere Umwege vorschlagen (F7, Wunsch Jan, 10.10.2026).
- *
- * Die gewählte Tour wird in Abschnitte geteilt (1,5 und 3 km, alle 500 m verschoben) und jeder wie ein ganzer Weg
- * bewertet (score.ts). Für die schwächsten Abschnitte rechnet die Planung (plan.ts, planDirection) Wege vom Anfang
- * zum Ende des Abschnitts – über Seeufer, Wald, Parks, Bäche, an der Straße vorbei. Angeboten wird, was deutlich
- * schöner und nicht zu viel länger ist. Übernehmen ersetzt nur diesen Abschnitt; der Rest der Tour bleibt.
+ * Austausch eines Stücks der Tour: ersetzt die Punkte `from`…`to` einer Teilstrecke durch einen neuen Weg (Stationen
+ * tauschen, siehe stations.ts). Es wird nichts neu berechnet – Weg, Abbiegehinweise und Kennzahlen stimmen mit dem überein,
+ * was die Karte gezeigt hat. (Die frühere Suche nach „schöneren Umwegen“ entfiel am 12.10.2026: zu unübersichtlich.)
  */
 import { distance, type LngLat } from '$lib/geo/geo';
-import { highlightSentence, honestTitles } from '$lib/routing/describe';
-import { NoRouteError, type RoutePath } from '$lib/routing/graphhopper';
-import { longCrossingMeters, planDirection, shapeProblem, type PlanDeps } from '$lib/routing/plan';
-import { highlightOf, landmarkTitle, routeNames } from '$lib/naming/title';
-import { mutualOverlap, overlapShare } from '$lib/scoring/overlap';
-import { analyzeRoute, beautyScore, combineStats, lineOf, type RouteStats } from '$lib/scoring/score';
-import { OFFERS, TITLE_MIN_SHARE_OF_TOP } from '$lib/scoring/weights';
+import { highlightSentence } from '$lib/routing/describe';
+import type { RoutePath } from '$lib/routing/graphhopper';
+import type { PlanDeps } from '$lib/routing/plan';
+import { analyzeRoute, combineStats } from '$lib/scoring/score';
 import { rideMinutes } from '$lib/tour/duration';
 import { elevationProfile } from '$lib/tour/elevation';
-import { legFromPath, pathOfLeg, type PlannedTour, type Waypoint } from '$lib/tour/model';
-import { cumulative, deviation, slicePath, spliceLeg, windowsOf, type Window } from './slice';
+import { pathOfLeg, type PlannedTour, type Waypoint } from '$lib/tour/model';
+import { spliceLeg } from './slice';
 
-/** Ein Vorschlag: dieses Stück der Tour durch einen schöneren Weg ersetzen */
+/** Ein Austausch: dieses Stück der Tour durch einen anderen Weg ersetzen */
 export interface Offer {
 	id: string;
 	/** Hin- (0) oder Rückweg (1) */
@@ -30,186 +24,17 @@ export interface Offer {
 	oldLine: LngLat[];
 	newLine: LngLat[];
 	newPath: RoutePath;
-	/** Mehrweg in Metern (kann kleiner als 0 sein: dann ist der neue Weg sogar kürzer) */
+	/** Mehrweg in Metern (kann kleiner als 0 sein: dann ist der neue Weg kürzer) */
 	extraMeters: number;
 	/** Mehr-Fahrzeit in Minuten */
 	extraMinutes: number;
 	/** z. B. „Am Elfrather See vorbei“ */
 	title: string;
-	/** ein Satz, was daran besser ist */
+	/** ein Satz, z. B. „Statt „Anger““ */
 	why: string;
-	/** Schönheitsgewinn des Stücks (Punkte wie beautyScore) */
-	gain: number;
-	/** Lage des Stücks entlang der Teilstrecke (Meter), um nahe beieinanderliegende Vorschläge zu erkennen */
-	startM: number;
-	endM: number;
 }
 
 export type ImproveDeps = PlanDeps;
-
-/** Anteil „laut“: Hauptstraßen, größere Nebenstraßen und Radwege direkt daneben */
-const traffic = (s: RouteStats) => s.major + (s.busy ?? 0) + (s.roadsideNoise ?? s.roadside ?? 0);
-
-/** Was am neuen Weg besser ist – in einem Satz für Kunden */
-export function whyBetter(before: RouteStats, after: RouteStats): string {
-	if (traffic(before) >= 0.3 && traffic(after) < traffic(before) - 0.2) return 'Statt an einer größeren Straße entlang.';
-	if (after.water - before.water >= 0.2) return 'Mehr Wasser am Weg.';
-	const wood = (s: RouteStats) => (s.forestThrough ?? s.forest) + (s.greenThrough ?? s.green);
-	if (wood(after) - wood(before) >= 0.2) return 'Mehr Wald und Grün.';
-	if (traffic(before) - traffic(after) >= 0.1) return 'Weniger Autoverkehr.';
-	return 'Ruhiger und grüner.';
-}
-
-const ascentOf = (path: RoutePath) => elevationProfile(path.coordinates).ascent;
-
-/** Zwei Stücke liegen zu nah beieinander (Meter entlang derselben Teilstrecke) */
-function near(a: { legIndex: number; startM: number; endM: number }, b: typeof a, apart: number): boolean {
-	return a.legIndex === b.legIndex && a.startM < b.endM + apart && b.startM < a.endM + apart;
-}
-
-/** Vorschläge ordnen: Gewinn je Mehr-Kilometer, nicht zwei an derselben Stelle */
-function rank(all: Offer[]): Offer[] {
-	const value = (o: Offer) => o.gain / Math.max(0.5, o.extraMeters / 1000);
-	const chosen: Offer[] = [];
-	for (const o of [...all].sort((a, b) => value(b) - value(a))) {
-		if (chosen.length >= OFFERS.maxOffers) break;
-		if (chosen.some((c) => near(c, o, OFFERS.minApartM))) continue;
-		chosen.push(o);
-	}
-	// gleicher Titel an zwei Stellen: die Stelle dazuschreiben, damit man sie unterscheiden kann
-	return chosen.map((o) =>
-		chosen.some((c) => c !== o && c.title === o.title) ? { ...o, title: `${o.title} – ab km ${Math.round(o.startM / 1000)}` } : o
-	);
-}
-
-/**
- * Schönere Umwege für eine Tour suchen. `onUpdate` meldet nach jedem untersuchten Abschnitt den aktuellen Stand,
- * damit der erste Vorschlag schon erscheint, während die Suche weiterläuft.
- */
-export async function findOffers(
-	tour: PlannedTour,
-	deps: ImproveDeps,
-	onUpdate?: (offers: Offer[]) => void
-): Promise<Offer[]> {
-	const { effort } = tour.request;
-	const paths = tour.legs.map(pathOfLeg);
-	const lines = paths.map(lineOf);
-	const cums = lines.map(cumulative);
-	// hatte die Tour schon vorher einen Zipfel/Kreis, prüfen wir das nach dem Austausch nicht erneut
-	const baseProblem = paths.map((p) => !!shapeProblem(p));
-
-	// 1. Abschnitte bewerten, die schwächsten je Teilstrecke auswählen
-	interface Job {
-		legIndex: number;
-		win: Window;
-		startM: number;
-		endM: number;
-		part: RoutePath;
-		stats: RouteStats;
-		beauty: number;
-	}
-	const perLeg = Math.ceil(OFFERS.tryWindows / paths.length);
-	const jobs: Job[] = [];
-	paths.forEach((path, legIndex) => {
-		const all: Job[] = [];
-		for (const size of OFFERS.windowsM) {
-			for (const win of windowsOf(cums[legIndex], size, OFFERS.stepM, OFFERS.freeEndsM)) {
-				const part = slicePath(path, win.from, win.to);
-				// Brücken über große Flüsse und Fähren lassen sich nicht umfahren
-				if (longCrossingMeters(part) > 0) continue;
-				const stats = analyzeRoute(part, deps.landscape, deps.roads, deps.fine);
-				all.push({
-					legIndex,
-					win,
-					startM: cums[legIndex][win.from],
-					endM: cums[legIndex][win.to],
-					part,
-					stats,
-					beauty: beautyScore(stats)
-				});
-			}
-		}
-		const picked: Job[] = [];
-		for (const job of all.sort((a, b) => a.beauty - b.beauty)) {
-			if (picked.length >= perLeg) break;
-			if (picked.some((p) => near(p, job, OFFERS.minSpacingM))) continue;
-			picked.push(job);
-		}
-		jobs.push(...picked);
-	});
-	jobs.sort((a, b) => a.beauty - b.beauty);
-
-	// 2. Für jeden schwachen Abschnitt nach einem schöneren Weg suchen
-	const found: Offer[] = [];
-	for (const job of jobs) {
-		if (deps.signal?.aborted) break;
-		const { legIndex, win } = job;
-		const line = lines[legIndex];
-		const oldLine = line.slice(win.from, win.to + 1);
-		const baseLength = job.part.distance;
-		const allowed = Math.min(OFFERS.maxExtraM, OFFERS.extraRatio * baseLength + OFFERS.extraBaseM);
-		let result;
-		try {
-			result = await planDirection(line[win.from], line[win.to], { effort }, deps, {
-				maxLength: baseLength + allowed,
-				light: true
-			});
-		} catch (error) {
-			if (error instanceof NoRouteError) continue;
-			throw error;
-		}
-		// der übrige Teil der Tour: der neue Weg soll nicht auf ihm zurückfahren
-		const rest = [
-			line.slice(0, win.from + 1),
-			line.slice(win.to),
-			...lines.filter((_, i) => i !== legIndex)
-		].filter((l) => l.length > 1);
-
-		let best: { offer: Offer; value: number } | undefined;
-		for (const cand of result.candidates) {
-			const extra = cand.path.distance - baseLength;
-			if (extra > allowed) continue;
-			const gain = cand.beauty - job.beauty;
-			if (gain < OFFERS.minGain) continue;
-			if (mutualOverlap(cand.line, oldLine) > OFFERS.maxOverlapWithOld) continue;
-			// eine echte Umfahrung von mehreren hundert Metern, kein kleiner Schlenker zur Seite
-			const away = deviation(cand.line, oldLine, OFFERS.apartM);
-			if (away.max < OFFERS.minDeviationM || away.different < OFFERS.minDifferentM) continue;
-			if (rest.some((r) => overlapShare(cand.line, r) > OFFERS.maxOverlapWithRest)) continue;
-			if (!baseProblem[legIndex] && shapeProblem(pathOfLeg(spliceLeg(tour.legs[legIndex], win.from, win.to, cand.path)))) continue;
-			const value = gain - OFFERS.perExtraKm * (Math.max(0, extra) / 1000);
-			if (best && best.value >= value) continue;
-			const names = deps.names && routeNames(cand.line, deps.names, deps.landscape, deps.fine);
-			const highlight = names && highlightOf(names);
-			best = {
-				value,
-				offer: {
-					id: `${legIndex}-${win.from}-${win.to}-${Math.round(cand.path.distance)}`,
-					legIndex,
-					from: win.from,
-					to: win.to,
-					oldLine,
-					newLine: cand.line,
-					newPath: cand.path,
-					extraMeters: extra,
-					extraMinutes:
-						rideMinutes(cand.path.distance, ascentOf(cand.path), effort) -
-						rideMinutes(baseLength, ascentOf(job.part), effort),
-					title: highlight ? landmarkTitle(highlight) : (honestTitles(cand.stats, TITLE_MIN_SHARE_OF_TOP)[0] ?? 'Ruhigerer Weg'),
-					why: whyBetter(job.stats, cand.stats),
-					gain,
-					startM: job.startM,
-					endM: job.endM
-				}
-			};
-		}
-		if (best) {
-			found.push(best.offer);
-			onUpdate?.(rank(found));
-		}
-	}
-	return rank(found);
-}
 
 /** Wegpunkte nach dem Austausch: Hilfspunkte im ersetzten Stück entfallen, ein Hilfspunkt mitten im neuen Stück kommt dazu */
 function waypointsAfter(tour: PlannedTour, offer: Offer): Waypoint[] {

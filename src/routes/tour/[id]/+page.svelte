@@ -17,7 +17,6 @@
 	import BackLink from '$lib/components/BackLink.svelte';
 	import BatteryHint from '$lib/components/BatteryHint.svelte';
 	import ElevationProfile from '$lib/components/ElevationProfile.svelte';
-	import ImproveOffers from '$lib/components/ImproveOffers.svelte';
 	import StationSheet from '$lib/components/StationSheet.svelte';
 	import Stations from '$lib/components/Stations.svelte';
 	import { StationsController } from '$lib/improve/stations.svelte';
@@ -427,7 +426,6 @@
 			{/if}
 			{#key planned.id}
 				<Stations tour={planned} controller={stationsCtrl} />
-				<ImproveOffers tour={planned} onchange={changeTour} />
 			{/key}
 		{/if}
 
