@@ -17,8 +17,8 @@ const config: CapacitorConfig = {
 		allowNavigation: ['janshort4all.github.io', '130-61-177-54.sslip.io', 'tiles.openfreemap.org']
 	},
 	plugins: {
-		// Abstände zu den Systemleisten setzt die Hülle selbst (MainActivity), nicht die Web-App
-		SystemBars: { insetsHandling: 'disable' }
+		// Abstände zu den Systemleisten setzt die Hülle selbst (MainActivity); Symbole dunkel auf hellem Grund, unabhängig vom Dunkelmodus des Handys
+		SystemBars: { insetsHandling: 'disable', style: 'LIGHT' }
 	},
 	android: {
 		allowMixedContent: false
