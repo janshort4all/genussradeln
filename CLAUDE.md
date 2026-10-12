@@ -49,7 +49,7 @@ beschrieben in `docs/lastenheft.md` → Abschnitt „Bedienung“.
     `+layout.svelte` am `.page` die Variablen `--col` (Spaltenbreite; Startseite 64 rem, Kartenseiten 80 rem), `--pad` und `--bleed` (Abstand Fensterrand–Inhalt);
     Kopf und Hero nutzen `margin-inline: calc(-1 * var(--bleed))`, `html { overflow-x: clip }` fängt den Rollbalken ab (am PC bis ca. 7 px Versatz auf Seiten mit Rollbalken).
     **Startseite:** Die Höhe des Titelbilds richtet sich nach der Fensterhöhe (`100svh` – Leiste – Platz für Überschrift und Felder), damit beide Felder ohne Scrollen
-    sichtbar sind; am PC stehen sie nebeneinander, in niedrigen Fenstern (< 46 rem) entfallen der Satz im Bild und die Beschreibungen in den Feldern. Geprüft bei
+    sichtbar sind; am PC stehen sie nebeneinander, in niedrigen Fenstern (< 46 rem) entfallen die Beschreibungen in den Feldern. **Im Titelbild der Startseite steht nur der Namenszug** (Jan, 14.10.2026: „in Summe zu viel Text“ – „Schön, dass Sie da sind!“, Satz und Strich entfielen; Bild höchstens 15 rem, am PC 17 rem; der Namenszug ist die `h1`). Geprüft bei
     360×640 bis 1920×1000. **Achtung:** Eine Klasse namens `wide` irgendwo auf einer Seite macht sie am PC 80 rem breit (`.page:has(.wide)`) – die Auswahlkachel hieß so
     und weitete die Runden-Seite; jetzt `full-row`.
 9b. **Kein leerer Bereich am Seitenende (Jan, 14.10.2026):** Am Ende der Seite liegt der Inhalt unmittelbar über der unteren Leiste, darunter lässt sich nichts

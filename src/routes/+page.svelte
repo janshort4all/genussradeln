@@ -17,15 +17,9 @@
 <header class="hero">
 	<img class="photo" src={asset('/hero.jpg')} alt="" width="1200" height="600" fetchpriority="high" />
 	<div class="fade" aria-hidden="true"></div>
-	<img class="wordmark" src={asset('/wordmark.png')} alt="Genuss-Radeln" width="480" height="247" />
+	<!-- Im Titelbild nur der Name (Jan, 14.10.2026: „in Summe zu viel Text“) – die Frage „Was möchten Sie tun?“ steht gleich darunter -->
+	<h1 class="wordmark"><img src={asset('/wordmark.png')} alt="Genuss-Radeln" width="480" height="247" /></h1>
 	<div class="settings"><MoreLink /></div>
-	<div class="welcome">
-		<h1>Schön, dass Sie da sind!</h1>
-		<p>Entdecken Sie die schönsten Radrouten in Ihrer Region.</p>
-		<svg class="stroke" viewBox="0 0 240 24" aria-hidden="true">
-			<path d="M4 18 C 50 6, 130 6, 236 10" fill="none" stroke="#5f6e33" stroke-width="5" stroke-linecap="round" />
-		</svg>
-	</div>
 </header>
 
 <section aria-labelledby="choose">
@@ -87,7 +81,7 @@
 		isolation: isolate;
 		/* höchstens so hoch wie der Kopf der anderen Seiten (18 rem, am PC 19 rem – beim Hin- und Herklicken springt nichts), bei niedrigen Fenstern
 		   niedriger, damit beide Felder darunter ohne Scrollen sichtbar sind: Fensterhöhe minus Leiste minus Platz für Überschrift und zwei Felder */
-		height: clamp(12rem, calc(100svh - var(--bottom-bar-height) - 26rem), 18rem);
+		height: clamp(11rem, calc(100svh - var(--bottom-bar-height) - 26rem), 15rem);
 		margin: -0.5rem 0 1.25rem;
 		margin-inline: calc(-1 * var(--bleed));
 		overflow: hidden;
@@ -119,7 +113,13 @@
 		position: absolute;
 		top: 0.875rem;
 		left: var(--bleed);
-		width: min(8.5rem, 36%);
+		width: min(11rem, 46%);
+		margin: 0;
+	}
+
+	.wordmark img {
+		display: block;
+		width: 100%;
 		height: auto;
 	}
 
@@ -127,33 +127,6 @@
 		position: absolute;
 		top: 0.875rem;
 		right: var(--bleed);
-	}
-
-	.welcome {
-		position: absolute;
-		left: var(--bleed);
-		right: 46%;
-		bottom: 1.25rem;
-	}
-
-	h1 {
-		margin: 0 0 0.5rem;
-		font-size: clamp(var(--text-h2), 7.5vw, 2.5rem);
-		line-height: 1.1;
-	}
-
-	.welcome p {
-		margin: 0;
-		color: var(--color-text);
-		font-size: var(--text-base);
-		line-height: 1.35;
-	}
-
-	.stroke {
-		display: block;
-		width: 7.5rem;
-		height: 1.5rem;
-		margin-top: 0.375rem;
 	}
 
 	h2 {
@@ -267,8 +240,6 @@
 	/* niedrige Fenster (kleine Handys, Browserleisten): Platz für beide Felder geht vor – Satz im Titelbild und Beschreibungen in den Feldern entfallen,
 	   die Felder werden flacher */
 	@media (max-height: 46rem) {
-		.welcome p,
-		.stroke,
 		.text > span {
 			display: none;
 		}
@@ -295,19 +266,12 @@
 	/* breite Fenster: Titelbild über die ganze Breite, die beiden Felder nebeneinander – darunter ist nur eine Reihe, das Bild darf höher sein */
 	@media (min-width: 48rem) {
 		.hero {
-			height: clamp(16rem, calc(100svh - var(--bottom-bar-height) - 19rem), 19rem);
+			height: clamp(13rem, calc(100svh - var(--bottom-bar-height) - 19rem), 17rem);
 		}
 
 		.photo {
 			object-position: 70% 40%;
 		}
 
-		.welcome {
-			right: 50%;
-		}
-
-		h1 {
-			font-size: clamp(2.25rem, 4vw, 3.25rem);
-		}
 	}
 </style>
