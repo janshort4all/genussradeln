@@ -32,6 +32,8 @@ export interface Offer {
 	title: string;
 	/** ein Satz, z. B. „Statt „Anger““ */
 	why: string;
+	/** Einbau eines Stopps (Café, Biergarten …): der Ort wird als Stopp-Wegpunkt gemerkt, nicht als Hilfspunkt */
+	stop?: { lngLat: LngLat; name: string };
 }
 
 export type ImproveDeps = PlanDeps;
@@ -60,7 +62,10 @@ function waypointsAfter(tour: PlannedTour, offer: Offer): Waypoint[] {
 		.map((wp) => ({ wp, at: indexOf(wp.lngLat) }))
 		.filter(({ at }) => at < offer.from || at > offer.to);
 	const mid = offer.newLine[Math.floor(offer.newLine.length / 2)];
-	vias.push({ wp: { lngLat: mid, kind: 'via' }, at: (offer.from + offer.to) / 2 });
+	vias.push({
+		wp: offer.stop ? { lngLat: offer.stop.lngLat, kind: 'stop', name: offer.stop.name } : { lngLat: mid, kind: 'via' },
+		at: offer.stop ? indexOf(offer.stop.lngLat) : (offer.from + offer.to) / 2
+	});
 	vias.sort((a, b) => a.at - b.at);
 	return [...wps.slice(0, lo + 1), ...vias.map((v) => v.wp), ...wps.slice(hi)];
 }

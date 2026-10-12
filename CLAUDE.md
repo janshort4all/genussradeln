@@ -369,6 +369,12 @@ Hauptaktion des jeweiligen Bildschirms (Tour starten; in der großen Karte „Sp
 **Stopp-Karten** (`StopCards.svelte`): Antippen zeigt den Ort auf der Karte (Stecknadel vor den Kilometern), rechts daneben öffnet „Infos“ den Ort in der Karten-App
 (Google-Maps-Suche mit Name und Koordinaten: Öffnungszeiten, Fotos, Bewertungen – nur ein Link, die App ruft nichts von Google ab; in der Android-App öffnet er außerhalb).
 
+**Stopp einbauen (Jan, 14.10.2026: „wenn man den Biergarten auswählt, soll gefragt werden, ob die Route angepasst werden soll“):** Tippt man bei „Einkehren unterwegs“ einen Ort an,
+der mehr als 60 m vom Weg liegt (`STOP_ON_ROUTE_M`), öffnet sich die große Karte mit der Frage „Kamps einbauen?“ (`improve/stop-offers.ts`, `DetoursController.offerStop`): Die Tour wird
+500 m vor und nach dem Ort verlassen und durch ihn geführt (`exactPoints`, Wenden erlaubt – ein Stopp bleibt immer drin, keine Stummel-Prüfung, siehe „Hilfspunkt vs. Stopp“);
+Vergleich „Bisher“ → „Neu“ wie bei den Umwegen, „Übernehmen“ / „Nein, danke“ (Frage verschwindet) / „Rückgängig“. Übernommen wird der Ort als Wegpunkt `stop` mit Namen
+(`Offer.stop`), die Linie führt hindurch (gemessen: Kamps vorher 116 m, nachher 10 m vom Weg, +0,1 km). Orte am Weg zeigen sich wie bisher nur auf der Karte.
+
 ### Tour anpassen (F6)
 
 Eine Tour wird intern als Liste von Wegpunkten gespeichert (Start, Zwischenpunkte, Stopps, Ziel).

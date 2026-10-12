@@ -21,6 +21,7 @@
 	import ElevationProfile from '$lib/components/ElevationProfile.svelte';
 	import DetourSheet from '$lib/components/DetourSheet.svelte';
 	import { DetoursController } from '$lib/improve/detours.svelte';
+	import { distanceFromTour, STOP_ON_ROUTE_M } from '$lib/improve/stop-offers';
 	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import StopCards from '$lib/components/StopCards.svelte';
 	import TourScene from '$lib/components/illustrations/TourScene.svelte';
@@ -260,6 +261,14 @@
 	/** Stopp auf der Karte zeigen – und zur Karte hochscrollen, damit man den Sprung sieht */
 	function showStop(id: string) {
 		focusStopId = id;
+		// Liegt der Stopp nicht am Weg: große Karte mit der Frage „einbauen?“ (Jan, 14.10.2026) – der kleine Schlenker kommt in die Route,
+		// damit man ihn beim Fahren nicht verfehlt
+		const stop = stops.find((s) => s.id === id);
+		if (stop?.lngLat && planned && tour.map.kind === 'route' && distanceFromTour(planned, stop.lngLat) > STOP_ON_ROUTE_M) {
+			routeMap?.openLargeMap();
+			void detours.offerStop(stop);
+			return;
+		}
 		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		mapBox?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
 	}

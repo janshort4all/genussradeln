@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import Check from '@lucide/svelte/icons/check';
+	import Coffee from '@lucide/svelte/icons/coffee';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
@@ -32,8 +33,9 @@
 	 * (through-offers.ts) sind oft nur ein paar hundert Meter länger: „+0,6 km“ bzw. „gleich lang“.
 	 */
 	const roundKm = (meters: number) => (meters >= 3000 ? `+${Math.round(meters / 1000)} km` : plusText(meters));
-	/** Durch Wald/Park/am See statt daneben – derselbe Weg, kein Umweg zu einem Ziel */
-	const isThrough = (id: string) => id.startsWith('durch-');
+	/** Durch Wald/Park/am See statt daneben – derselbe Weg, kein Umweg zu einem Ziel; ebenso der Einbau eines Stopps (Café, Biergarten) */
+	const isThrough = (id: string) => id.startsWith('durch-') || id.startsWith('halt-');
+	const isStop = (id: string) => id.startsWith('halt-');
 	/**
 	 * „+50 Min.“ bzw. „+1:10 Std.“ – genau der Unterschied der beiden angezeigten Fahrzeiten (auf 5 Minuten gerundet), damit
 	 * „Bisher“, „Neu“ und das gelbe Feld zusammenpassen; leer, wenn die angezeigte Fahrzeit gleich bleibt
@@ -97,9 +99,9 @@
 				<ChevronLeft size={26} strokeWidth={2.5} aria-hidden="true" />
 			</button>
 			<span class="icon" class:water aria-hidden="true">
-				{#if water}<Waves size={22} strokeWidth={2.25} />{:else}<Trees size={22} strokeWidth={2.25} />{/if}
+				{#if isStop(chosen.highlight.id)}<Coffee size={22} strokeWidth={2.25} />{:else if water}<Waves size={22} strokeWidth={2.25} />{:else}<Trees size={22} strokeWidth={2.25} />{/if}
 			</span>
-			<h2 class="title">{chosen.highlight.name}</h2>
+			<h2 class="title">{isStop(chosen.highlight.id) ? `${chosen.highlight.name} einbauen?` : chosen.highlight.name}</h2>
 		</div>
 
 		<!-- Vergleich in großen Zahlen: bisher → mit Umweg -->
