@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { asset, resolve } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import X from '@lucide/svelte/icons/x';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
@@ -15,7 +15,9 @@
 	import { NoRouteError, RoutingUnavailableError } from '$lib/routing/graphhopper';
 	import { TooCloseError } from '$lib/routing/plan';
 	import { planTours } from '$lib/routing/planner';
-	import { loadNames } from '$lib/naming/names';
+	import { tilesUrl } from '$lib/data/config';
+	import { tileStore } from '$lib/data/tiles';
+	import { tileOf } from '$lib/data/grid';
 	import { tourLine } from '$lib/tour/model';
 	import { session } from '$lib/tour/session.svelte';
 	import { formatDuration } from '$lib/tour/sample';
@@ -59,8 +61,9 @@
 	onMount(() => {
 		if (!request || request.destination.settlement !== undefined) return;
 		const { name, lngLat } = request.destination;
-		loadNames(asset('/data/landmarks.json'), asset('/data/places.json'))
-			.then((names) => (settlement = !!names.places.nearest(lngLat, 3000, (p) => p.name === name)))
+		tileStore(tilesUrl())
+			.area([tileOf(lngLat)])
+			.then((area) => (settlement = !!area.names?.places.nearest(lngLat, 3000, (p) => p.name === name)))
 			.catch(() => {});
 	});
 	const towards = $derived(request ? `${settlement ? 'nach' : 'bis'} ${request.destination.name}` : '');
@@ -89,13 +92,7 @@
 		// Die Rechnung läuft im Hintergrund (plan.worker.ts): Landschaftskarte, Namen, Straßen laden und Wege bewerten,
 		// ohne die Seite anzuhalten – das Wartebild bleibt flüssig. Gleiche Wünsche sind beim zweiten Mal sofort da.
 		try {
-			const result = await planTours(request, {
-				landscape: [asset('/data/landscape.json'), asset('/data/landscape.png')],
-				names: [asset('/data/landmarks.json'), asset('/data/places.json')],
-				roads: [asset('/data/roads.json'), asset('/data/roads.bin')],
-				fine: [asset('/data/fine.json'), asset('/data/fine.bin')],
-				streams: asset('/data/streams.json')
-			});
+			const result = await planTours(request, { tiles: tilesUrl() });
 			session.setTours(request, result);
 			tours = result;
 			status = 'done';
@@ -175,7 +172,7 @@
 		<div class="message" role="alert">
 			<p>
 				<strong>Zu diesem Ziel haben wir keinen Radweg gefunden.</strong><br />
-				Liegt es vielleicht außerhalb der Testregion Niederrhein / Düsseldorf? Bitte wählen Sie ein anderes Ziel.
+				Liegt es vielleicht außerhalb von Nordrhein-Westfalen und den angrenzenden Niederlanden? Bitte wählen Sie ein anderes Ziel.
 			</p>
 			<Button variant="primary" href={resolve('/ziel')}>Anderes Ziel wählen</Button>
 		</div>

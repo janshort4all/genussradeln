@@ -31,9 +31,16 @@ const STEP = 51;
  * Je Zelle die höchste Klasse (Felder < Grün < Wald < Wasser), 0 = nichts.
  * Grob (≈ 100 m) für die Nachbewertung, fein (≈ 21 m) für „mitten im Wald“ – siehe fine.ts.
  */
-export function rasterizeLandscape(elements: OsmElement[], bounds: Bounds, CELL_LON: number, CELL_LAT: number) {
-	const width = Math.ceil((bounds.east - bounds.west) / CELL_LON);
-	const height = Math.ceil((bounds.north - bounds.south) / CELL_LAT);
+export function rasterizeLandscape(
+	elements: OsmElement[],
+	bounds: Bounds,
+	CELL_LON: number,
+	CELL_LAT: number,
+	/** feste Größe in Zellen (Kacheln: Gleitkomma-Rundung darf kein Zeilen-Zuviel machen) */
+	size?: { width: number; height: number }
+) {
+	const width = size?.width ?? Math.ceil((bounds.east - bounds.west) / CELL_LON);
+	const height = size?.height ?? Math.ceil((bounds.north - bounds.south) / CELL_LAT);
 	const grid = new Uint8Array(width * height);
 
 	const setCell = (row: number, col: number, value: number) => {

@@ -21,7 +21,11 @@ const SKIP_NAME = /hafen|angel|e\.\s?v\.|becken|klär|schönung|rückhalte|regen
 /** Seen nur, wenn der Name wie ein See klingt (sonst z. B. Firmen- oder Flurnamen) */
 const LAKE_NAME = /see|weiher|teich|meer|maar|kolk|altarm|baggerloch/i;
 
-export async function buildLandmarks(elements: OsmElement[], bounds: Bounds) {
+/**
+ * Orientierungspunkte aus den Flächen und Gewässern; `keep` entscheidet, welche Punkte (Lage) ausgegeben werden
+ * (Region: innerhalb der Grenzen, Kachel: innerhalb der Kachel).
+ */
+export function landmarkPoints(elements: OsmElement[], keep: (lon: number, lat: number) => boolean) {
 	const byName = new Map<string, { kind: Kind; parts: Point[][] }>();
 	for (const e of elements) {
 		const t = e.tags ?? {};
@@ -50,7 +54,7 @@ export async function buildLandmarks(elements: OsmElement[], bounds: Bounds) {
 		const taken = new Set<string>();
 		for (const part of parts) {
 			for (const [lon, lat] of sample(part, SPACING_M)) {
-				if (lon < bounds.west || lon > bounds.east || lat < bounds.south || lat > bounds.north) continue;
+				if (!keep(lon, lat)) continue;
 				const k = `${Math.floor(lon / 0.0058)}:${Math.floor(lat / 0.0036)}`;
 				if (taken.has(k)) continue;
 				taken.add(k);
@@ -59,7 +63,14 @@ export async function buildLandmarks(elements: OsmElement[], bounds: Bounds) {
 		}
 		if (!taken.size) names.pop();
 	}
+	return { names, points };
+}
 
+export async function buildLandmarks(elements: OsmElement[], bounds: Bounds) {
+	const { names, points } = landmarkPoints(
+		elements,
+		(lon, lat) => lon >= bounds.west && lon <= bounds.east && lat >= bounds.south && lat <= bounds.north
+	);
 	const json = JSON.stringify({ names, points, source: '© OpenStreetMap-Mitwirkende (ODbL)' });
 	await writeFile(new URL('../../static/data/landmarks.json', import.meta.url), json + '\n');
 	const counts = names.reduce<Record<string, number>>((acc, [, k]) => ((acc[k] = (acc[k] ?? 0) + 1), acc), {});

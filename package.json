@@ -15,10 +15,12 @@
 		"android:apk": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/android-build.ps1",
 		"test": "vitest run",
 		"routing:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File routing/setup.ps1",
+		"routing:region": "node scripts/fetch-region.mjs",
 		"routing:start": "powershell -NoProfile -ExecutionPolicy Bypass -File routing/start.ps1",
 		"routing:test": "node routing/test-roundtrip.mjs",
 		"routing:karte": "node routing/show-map.mjs --oeffnen",
 		"data": "node --max-old-space-size=8192 scripts/build-data.ts",
+		"tiles": "node --max-old-space-size=8192 scripts/build-tiles.ts",
 		"server": "node scripts/server.mjs"
 	},
 	"devDependencies": {

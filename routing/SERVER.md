@@ -23,6 +23,21 @@ npm run server -- status   # läuft alles? Speicher, Antwortzeit von außen
 npm run server -- deploy   # geänderte config.yml / genuss.json hochladen, Wegenetz neu berechnen (ca. 2 Min.)
 npm run server -- karte    # neue Kartendaten von Geofabrik, Wegenetz neu berechnen (z. B. monatlich)
 npm run server -- logs     # letzte Meldungen der Wegberechnung
+npm run server -- daten    # Kartenkacheln (static/tiles, gebaut mit `npm run tiles`) hochladen
+```
+
+## Kartendaten (Kacheln)
+
+Die App lädt für Planung, Bewertung und Stopps nur die Kacheln, die ein Wunsch braucht (`src/lib/data/tiles.ts`). Sie liegen auf dem Server unter
+`/opt/genuss-radeln/daten/<Version>/<x>_<y>.tile` und werden von Caddy unter `/daten/` ausgeliefert (`/daten/index.json` = Liste mit der gültigen Version, immer
+neu gefragt; die Kacheln selbst `Cache-Control: immutable`, ein Jahr). `npm run server -- daten` lädt einen neuen Bau hoch, tauscht zuletzt `index.json` aus
+(die App sieht nie halbe Daten) und löscht Versionen bis auf die letzten zwei. **App und Daten sind unabhängig:** Daten erneuern braucht kein neues Hochladen der App.
+Caddy-Abschnitt (einmalig eingefügt, Sicherung `/etc/caddy/Caddyfile.vor-daten`):
+
+```
+	@datenliste path /daten/index.json
+	handle @datenliste { root * /opt/genuss-radeln/daten; rewrite * /index.json; header Cache-Control "no-cache"; file_server }
+	handle_path /daten/* { root * /opt/genuss-radeln/daten; header Cache-Control "public, max-age=31536000, immutable"; file_server }
 ```
 
 ## Gut zu wissen

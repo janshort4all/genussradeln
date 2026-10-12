@@ -61,7 +61,7 @@ function simplify(line: Point[], tolerance: number): Point[] {
 }
 
 /** Google-Polylinie, 5 Nachkommastellen (wie src/lib/share/link.ts) */
-function encode(points: Point[]): string {
+export function encode(points: Point[]): string {
 	let out = '';
 	let lat = 0;
 	let lon = 0;
@@ -113,24 +113,32 @@ function chain(parts: Point[][]): Point[][] {
 	return lines;
 }
 
-export async function buildStreams(elements: OsmElement[], bounds: Bounds) {
+/** Verläufe benannter Gewässer: gleiche Namen verbunden, kurze entfernt, vereinfacht (Linien mit Punkten außerhalb von `bounds` entfallen) */
+export function streamLines(elements: OsmElement[], bounds?: Bounds): { name: string; line: Point[] }[] {
 	const byName = new Map<string, Point[][]>();
 	for (const e of elements) {
 		const name = e.tags?.name?.trim();
 		if (!name || e.type !== 'way' || !e.geometry?.length) continue;
 		const line = e.geometry.filter(Boolean).map((p): Point => [p.lon, p.lat]);
-		if (line.some(([lon, lat]) => lon < bounds.west || lon > bounds.east || lat < bounds.south || lat > bounds.north)) continue;
+		if (bounds && line.some(([lon, lat]) => lon < bounds.west || lon > bounds.east || lat < bounds.south || lat > bounds.north)) continue;
 		(byName.get(name) ?? byName.set(name, []).get(name)!).push(line);
 	}
-	const lines: [string, string][] = [];
-	let points = 0;
+	const out: { name: string; line: Point[] }[] = [];
 	for (const [name, parts] of byName) {
 		for (const line of chain(parts)) {
 			if (lineLength(line) < MIN_M) continue;
-			const simple = simplify(line, SIMPLIFY_M);
-			points += simple.length;
-			lines.push([name, encode(simple)]);
+			out.push({ name, line: simplify(line, SIMPLIFY_M) });
 		}
+	}
+	return out;
+}
+
+export async function buildStreams(elements: OsmElement[], bounds: Bounds) {
+	const lines: [string, string][] = [];
+	let points = 0;
+	for (const { name, line } of streamLines(elements, bounds)) {
+		points += line.length;
+		lines.push([name, encode(line)]);
 	}
 	const json = JSON.stringify({ lines, source: '© OpenStreetMap-Mitwirkende (ODbL)' });
 	await writeFile(new URL('../../static/data/streams.json', import.meta.url), json + '\n');

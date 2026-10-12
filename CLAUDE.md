@@ -406,8 +406,28 @@ für Punkt- und Wegnummern, ein JavaScript-`Set` fasst nur 16 Mio. Einträge). R
   – innerhalb der Grenze von +25 %. Mit nur `-Xms1g` war es +22 bis +30 % (JVM-Einstellungen zählen mit). Speicher des Servers: 10 GB nutzbar, Live-Dienst 3,6 GB; mit dem größeren Graphen bleibt das `-Xms3g` ausreichend. Platz: 19 GB frei.
   Der Testgraph liegt unbenutzt unter `/home/opc/region-test` (nicht im Live-Dienst; Tarball `/home/opc/graph-cache-region.tar.gz`).
 - Prüfrouten im neuen Graphen: Köln–Bonn, Münster–Coesfeld, Arnhem–Nijmegen, Venlo–Roermond, Maastricht–Aachen (über die Grenze), Dortmund–Siegen (125 km, 2655 m Anstieg), Duisburg–Nijmegen (92 km) – alle ohne Fehler.
-- **Noch offen (Stufe 3):** die Daten der App (`static/data/*`: Landschaft, feine Karte, Straßenmaske, Stopps, Namen, Gewässer, Suche) für das ganze Gebiet in Kacheln, die nur für das Planungsgebiet geladen werden; Hosting auf dem Server.
-  Messlatte: App-Start unverändert, Planung höchstens +10 %, höchstens ca. 5 MB je neuem Gebiet. Umstellen des Live-Dienstes erst danach (Graph tauschen, `config.yml` auf die Datei `merged` setzen; `npm run server -- karte` muss dann die drei Auszüge laden und zusammenfügen).
+**Stufe 3: Kartendaten in Kacheln (Planung, Bewertung, Stopps, Namen, Gewässer, Ortsliste) – gebaut und gemessen, im Code umgestellt.**
+- **Kachelraster** (`src/lib/data/grid.ts`): feste Kacheln von 0,24° × 0,18° (≈ 17 × 20 km) für ganz Europa, gerechnet in 1e-4 Grad, damit Zellgrenzen genau auf Kachelgrenzen liegen (grob 160 × 200 Zellen à ≈ 100 m,
+  fein 800 × 900 à ≈ 21 m). Eine Kachel = eine Datei `<x>_<y>.tile` (`tile-format.ts`, deflate-raw): grobe Landschaft (ein Byte je Zelle), feine Karte (Wald/Grün/Wasser als Bits), große Straßen (2 Bit-Ebenen),
+  Stopps mit Öffnungszeiten, Orientierungspunkte, Orte, Gewässerstücke. **Nur die Kacheln eines Wunsches werden geladen** (`area.ts`: Umweg-Ellipse um Start und Ziel – Summe der Abstände ≤ 2,2 × Luftlinie + 5 km –,
+  bei Runden Kreis mit Radius 0,5 × Länge + 3 km, im Tourdetail die Strecke ± 9 km) und zu denselben Karten zusammengesetzt, die der Code vorher kannte (`tiles.ts`: `TileStore.area()` → `Landscape`, `FineMap`, `RoadMask`,
+  `NameData`, `PoiIndex`, `Watercourse[]`; die Planung selbst blieb unverändert). Entpackte Kacheln (60) und zusammengesetzte Gebiete (4) bleiben im Speicher, Gewässerstücke werden an den Kachelgrenzen wieder verbunden (`joinStreams`).
+  Sobald Start und Ziel (bzw. Start einer Runde) auf den Eingabeseiten feststehen, lädt die App die Kacheln schon vor.
+- **Bau:** `npm run tiles [Datei.osm.pbf]` (`scripts/build-tiles.ts`, `scripts/lib/osm-index.ts`): Datei einmal einlesen (3 Läufe, Koordinaten als Verweise statt Objekte), dann Blöcke aus 4 × 4 Kacheln mit Rand von 0,2° abarbeiten;
+  die Rasterfunktionen der alten Bausteine (`scripts/data/*`) wurden herausgezogen und gemeinsam benutzt. Ausgabe `static/tiles/<Version>/*.tile`, `static/tiles/index.json` (`dir` = gültige Version, Kachelliste, Stopp-Arten),
+  `<Version>/places.json` (alle Orte für die Sofort-Suche). **Gemessen:** NRW + Limburg + Gelderland (1,1 GB): 255 s, ca. 3–4 GB Speicher, 195 Kacheln, **12,4 MB zusammen** (Median 74 KB, größte 149 KB); Düsseldorf allein 42 s, 1,8 MB.
+- **Hosting:** auf dem Oracle-Server unter `https://130-61-177-54.sslip.io/daten/` (Caddy, siehe `routing/SERVER.md`; `npm run server -- daten`); die App liest die Adresse aus `VITE_TILES_URL` (`.github/workflows/deploy.yml`), lokal aus `static/tiles`.
+  Service Worker: Kacheln CacheFirst (≤ 250 Stück, 120 Tage), `index.json` NetworkFirst. Daten erneuern braucht kein neues Hochladen der App.
+- **Geprüft:** (1) Einheitentests (`tiles.test.ts`, `area.test.ts`); (2) `tiles.compare.test.ts` vergleicht gebaute Kacheln mit den alten Gesamt-Dateien an Stichproben (mit Kacheln aus demselben Auszug > 99 % innere Zellen gleich; aus dem neueren NRW-Auszug ≈ 96 %);
+  (3) Prüflauf der Planung (`runPlanCheck`, 98 Fälle Düsseldorf): mit Kacheln 4,42 s je Planung, mit den alten Dateien 4,28 s (**+3 %**, Messlatte +10 %); Kachelladen insgesamt 0,35 s; Hinweise 14 gegenüber 9 (gleiche Arten: Zipfel an denselben Rheinfällen, ein Stummel mehr);
+  (4) Prüflauf über das **ganze Gebiet** (`runPlanCheck({ wide: true })`, 98 Fälle, Orte aus allen Kacheln, lokales Wegenetz NRW + NL): 96 Planungen, 12 Hinweise (nur „Zipfel“, überwiegend dieselben Rheinfälle), keine Abstürze, Kachelladen 1,0 s insgesamt.
+  **Lange Ziele:** Moers → Köln (≈ 60 km) braucht lokal 50 s (nur hin) bis 106 s (Rückweg anders) – die Planung wächst mit der Entfernung (Anfragen am PC ≈ 240 ms, online ≈ 80 ms); Kacheln für solche Ziele: 40–80 Stück (Ellipse), ca. 3–6 MB.
+- **Eingabeseiten:** Start/Ziel müssen in einer Kachel mit Daten liegen (`TileStore.covers`, statt der alten Rechteck-Prüfung); die Ortssuche (Photon) ist auf `REGION` (4,95…9,55 Ost, 50,3…52,6 Nord) begrenzt.
+- **Noch offen:** (a) **Straßen und Hausnummern** (`static/data/search/`) gibt es noch nur für den Regierungsbezirk Düsseldorf – außerhalb sucht Photon (2–4 s): geplant pro Ort/Kachel geteilt, nach Nähe zum Start geladen
+  (Adressen: NRW hat ≈ 8 Mio. Adressen, der Bau muss sie beim Einlesen gleich zusammenfassen statt zu sammeln). (b) Die alten Gesamt-Dateien `static/data/{landscape,fine,roads,pois,landmarks,streams}.*` sind nach dem Umstellen überflüssig (stecken aber noch im Offline-Speicher,
+  `globPatterns` in `vite.config.ts`). (c) Umstellen des Live-Dienstes (Wegenetz tauschen, App veröffentlichen) – siehe unten. (d) Niederländische Straßennamen spricht die deutsche Sprachausgabe falsch aus.
+- **Umstellen (noch nicht geschehen):** Graph auf dem Server tauschen (fertig hochgeladen unter `/home/opc/region-test/data/graph-cache-region`; alter Graph bleibt als `graph-cache.duesseldorf`), `config.yml` zeigt auf `data/region/merged.osm.pbf` (`npm run server -- karte` lädt
+  die Auszüge, fügt sie zusammen und lädt sie hoch), Kacheln hochladen, App veröffentlichen (Push auf `main`). Reihenfolge: Wegenetz (für die alte App unsichtbar, Obermenge) → Kacheln → App.
 
 ### Tour anpassen (F6)
 

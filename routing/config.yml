@@ -3,8 +3,8 @@
 # Pfade sind relativ zum Ordner routing/ (dort wird GraphHopper gestartet).
 
 graphhopper:
-  # OSM-Auszug Regierungsbezirk Düsseldorf (Geofabrik), wird von setup.ps1 geladen
-  datareader.file: data/duesseldorf-regbez-latest.osm.pbf
+  # OSM-Auszüge Nordrhein-Westfalen + Limburg + Gelderland (Geofabrik), zusammengefügt von `npm run routing:region`
+  datareader.file: data/region/merged.osm.pbf
   graph.location: data/graph-cache
   datareader.preferred_language: de
 

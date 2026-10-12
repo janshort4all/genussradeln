@@ -19,9 +19,10 @@ const CELL_LAT = 0.0002; // ≈ 22 m
 /** Abstand zur Straßenmitte, bis zu dem ein Weg als „neben der Straße“ gilt */
 const ROADSIDE_M = 25;
 
-export async function buildRoads(elements: OsmElement[], bounds: Bounds) {
-	const width = Math.ceil((bounds.east - bounds.west) / CELL_LON);
-	const height = Math.ceil((bounds.north - bounds.south) / CELL_LAT);
+/** Zwei Bit-Ebenen (große Straße, Autobahn) im Raster; `size` = feste Größe in Zellen (Kacheln) */
+export function rasterizeRoads(elements: OsmElement[], bounds: Bounds, size?: { width: number; height: number }) {
+	const width = size?.width ?? Math.ceil((bounds.east - bounds.west) / CELL_LON);
+	const height = size?.height ?? Math.ceil((bounds.north - bounds.south) / CELL_LAT);
 	const layerBytes = Math.ceil((width * height) / 8);
 	const bits = new Uint8Array(layerBytes * 2);
 	const kx = Math.cos((((bounds.north + bounds.south) / 2) * Math.PI) / 180) * 111_320;
@@ -63,6 +64,11 @@ export async function buildRoads(elements: OsmElement[], bounds: Bounds) {
 		}
 	}
 
+	return { bits, width, height, marked };
+}
+
+export async function buildRoads(elements: OsmElement[], bounds: Bounds) {
+	const { bits, width, height, marked } = rasterizeRoads(elements, bounds);
 	const packed = deflateRawSync(bits, { level: 9 });
 	await writeFile(new URL('../../static/data/roads.bin', import.meta.url), packed);
 	await writeFile(

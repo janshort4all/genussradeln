@@ -13,14 +13,16 @@ import { FLAG, STOP_KINDS, type StopKind } from '../../src/lib/stops/kinds.ts';
 import { NearbyIndex } from '../lib/nearby.ts';
 import type { OsmElement } from '../lib/osm-file.ts';
 
-type Item = [number, number, number, number, string?, string?];
+export type PoiItem = [number, number, number, number, string?, string?];
+type Item = PoiItem;
 
 const EAT: StopKind[] = ['cafe', 'eis', 'biergarten', 'restaurant', 'baeckerei'];
 const BENCH_CELL_LON = 0.0072; // ≈ 500 m
 const BENCH_CELL_LAT = 0.0045; // ≈ 500 m
 const NEAR_M = 60;
 
-export async function buildPois(elements: OsmElement[], landscape: OsmElement[]) {
+/** Stopps aus den OSM-Objekten, mit Lage zu Wasser/Wald/Grün aus den Landschaftsflächen; `keep` wählt die Stopps (Lage in Grad) */
+export function poiItems(elements: OsmElement[], landscape: OsmElement[], keep: (lon: number, lat: number) => boolean = () => true): Item[] {
 	const items: Item[] = [];
 	/** beste Bank je Rasterzelle */
 	const benches = new Map<string, { item: Item; quality: number }>();
@@ -31,7 +33,7 @@ export async function buildPois(elements: OsmElement[], landscape: OsmElement[])
 		if (!kind) continue;
 		const lat = element.lat ?? element.center?.lat;
 		const lon = element.lon ?? element.center?.lon;
-		if (lat === undefined || lon === undefined) continue;
+		if (lat === undefined || lon === undefined || !keep(lon, lat)) continue;
 
 		const flags = flagsOf(tags, kind);
 		const item: Item = [Math.round(lon * 1e5), Math.round(lat * 1e5), STOP_KINDS.indexOf(kind), flags];
@@ -65,7 +67,11 @@ export async function buildPois(elements: OsmElement[], landscape: OsmElement[])
 		if (nearby.distance(point, 'green', NEAR_M) <= NEAR_M) item[3] |= FLAG.greenside;
 		if (item[3] !== before) flagged++;
 	}
-	console.log(`Stopps: ${flagged} am Wasser, am Wald oder im Grünen`);
+	return all;
+}
+
+export async function buildPois(elements: OsmElement[], landscape: OsmElement[]) {
+	const all = poiItems(elements, landscape);
 	const counts = Object.fromEntries(STOP_KINDS.map((k, i) => [k, all.filter((it) => it[2] === i).length]));
 	console.log('Stopps je Art:', counts);
 

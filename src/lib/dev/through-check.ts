@@ -12,13 +12,7 @@ import { beautyScore } from '$lib/scoring/score';
 import { THROUGH } from '$lib/scoring/weights';
 import type { PlannedTour, TourRequest } from '$lib/tour/model';
 
-const URLS = {
-	landscape: ['/data/landscape.json', '/data/landscape.png'] as [string, string],
-	names: ['/data/landmarks.json', '/data/places.json'] as [string, string],
-	roads: ['/data/roads.json', '/data/roads.bin'] as [string, string],
-	fine: ['/data/fine.json', '/data/fine.bin'] as [string, string],
-	streams: '/data/streams.json'
-};
+const URLS = { tiles: '/tiles' };
 
 const summary = (tours: PlannedTour[]) =>
 	tours.map((t) => ({
@@ -34,7 +28,6 @@ export async function compareThrough(
 	starts: LngLat[],
 	options: { roundKm?: number; destination?: LngLat; seeds?: number[] } = {}
 ): Promise<unknown[]> {
-	const deps = await loadPlanDeps(URLS);
 	const out: unknown[] = [];
 	// „vorher“ = ohne den Schritt
 	const switchable = THROUGH as { maxStretches: number };
@@ -48,6 +41,7 @@ export async function compareThrough(
 				returnMode: 'one-way',
 				...(options.roundKm ? { round: { km: options.roundKm, seed } } : {})
 			};
+			const deps = await loadPlanDeps(URLS, request);
 			const plan = () => (request.round ? planRound(request, deps) : planTours(request, deps));
 			try {
 				switchable.maxStretches = 0;

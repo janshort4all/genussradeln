@@ -45,6 +45,28 @@ export default defineConfig({
 				// (auch die vorgeladenen, siehe src/lib/map/prefetch.ts): dieselbe Stelle noch einmal und die Karte ohne Netz gehen so.
 				// Begrenzt auf ca. 600 Kacheln (rund 60 MB) und 30 Tage; ist der Speicher des Handys voll, werden sie zuerst geräumt.
 				runtimeCaching: [
+					// Kartendaten für die Planung (Landschaft, Wald/Wasser, Straßen, Stopps, Namen), je Kachel eine Datei vom eigenen Server
+					// (src/lib/data/tiles.ts). Die Dateien ändern sich nie (Ordner mit Versionsnummer) und bleiben auf dem Handy; die Liste
+					// index.json wird zuerst im Netz gefragt, ohne Netz gilt die gemerkte.
+					{
+						urlPattern: /\/daten\/[^/]+\/\d+_\d+\.tile$/,
+						handler: 'CacheFirst',
+						options: {
+							cacheName: 'planung-kacheln',
+							expiration: { maxEntries: 250, maxAgeSeconds: 120 * 24 * 3600, purgeOnQuotaError: true },
+							cacheableResponse: { statuses: [200] }
+						}
+					},
+					{
+						urlPattern: /\/daten\/index\.json$/,
+						handler: 'NetworkFirst',
+						options: {
+							cacheName: 'planung-liste',
+							networkTimeoutSeconds: 4,
+							expiration: { maxEntries: 2 },
+							cacheableResponse: { statuses: [200] }
+						}
+					},
 					{
 						urlPattern: /^https:\/\/tiles\.openfreemap\.org\/planet\/[^/]+\/\d+\/\d+\/\d+\.pbf$/,
 						handler: 'CacheFirst',

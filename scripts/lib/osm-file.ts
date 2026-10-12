@@ -68,7 +68,7 @@ export async function osmFileBounds(path: string): Promise<Bounds> {
 }
 
 /** Alle Blöcke einer Datei durchgehen; `visit` bekommt Hilfen zum Entschlüsseln */
-async function scan(
+export async function scan(
 	path: string,
 	visit: {
 		node?: (id: number, lat: number, lon: number, tags: () => Tags) => void;
@@ -163,14 +163,14 @@ async function scan(
 }
 
 /** Sortierte, eindeutige IDs für schnelles Nachschlagen (spart viel Speicher gegenüber einem Set) */
-function sortedIds(ids: Iterable<number>): Float64Array {
+export function sortedIds(ids: Iterable<number>): Float64Array {
 	const array = Float64Array.from(ids).sort();
 	let n = 0;
 	for (let i = 0; i < array.length; i++) if (i === 0 || array[i] !== array[i - 1]) array[n++] = array[i];
 	return array.subarray(0, n);
 }
 
-function indexOf(sorted: Float64Array, id: number): number {
+export function indexOf(sorted: Float64Array, id: number): number {
 	let lo = 0;
 	let hi = sorted.length - 1;
 	while (lo <= hi) {
@@ -183,7 +183,7 @@ function indexOf(sorted: Float64Array, id: number): number {
 	return -1;
 }
 
-function centerOf(points: { lat: number; lon: number }[]): { lat: number; lon: number } | undefined {
+export function centerOf(points: { lat: number; lon: number }[]): { lat: number; lon: number } | undefined {
 	if (!points.length) return undefined;
 	let west = Infinity;
 	let east = -Infinity;

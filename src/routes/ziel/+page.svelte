@@ -12,13 +12,22 @@
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
 	import StepHeader from '$lib/components/StepHeader.svelte';
+	import { goalArea } from '$lib/data/area';
+	import { tilesUrl } from '$lib/data/config';
+	import { tileStore } from '$lib/data/tiles';
 	import { distance } from '$lib/geo/geo';
 	import { currentPosition, PositionError } from '$lib/geo/position';
-	import { inRegion } from '$lib/geocode/photon';
 	import type { Effort } from '$lib/routing/graphhopper';
 	import type { Place, ReturnMode } from '$lib/tour/model';
 	import { draft } from '$lib/tour/draft.svelte';
 	import { session } from '$lib/tour/session.svelte';
+
+	// Sobald Start und Ziel feststehen, die Karten dafür schon laden – dann geht die Planung danach schneller los
+	$effect(() => {
+		const from = draft.startMode === 'address' ? draft.startPlace?.lngLat : undefined;
+		const to = draft.destination?.lngLat;
+		if (from && to) void tileStore(tilesUrl()).prefetch(goalArea(from, to));
+	});
 
 	// Zieltour-Wunsch (F1, F3). Die Eingaben liegen im gemeinsamen Zwischenspeicher (draft) – beim Wechsel zu
 	// „Eine Runde“ und zurück bleiben Start und Ziel stehen.
@@ -63,12 +72,16 @@
 			} finally {
 				busy = false;
 			}
-			if (!inRegion(start.lngLat)) {
+			if (!(await tileStore(tilesUrl()).covers(start.lngLat))) {
 				problem =
-					'Sie sind gerade außerhalb der Testregion (Niederrhein / Düsseldorf). Bitte geben Sie einen Startpunkt in der Region ein.';
+					'Sie sind gerade außerhalb unseres Gebiets (Nordrhein-Westfalen und angrenzende Niederlande). Bitte geben Sie einen Startpunkt dort ein.';
 				draft.startMode = 'address';
 				return;
 			}
+		}
+		if (!(await tileStore(tilesUrl()).covers(destination.lngLat)) || !(await tileStore(tilesUrl()).covers(start.lngLat))) {
+			problem = 'Start oder Ziel liegen außerhalb unseres Gebiets (Nordrhein-Westfalen und angrenzende Niederlande).';
+			return;
 		}
 		if (distance(start.lngLat, destination.lngLat) < 300) {
 			problem = 'Start und Ziel liegen sehr nah beieinander. Bitte wählen Sie ein anderes Ziel.';

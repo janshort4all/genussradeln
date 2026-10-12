@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { asset, resolve } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import { beforeNavigate, goto, replaceState } from '$app/navigation';
 	import { onDestroy, onMount } from 'svelte';
 	import Download from '@lucide/svelte/icons/download';
@@ -35,7 +35,7 @@
 	import { actionText, arrowOf, distanceText, repeatAnnouncement } from '$lib/navigation/wording';
 	import { pauseStops, stopsAlongRoute } from '$lib/stops/along';
 	import { STOP_LABELS } from '$lib/stops/kinds';
-	import { loadPois } from '$lib/stops/pois';
+	import { loadPoisAlong } from '$lib/data/pois-along';
 	import { distance } from '$lib/geo/geo';
 	import { TilePrefetcher, tilesAlong } from '$lib/map/prefetch';
 	import { RideRecorder, rideMinutesRecorded, type RideRecord } from '$lib/navigation/recorder';
@@ -256,7 +256,7 @@
 	$effect(() => {
 		const t = track;
 		if (!t || !line.length) return;
-		loadPois(asset('/data/pois.json'))
+		loadPoisAlong(line)
 			.then((index) => {
 				stops = pauseStops(stopsAlongRoute(line, index), t.total / 1000).map((s) => ({
 					along: s.km * 1000,

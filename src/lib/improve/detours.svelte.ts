@@ -57,7 +57,7 @@ export class DetoursController {
 		this.status = 'searching';
 		this.selectedId = undefined;
 		try {
-			this.deps ??= await loadPlanDeps();
+			this.deps = await loadPlanDeps(tour);
 			const found = await findDetours(tour, { ...this.deps, signal: controller.signal });
 			if (controller.signal.aborted) return;
 			this.detours = found;
@@ -83,7 +83,7 @@ export class DetoursController {
 		this.status = 'searching';
 		this.selectedId = undefined;
 		try {
-			this.deps ??= await loadPlanDeps();
+			this.deps = await loadPlanDeps(tour);
 			const found = await detourToStop(tour, stop, { ...this.deps, signal: controller.signal });
 			if (controller.signal.aborted) return true;
 			if (!found) {

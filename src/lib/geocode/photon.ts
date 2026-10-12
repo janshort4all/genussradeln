@@ -1,14 +1,14 @@
 /**
  * Ortssuche mit Photon (offene OpenStreetMap-Suche, https://photon.komoot.io).
- * Es werden nur die Suchbegriffe übertragen; die Suche ist auf die Testregion begrenzt.
+ * Es werden nur die Suchbegriffe übertragen; die Suche ist auf unser Gebiet begrenzt.
  */
 import { distance, type LngLat } from '$lib/geo/geo';
 import type { Place } from '$lib/tour/model';
 
 const PHOTON_URL = 'https://photon.komoot.io/api/';
 
-/** Testregion: Regierungsbezirk Düsseldorf (wie der GraphHopper-Auszug) */
-export const REGION = { west: 5.9, south: 51.0, east: 7.33, north: 51.92 };
+/** Suchgebiet der Ortssuche: Nordrhein-Westfalen und die angrenzenden niederländischen Provinzen Limburg und Gelderland */
+export const REGION = { west: 4.95, south: 50.3, east: 9.55, north: 52.6 };
 
 /** Treffer, die keine sinnvollen Ziele sind (Haltestellen, Bahnsteige …) */
 const SKIP = new Set([

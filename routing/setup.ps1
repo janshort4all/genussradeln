@@ -30,11 +30,14 @@ if (-not (Test-Path $jar)) {
 	Write-Host "GraphHopper $GraphHopperVersion ist schon da."
 }
 
-$pbf = 'data/duesseldorf-regbez-latest.osm.pbf'
+$pbf = 'data/region/merged.osm.pbf'
 if ($Aktualisieren -or -not (Test-Path $pbf)) {
-	Write-Host 'Lade Kartenauszug Regierungsbezirk Düsseldorf (ca. 210 MB) ...'
-	curl.exe -L --fail --progress-bar -o $pbf $OsmUrl
-	if ($LASTEXITCODE -ne 0) { throw 'Download des Kartenauszugs fehlgeschlagen.' }
+	Write-Host 'Lade Kartenauszüge Nordrhein-Westfalen, Limburg und Gelderland (ca. 1,2 GB) und füge sie zusammen ...'
+	Push-Location ..
+	try {
+		if ($Aktualisieren) { node scripts/fetch-region.mjs neu } else { node scripts/fetch-region.mjs }
+		if ($LASTEXITCODE -ne 0) { throw 'Download oder Zusammenfügen der Kartenauszüge fehlgeschlagen.' }
+	} finally { Pop-Location }
 	# Neue Karte → aufbereitete Daten verwerfen, damit sie beim nächsten Start neu entstehen
 	if (Test-Path data/graph-cache) { Remove-Item -Recurse -Force data/graph-cache }
 } else {

@@ -19,14 +19,23 @@
 	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
 	import type { SceneKind } from '$lib/components/Scene.svelte';
 	import StepHeader from '$lib/components/StepHeader.svelte';
+	import { roundArea } from '$lib/data/area';
+	import { tilesUrl } from '$lib/data/config';
+	import { tileStore } from '$lib/data/tiles';
 	import { currentPosition, PositionError } from '$lib/geo/position';
-	import { inRegion } from '$lib/geocode/photon';
 	import type { Effort } from '$lib/routing/graphhopper';
 	import { rideMinutes } from '$lib/tour/duration';
 	import { draft } from '$lib/tour/draft.svelte';
 	import type { Place } from '$lib/tour/model';
 	import { formatDuration } from '$lib/tour/sample';
 	import { session } from '$lib/tour/session.svelte';
+
+	// Sobald der Start feststeht, die Karten dafür schon laden – dann geht die Planung danach schneller los
+	$effect(() => {
+		const from = draft.startMode === 'address' ? draft.startPlace?.lngLat : undefined;
+		const km = Number(draft.km);
+		if (from && km > 0) void tileStore(tilesUrl()).prefetch(roundArea(from, km));
+	});
 
 	// Rundtour-Wunsch (F2): Start und Länge – die App schlägt fünf schöne Runden vor, bei jeder Suche andere.
 	// Start und Länge liegen im gemeinsamen Zwischenspeicher (draft), siehe „Zu einem Ziel“.
@@ -113,12 +122,16 @@
 			} finally {
 				busy = false;
 			}
-			if (!inRegion(start.lngLat)) {
+			if (!(await tileStore(tilesUrl()).covers(start.lngLat))) {
 				problem =
-					'Sie sind gerade außerhalb der Testregion (Niederrhein / Düsseldorf). Bitte geben Sie einen Startpunkt in der Region ein.';
+					'Sie sind gerade außerhalb unseres Gebiets (Nordrhein-Westfalen und angrenzende Niederlande). Bitte geben Sie einen Startpunkt dort ein.';
 				draft.startMode = 'address';
 				return;
 			}
+		}
+		if (!(await tileStore(tilesUrl()).covers(start.lngLat))) {
+			problem = 'Der Startpunkt liegt außerhalb unseres Gebiets (Nordrhein-Westfalen und angrenzende Niederlande).';
+			return;
 		}
 		// jede Suche mit neuem Zufallswert → jedes Mal andere Runden
 		const seed = Math.floor(Math.random() * 2 ** 31);

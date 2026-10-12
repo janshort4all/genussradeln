@@ -12,7 +12,7 @@ $GraphHopperVersion = '11.1'
 
 Set-Location $PSScriptRoot
 $jar = "data/graphhopper-web-$GraphHopperVersion.jar"
-if (-not (Test-Path $jar) -or -not (Test-Path data/duesseldorf-regbez-latest.osm.pbf)) {
+if (-not (Test-Path $jar) -or -not (Test-Path data/region/merged.osm.pbf)) {
 	Write-Host 'Erst einrichten mit:  .\setup.ps1' -ForegroundColor Red
 	exit 1
 }

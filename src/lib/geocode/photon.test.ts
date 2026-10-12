@@ -58,7 +58,7 @@ describe('toPlaces', () => {
 });
 
 describe('inRegion', () => {
-	it('kennt die Testregion', () => {
+	it('kennt unser Gebiet', () => {
 		expect(inRegion([6.63, 51.33])).toBe(true); // Krefeld
 		expect(inRegion([13.4, 52.5])).toBe(false); // Berlin
 	});

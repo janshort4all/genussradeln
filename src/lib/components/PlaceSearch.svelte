@@ -3,6 +3,8 @@
 	import X from '@lucide/svelte/icons/x';
 	import type { LngLat } from '$lib/geo/geo';
 	import { asset } from '$app/paths';
+	import { tilesUrl } from '$lib/data/config';
+	import { tileStore } from '$lib/data/tiles';
 	import { onMount } from 'svelte';
 	import { distance } from '$lib/geo/geo';
 	import { loadLocalPlaces, matchLocalPlaces } from '$lib/geocode/local';
@@ -55,7 +57,9 @@
 
 	// Ortsliste schon beim Öffnen laden – dann erscheinen Orte beim Tippen sofort;
 	// das größere Straßenverzeichnis erst, wenn jemand ins Feld tippt
-	onMount(() => void loadLocalPlaces(asset('/data/places.json')).catch(() => {}));
+	/** Ortsliste des ganzen Gebiets (liegt bei den Kacheln, siehe src/lib/data/tiles.ts) */
+	const loadPlaceList = () => tileStore(tilesUrl()).placesUrl().then(loadLocalPlaces);
+	onMount(() => void loadPlaceList().catch(() => {}));
 	function preloadStreets() {
 		void loadStreets(STREETS_URL).catch(() => {});
 	}
@@ -75,7 +79,7 @@
 	 */
 	async function localMatches(q: string): Promise<Place[]> {
 		const [places, streets] = await Promise.all([
-			loadLocalPlaces(asset('/data/places.json'))
+			loadPlaceList()
 				.then((all) => matchLocalPlaces(q, all, near))
 				.catch(() => [] as Place[]),
 			loadStreets(STREETS_URL)

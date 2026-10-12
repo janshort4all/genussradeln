@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { asset, resolve } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import Bike from '@lucide/svelte/icons/bike';
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
@@ -30,7 +30,7 @@
 	import { area } from '$lib/tour/area.svelte';
 	import { DETAIL_ROUTE_COLOR } from '$lib/map/colors';
 	import { foodGapNote, pauseStops, stopsAlongRoute, toiletSentence } from '$lib/stops/along';
-	import { loadPois } from '$lib/stops/pois';
+	import { loadPoisAlong } from '$lib/data/pois-along';
 	import { STOP_LABELS } from '$lib/stops/kinds';
 	import { downloadGpx } from '$lib/gpx/gpx';
 	import { isNative, shareLink as shareViaApp } from '$lib/native';
@@ -283,7 +283,7 @@
 		stopsStatus = 'loading';
 		(async () => {
 			try {
-				const index = await loadPois(asset('/data/pois.json'));
+				const index = await loadPoisAlong(map.coordinates);
 				if (cancelled) return;
 				foundStops = stopsAlongRoute(map.coordinates, index);
 				stopsStatus = 'done';

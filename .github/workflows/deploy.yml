@@ -27,6 +27,8 @@ jobs:
           BASE_PATH: '/${{ github.event.repository.name }}'
           # Wegberechnung auf dem eigenen Server (Oracle, siehe routing/SERVER.md)
           VITE_ROUTING_URL: 'https://130-61-177-54.sslip.io'
+          # Kartendaten der Planung (Kacheln, `npm run server -- daten`) vom selben Server
+          VITE_TILES_URL: 'https://130-61-177-54.sslip.io/daten'
         run: npm run build
 
       - name: Build hochladen

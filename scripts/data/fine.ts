@@ -17,9 +17,8 @@ import { FOREST, GREEN, rasterizeLandscape, WATER } from './landscape.ts';
 const CELL_LON = 0.0003; // ≈ 21 m bei 51° N
 const CELL_LAT = 0.0002; // ≈ 22 m
 
-export async function buildFine(elements: OsmElement[], bounds: Bounds) {
-	// Felder bleiben draußen (riesig, für „durch den Wald“ unwichtig): `elements` enthält nur Wasser, Wald, Grün
-	const { grid, width, height } = rasterizeLandscape(elements, bounds, CELL_LON, CELL_LAT);
+/** Drei Bit-Ebenen (Wald, Grün, Wasser) aus einem Landschaftsraster; zählt die gesetzten Zellen je Ebene mit */
+export function fineLayers(grid: Uint8Array, width: number, height: number) {
 	const layerBytes = Math.ceil((width * height) / 8);
 	const bits = new Uint8Array(layerBytes * 3);
 	const counts = [0, 0, 0];
@@ -30,6 +29,13 @@ export async function buildFine(elements: OsmElement[], bounds: Bounds) {
 		bits[layer * layerBytes + (i >> 3)] |= 1 << (i & 7);
 		counts[layer]++;
 	}
+	return { bits, counts };
+}
+
+export async function buildFine(elements: OsmElement[], bounds: Bounds) {
+	// Felder bleiben draußen (riesig, für „durch den Wald“ unwichtig): `elements` enthält nur Wasser, Wald, Grün
+	const { grid, width, height } = rasterizeLandscape(elements, bounds, CELL_LON, CELL_LAT);
+	const { bits, counts } = fineLayers(grid, width, height);
 	const packed = deflateRawSync(bits, { level: 9 });
 	await writeFile(new URL('../../static/data/fine.bin', import.meta.url), packed);
 	await writeFile(

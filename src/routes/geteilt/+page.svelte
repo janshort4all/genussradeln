@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { asset, resolve } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import Bike from '@lucide/svelte/icons/bike';
 	import Button from '$lib/components/Button.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import { route, RoutingUnavailableError } from '$lib/routing/graphhopper';
-	import { loadLandscape } from '$lib/scoring/landscape';
-	import { loadFineMap } from '$lib/scoring/fine';
-	import { loadRoadMask } from '$lib/scoring/roads';
-	import { unpackShared } from '$lib/share/link';
+	import { corridorTiles } from '$lib/data/area';
+	import { tilesUrl } from '$lib/data/config';
+	import { tileStore } from '$lib/data/tiles';
+	import { decodePolyline, unpackShared } from '$lib/share/link';
 	import { rebuildTour } from '$lib/share/rebuild';
 	import { session } from '$lib/tour/session.svelte';
 
@@ -27,12 +27,11 @@
 			let tour;
 			if ('tour' in shared) tour = shared.tour;
 			else {
-				const [landscape, roads, fine] = await Promise.all([
-					loadLandscape(asset('/data/landscape.json'), asset('/data/landscape.png')).catch(() => undefined),
-					loadRoadMask(asset('/data/roads.json'), asset('/data/roads.bin')).catch(() => undefined),
-					loadFineMap(asset('/data/fine.json'), asset('/data/fine.bin')).catch(() => undefined)
-				]);
-				tour = await rebuildTour(shared.spec, { route, landscape, roads, fine });
+				const points = shared.spec.g.flatMap((encoded) => decodePolyline(encoded));
+				const area = await tileStore(tilesUrl())
+					.area(corridorTiles(points, 3000))
+					.catch(() => undefined);
+				tour = await rebuildTour(shared.spec, { route, landscape: area?.landscape, roads: area?.roads, fine: area?.fine });
 			}
 			session.addShared(tour);
 			await goto(resolve('/tour/[id]', { id: tour.id }), { replaceState: true });
