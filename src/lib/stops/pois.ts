@@ -8,18 +8,20 @@ export interface Poi {
 	kind: StopKind;
 	flags: number;
 	name?: string;
+	/** Öffnungszeiten in der Schreibweise von OpenStreetMap (nur bei Orten zum Einkehren, wenn eingetragen) */
+	hours?: string;
 }
 
-type RawItem = [number, number, number, number, string?];
+type RawItem = [number, number, number, number, string?, string?];
 
 export function parsePois(json: { kinds: string[]; items: RawItem[] }): Poi[] {
 	// Arten über den Namen zuordnen – so bleibt eine ältere Datei lesbar, falls sich die Liste ändert
 	const kindOf = json.kinds.map((k) => (STOP_KINDS as readonly string[]).includes(k) ? (k as StopKind) : undefined);
 	const pois: Poi[] = [];
-	for (const [lonE5, latE5, kindIndex, flags, name] of json.items) {
+	for (const [lonE5, latE5, kindIndex, flags, name, hours] of json.items) {
 		const kind = kindOf[kindIndex];
 		if (!kind) continue;
-		pois.push({ id: `${lonE5}:${latE5}:${kindIndex}`, lngLat: [lonE5 / 1e5, latE5 / 1e5], kind, flags, name });
+		pois.push({ id: `${lonE5}:${latE5}:${kindIndex}`, lngLat: [lonE5 / 1e5, latE5 / 1e5], kind, flags, name: name || undefined, hours });
 	}
 	return pois;
 }

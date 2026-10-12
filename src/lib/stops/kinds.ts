@@ -3,7 +3,8 @@
  * Wird auch von scripts/fetch-pois.ts benutzt – Reihenfolge der Arten nicht ändern (Index steht in pois.json).
  */
 
-export const STOP_KINDS = ['cafe', 'eis', 'biergarten', 'toilette', 'aussicht', 'rast', 'bank', 'laden'] as const;
+// Neue Arten nur hinten anhängen (der Index steht in pois.json)
+export const STOP_KINDS = ['cafe', 'eis', 'biergarten', 'toilette', 'aussicht', 'rast', 'bank', 'laden', 'restaurant', 'baeckerei'] as const;
 export type StopKind = (typeof STOP_KINDS)[number];
 
 export const STOP_LABELS: Record<StopKind, string> = {
@@ -14,7 +15,9 @@ export const STOP_LABELS: Record<StopKind, string> = {
 	aussicht: 'Aussicht',
 	rast: 'Rastplatz',
 	bank: 'Bank',
-	laden: 'E-Bike-Ladepunkt'
+	laden: 'E-Bike-Ladepunkt',
+	restaurant: 'Restaurant',
+	baeckerei: 'Bäckerei'
 };
 
 /** Merkmale eines Stopps als Bits (kompakt in pois.json) */

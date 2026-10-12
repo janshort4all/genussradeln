@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { offset, type LngLat } from '$lib/geo/geo';
-import { foodGapNote, highlightStops, stopsAlongRoute, toiletSentence } from './along';
+import { foodGapNote, pauseStops, rideStart, stopsAlongRoute, toiletSentence } from './along';
 import { FLAG, STOP_KINDS, type StopKind } from './kinds';
 import { parsePois, PoiIndex, type Poi } from './pois';
 
@@ -67,20 +67,8 @@ describe('stopsAlongRoute', () => {
 	});
 });
 
-describe('highlightStops und toiletSentence', () => {
+describe('toiletSentence', () => {
 	const stop = (kind: StopKind, km: number, score = 1) => ({ kind, km, score });
-
-	it('zeigt höchstens drei Orte zum Einkehren oder Schauen, keine Bänke', () => {
-		const stops = [
-			stop('bank', 1, 9),
-			stop('cafe', 2, 3),
-			stop('biergarten', 5, 5),
-			stop('eis', 8, 1),
-			stop('aussicht', 12, 4),
-			stop('toilette', 3, 9)
-		];
-		expect(highlightStops(stops).map((s) => s.kind)).toEqual(['cafe', 'biergarten', 'aussicht']);
-	});
 
 	it('fasst Toiletten in einem Satz zusammen', () => {
 		expect(toiletSentence([stop('toilette', 3.4), stop('cafe', 5), stop('toilette', 23.8)])).toBe(
@@ -104,5 +92,67 @@ describe('foodGapNote', () => {
 		);
 		expect(foodGapNote([{ km: 8, kind: 'cafe' }, { km: 16, kind: 'eis' }], 24)).toBeUndefined();
 		expect(foodGapNote([{ km: 5, kind: 'toilette' }], 30)).toMatch(/keine Einkehr/);
+	});
+});
+
+describe('pauseStops', () => {
+	// Samstag, 17.10.2026, 11 Uhr: Fahrt beginnt jetzt, Ankunft nach km/15 Stunden
+	const now = new Date(2026, 9, 17, 11, 0);
+	const stop = (kind: StopKind, km: number, score = 1, hours?: string, off = 0) => ({ kind, km, score, hours, off });
+
+	it('kehrt nicht nach 2–3 km ein, sondern bei etwa der Hälfte', () => {
+		const stops = [stop('cafe', 2.5, 5), stop('biergarten', 4, 5), stop('restaurant', 9.5, 2), stop('cafe', 18, 2)];
+		// 20 km: Hauptpause um km 10; km 2,5 und 4 liegen im ersten Fünftel
+		const picked = pauseStops(stops, 20, now);
+		expect(picked.map((s) => s.km)).toContain(9.5);
+		expect(picked.some((s) => s.km < 4)).toBe(false);
+	});
+
+	it('Hauptpause: Restaurant oder Biergarten gehen vor, auch bei weniger Punkten', () => {
+		const stops = [stop('cafe', 24, 3), stop('biergarten', 26, 1.2), stop('baeckerei', 25, 3)];
+		expect(pauseStops(stops, 50, now).find((s) => s.km >= 24 && s.km <= 26)?.kind).toBe('biergarten');
+	});
+
+	it('lange Tour: Hauptpause in der Mitte, kleine am Nachmittag, Mindestabstand', () => {
+		const stops = [
+			stop('restaurant', 24.5, 2),
+			stop('biergarten', 25.5, 2.5),
+			stop('eis', 36, 1),
+			stop('cafe', 38, 1.5),
+			stop('cafe', 14, 1)
+		];
+		const picked = pauseStops(stops, 50, now);
+		expect(picked).toHaveLength(2);
+		expect(picked.map((s) => s.km)).toEqual([25.5, 38]); // Biergarten bei der Hälfte, Café am Nachmittag (km 38 ≈ 76 %)
+	});
+
+	it('kurze Tour: nur eine Pause; im letzten Zehntel nichts', () => {
+		const stops = [stop('cafe', 5, 2), stop('restaurant', 9.5, 2), stop('eis', 18.5, 3)];
+		const picked = pauseStops(stops, 19, now);
+		expect(picked).toHaveLength(1);
+		expect(picked[0].km).toBe(9.5);
+	});
+
+	it('geschlossene Orte fallen weg, geöffnete zählen mehr, Zeit steht dabei', () => {
+		const stops = [
+			stop('restaurant', 9.5, 3, 'Mo-Fr 11:00-22:00; Sa,Su off'), // Samstag geschlossen
+			stop('biergarten', 10.5, 1, 'Mo-Su 11:00-23:00')
+		];
+		const picked = pauseStops(stops, 20, now);
+		expect(picked.map((s) => s.km)).toEqual([10.5]);
+		expect(picked[0].note).toBe('geöffnet bis 23:00 Uhr');
+	});
+
+	it('erweitert das Fenster, wenn dort nichts liegt, und meldet sonst nichts', () => {
+		const farther = [stop('restaurant', 7, 2)]; // 35 % einer 20-km-Tour: außerhalb ±12 %, innerhalb des erweiterten Fensters
+		expect(pauseStops(farther, 20, now).map((s) => s.km)).toEqual([7]);
+		expect(pauseStops([stop('cafe', 1, 2)], 20, now)).toEqual([]);
+	});
+
+	it('Fahrtbeginn: tagsüber jetzt, abends am nächsten Morgen um 10 Uhr', () => {
+		expect(rideStart(new Date(2026, 9, 17, 13, 5)).getHours()).toBe(13);
+		const evening = rideStart(new Date(2026, 9, 17, 21, 0));
+		expect([evening.getDate(), evening.getHours()]).toEqual([18, 10]);
+		expect(rideStart(new Date(2026, 9, 17, 6, 0)).getHours()).toBe(10);
 	});
 });

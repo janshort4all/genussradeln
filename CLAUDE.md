@@ -375,6 +375,24 @@ der mehr als 60 m vom Weg liegt (`STOP_ON_ROUTE_M`), öffnet sich die große Kar
 Vergleich „Bisher“ → „Neu“ wie bei den Umwegen, „Übernehmen“ / „Nein, danke“ (Frage verschwindet) / „Rückgängig“. Übernommen wird der Ort als Wegpunkt `stop` mit Namen
 (`Offer.stop`), die Linie führt hindurch (gemessen: Kamps vorher 116 m, nachher 10 m vom Weg, +0,1 km). Orte am Weg zeigen sich wie bisher nur auf der Karte.
 
+### Pausen mit Verstand (Jan, 14.10.2026: „niemals nach 2–3 km einkehren“, „bei großen Touren nach 20 km, bei kleineren etwa zur Hälfte“)
+
+Vorher: bester Ort je 2 km, die ersten drei in Streckenreihenfolge → oft Bäckerei bei km 1. Jetzt wählt `pauseStops` (`stops/along.ts`, Gewichte `BREAKS` in `weights.ts`) wenige Orte aus
+`stopsAlongRoute` (die alle Orte zum Einkehren liefert, je 1 km der beste):
+- **Hauptpause = Restaurant oder Biergarten** (Café nur ohne Besseres) bei etwa der **Hälfte** der Strecke (Fenster ± 12 %, wenn leer ± 20 %); Aufschlag für die Art 2,5, für die Nähe
+  zur Mitte bis 2 – ein Restaurant schlägt ein schöneres Café.
+- **Kleine Pause = Café, Bäckerei oder Eis** (nie ein Restaurant): ab 20 km eine bei etwa ¾ (Nachmittag), ab 60 km zusätzlich eine bei etwa ⅓.
+- Nichts im ersten Fünftel und im letzten Zehntel, Pausen mindestens 8 km (bzw. ¼ der Strecke) auseinander; dazu höchstens eine Aussicht, wenn es unter drei Pausen sind.
+- **Öffnungszeiten** (`stops/hours.ts`, OpenStreetMap-Schreibweise, Tests): Ankunft = Fahrtbeginn + km/15 km/h; Fahrtbeginn = jetzt, wenn es 8–16 Uhr ist, sonst am nächsten Morgen 10 Uhr
+  (`rideStart`). Geschlossen bei der Ankunft → fällt weg, geöffnet +0,4, unbekannt −0,2; auf der Karte steht „geöffnet bis 18:00 Uhr“ nur, wenn bekannt und offen. Nicht ausgewertet: Feiertage,
+  Monate/Wochen, Sonnenauf-/untergang (gelten als unbekannt).
+- **Schlenker bis ca. 700 m** (Jan: „maximal 500 bis 700 Meter, wenn du was Gutes findest“): Orte zum Einkehren dürfen bis 350 m neben dem Weg liegen (`STOP_RADIUS_M`, vorher 200 m);
+  „einbauen?“ (siehe oben) macht den Schlenker zum Teil der Route. Abzug je 100 m daneben bleibt 0,4.
+- **Neue Arten** `restaurant` (OSM `amenity=restaurant`, `pub` mit Essen, ohne Fast Food/Kebab/Pizza-Imbiss) und `baeckerei` (`shop=bakery` und Cafés mit „Bäcker/Backhaus/Kamps …“ im Namen),
+  `pois.json` jetzt mit Öffnungszeiten als 6. Eintrag (18 484 Orte, 753 KB statt 318 KB; neu gebaut mit `npm run data`, 208 s). Neue Arten nur hinten in `STOP_KINDS` anhängen.
+- Gemessen an 30 Runden (5 Startorte × 10/20/40 km): kein Ort vor 20 % der Strecke, in 20 von 26 Fällen ist die Hauptpause ein Restaurant oder Biergarten (sonst gab es keins); 4 von 30 Touren
+  ohne Pause (nichts im Fenster), 17 mit einer, 9 mit zwei. Offen: Zielwege (der Ort am Ziel ist ohnehin das Ziel, die letzten 10 % bleiben leer), Einbau der Hauptpause schon bei der Planung.
+
 ### Tour anpassen (F6)
 
 Eine Tour wird intern als Liste von Wegpunkten gespeichert (Start, Zwischenpunkte, Stopps, Ziel).

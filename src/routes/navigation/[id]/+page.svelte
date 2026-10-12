@@ -33,7 +33,7 @@
 	import { RouteTrack } from '$lib/navigation/track';
 	import TurnArrow from '$lib/navigation/TurnArrow.svelte';
 	import { actionText, arrowOf, distanceText, repeatAnnouncement } from '$lib/navigation/wording';
-	import { highlightStops, stopsAlongRoute } from '$lib/stops/along';
+	import { pauseStops, stopsAlongRoute } from '$lib/stops/along';
 	import { STOP_LABELS } from '$lib/stops/kinds';
 	import { loadPois } from '$lib/stops/pois';
 	import { distance } from '$lib/geo/geo';
@@ -258,7 +258,7 @@
 		if (!t || !line.length) return;
 		loadPois(asset('/data/pois.json'))
 			.then((index) => {
-				stops = highlightStops(stopsAlongRoute(line, index)).map((s) => ({
+				stops = pauseStops(stopsAlongRoute(line, index), t.total / 1000).map((s) => ({
 					along: s.km * 1000,
 					name: s.name ?? STOP_LABELS[s.kind],
 					lngLat: s.lngLat

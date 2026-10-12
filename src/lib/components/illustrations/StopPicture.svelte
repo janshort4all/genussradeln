@@ -26,6 +26,21 @@
 		<path d="M62 40 h16 v20 h-16 z" fill="#F1B34C" stroke="#283C30" stroke-width="2.5" stroke-linejoin="round" />
 		<path d="M78 45 h5 a4 4 0 0 1 4 4 v3 a4 4 0 0 1 -4 4 h-5" fill="none" stroke="#283C30" stroke-width="2.5" />
 		<path d="M60 40 q4 -7 10 -3 q6 -6 10 3 z" fill="#FDFBF5" stroke="#283C30" stroke-width="2" stroke-linejoin="round" />
+	{:else if kind === 'restaurant'}
+		<!-- Restaurant: gedeckter Tisch mit Teller, Messer und Gabel -->
+		<rect width="120" height="90" fill="#FBECCC" />
+		<rect x="0" y="62" width="120" height="28" fill="#CEB37B" />
+		<circle cx="60" cy="46" r="22" fill="#FDFBF5" stroke="#283C30" stroke-width="2.5" />
+		<circle cx="60" cy="46" r="13" fill="none" stroke="#CEB37B" stroke-width="2" />
+		<path d="M24 28 v36 M20 28 v12 a4 4 0 0 0 8 0 v-12" fill="none" stroke="#283C30" stroke-width="2.5" stroke-linecap="round" />
+		<path d="M96 28 q8 6 0 22 v14" fill="none" stroke="#283C30" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+	{:else if kind === 'baeckerei'}
+		<!-- Bäckerei: Brot mit Einschnitten und ein Brötchen -->
+		<rect width="120" height="90" fill="#F6E1D5" />
+		<rect x="0" y="62" width="120" height="28" fill="#CEB37B" />
+		<path d="M18 62 q-4 -26 20 -30 h30 q24 4 20 30 z" fill="#DD8258" stroke="#8E4425" stroke-width="2.5" stroke-linejoin="round" />
+		<path d="M38 36 l8 22 M54 34 l8 24 M70 36 l8 22" stroke="#8E4425" stroke-width="2.5" stroke-linecap="round" />
+		<ellipse cx="96" cy="58" rx="12" ry="9" fill="#F1B34C" stroke="#8E4425" stroke-width="2" />
 	{:else if kind === 'eis'}
 		<rect width="120" height="90" fill="#DFE8EC" />
 		<circle cx="20" cy="18" r="10" fill="#F1B34C" />

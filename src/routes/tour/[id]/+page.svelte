@@ -29,7 +29,7 @@
 	import { enterFullscreen, voice } from '$lib/navigation/device';
 	import { area } from '$lib/tour/area.svelte';
 	import { DETAIL_ROUTE_COLOR } from '$lib/map/colors';
-	import { foodGapNote, highlightStops, stopsAlongRoute, toiletSentence } from '$lib/stops/along';
+	import { foodGapNote, pauseStops, stopsAlongRoute, toiletSentence } from '$lib/stops/along';
 	import { loadPois } from '$lib/stops/pois';
 	import { STOP_LABELS } from '$lib/stops/kinds';
 	import { downloadGpx } from '$lib/gpx/gpx';
@@ -168,7 +168,7 @@
 	let stopsStatus: 'loading' | 'done' | 'error' = $state('loading');
 	let focusStopId: string | undefined = $state();
 	const allStops = $derived(tour.map.kind === 'route' ? (foundStops ?? []) : tour.stops);
-	const stops = $derived(highlightStops(allStops));
+	const stops = $derived(pauseStops(allStops, tour.km));
 	const toilets = $derived(toiletSentence(allStops));
 	/** Hinweise zur Tour selbst (z. B. schlechter Belag) */
 	const notes = $derived([tour.note, tour.caveat].filter((n): n is string => !!n));

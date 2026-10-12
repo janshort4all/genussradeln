@@ -24,7 +24,7 @@
 	/** „Am Wald · Biergarten“ – Lage (falls bekannt) und Art */
 	function detail(stop: ViewStop): string {
 		const where = stop.reasons?.[0];
-		const parts = [where ? where.charAt(0).toUpperCase() + where.slice(1) : '', STOP_LABELS[stop.kind]];
+		const parts = [where ? where.charAt(0).toUpperCase() + where.slice(1) : '', STOP_LABELS[stop.kind], stop.note ?? ''];
 		return parts.filter(Boolean).join(' · ');
 	}
 

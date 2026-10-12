@@ -1,8 +1,9 @@
 /**
- * Stopp-Datei (F9): Cafés, Eiscafés, Biergärten, Toiletten, Aussichtspunkte, Rastplätze, Bänke und E-Bike-Ladepunkte.
+ * Stopp-Datei (F9): Restaurants, Biergärten, Cafés, Bäckereien, Eiscafés, Toiletten, Aussichtspunkte, Rastplätze, Bänke und E-Bike-Ladepunkte.
  *
  * Ausgabe: static/data/pois.json – kompakt:
- *   { kinds: [...], items: [[lon·1e5, lat·1e5, Art-Index, Merkmal-Bits, Name?], …] }
+ *   { kinds: [...], items: [[lon·1e5, lat·1e5, Art-Index, Merkmal-Bits, Name?, Öffnungszeiten?], …] }
+ * Öffnungszeiten (OpenStreetMap-Schreibweise, z. B. „Mo-Fr 08:00-18:00; Sa 08:00-13:00“) nur bei Orten zum Einkehren.
  * Bänke werden ausgedünnt (höchstens eine je ca. 500 m), damit die Datei klein bleibt.
  * „Am Wasser / am Wald / im Grünen“ wird aus den echten Ufer- und Waldrändern bestimmt (höchstens ca. 60 m).
  * Daten: © OpenStreetMap-Mitwirkende, ODbL.
@@ -12,8 +13,9 @@ import { FLAG, STOP_KINDS, type StopKind } from '../../src/lib/stops/kinds.ts';
 import { NearbyIndex } from '../lib/nearby.ts';
 import type { OsmElement } from '../lib/osm-file.ts';
 
-type Item = [number, number, number, number, string?];
+type Item = [number, number, number, number, string?, string?];
 
+const EAT: StopKind[] = ['cafe', 'eis', 'biergarten', 'restaurant', 'baeckerei'];
 const BENCH_CELL_LON = 0.0072; // ≈ 500 m
 const BENCH_CELL_LAT = 0.0045; // ≈ 500 m
 const NEAR_M = 60;
@@ -35,6 +37,11 @@ export async function buildPois(elements: OsmElement[], landscape: OsmElement[])
 		const item: Item = [Math.round(lon * 1e5), Math.round(lat * 1e5), STOP_KINDS.indexOf(kind), flags];
 		const name = tags.name?.trim();
 		if (name && kind !== 'bank') item.push(name);
+		const hours = tags.opening_hours?.trim();
+		if (hours && EAT.includes(kind) && hours.length <= 120) {
+			if (item.length === 4) item.push(''); // Platz für den Namen
+			item.push(hours);
+		}
 
 		if (kind === 'bank') {
 			const cell = `${Math.floor(lon / BENCH_CELL_LON)}:${Math.floor(lat / BENCH_CELL_LAT)}`;
@@ -111,17 +118,26 @@ function perimeter(e: OsmElement): number {
 	return sum;
 }
 
+/** Namen von Bäckereien (auch als Café eingetragen) */
+const BAKERY_NAME = /b[äa]cker|backhaus|backstube|kamps|b[äa]ckerei|konditor/i;
+
 function kindOf(t: Record<string, string>): StopKind | undefined {
 	if (t.access === 'private' || t.access === 'no') return undefined;
 	switch (t.amenity) {
 		case 'cafe':
-			return t.cuisine?.includes('ice_cream') ? 'eis' : 'cafe';
+			if (t.cuisine?.includes('ice_cream')) return 'eis';
+			// Bäckerei mit Café (Kamps, Bäckerei Hoenen …) zählt als Bäckerei: Zwischenstopp, kein Hauptpause
+			return BAKERY_NAME.test(t.name ?? '') || t.cuisine?.includes('bakery') ? 'baeckerei' : 'cafe';
 		case 'ice_cream':
 			return 'eis';
 		case 'biergarten':
 			return 'biergarten';
 		case 'restaurant':
-			return t.beer_garden === 'yes' ? 'biergarten' : undefined;
+			// Fast Food und Imbisse sind keine Pause zum Einkehren; ein Restaurant mit Biergarten zählt als Biergarten
+			if (t.cuisine === 'fast_food' || t.cuisine === 'kebab' || t.cuisine === 'pizza;kebab') return undefined;
+			return t.beer_garden === 'yes' ? 'biergarten' : 'restaurant';
+		case 'pub':
+			return t.beer_garden === 'yes' ? 'biergarten' : 'restaurant';
 		case 'toilets':
 			return 'toilette';
 		case 'bench':
@@ -132,6 +148,7 @@ function kindOf(t: Record<string, string>): StopKind | undefined {
 			// Wartehäuschen an Haltestellen sind keine Rastplätze
 			return t.shelter_type === 'public_transport' || t.public_transport ? undefined : 'rast';
 	}
+	if (t.shop === 'bakery') return 'baeckerei';
 	if (t.tourism === 'viewpoint') return 'aussicht';
 	if (t.tourism === 'picnic_site') return 'rast';
 	return undefined;

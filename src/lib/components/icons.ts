@@ -8,11 +8,13 @@ import Armchair from '@lucide/svelte/icons/armchair';
 import Beer from '@lucide/svelte/icons/beer';
 import Binoculars from '@lucide/svelte/icons/binoculars';
 import Coffee from '@lucide/svelte/icons/coffee';
+import Croissant from '@lucide/svelte/icons/croissant';
 import IceCreamCone from '@lucide/svelte/icons/ice-cream-cone';
 import Tent from '@lucide/svelte/icons/tent';
 import PlugZap from '@lucide/svelte/icons/plug-zap';
 import Sprout from '@lucide/svelte/icons/sprout';
 import Toilet from '@lucide/svelte/icons/toilet';
+import Utensils from '@lucide/svelte/icons/utensils';
 import Trees from '@lucide/svelte/icons/trees';
 import WavesHorizontal from '@lucide/svelte/icons/waves-horizontal';
 import Wheat from '@lucide/svelte/icons/wheat';
@@ -39,7 +41,9 @@ export const stopIcons: Record<StopKind, IconStyle> = {
 	bank: { icon: Armchair, ...khaki },
 	laden: { icon: PlugZap, ...sun },
 	eis: { icon: IceCreamCone, ...terracotta },
-	rast: { icon: Tent, ...green }
+	rast: { icon: Tent, ...green },
+	restaurant: { icon: Utensils, ...sun },
+	baeckerei: { icon: Croissant, ...terracotta }
 };
 
 export const landscapeIcons: Record<LandscapeTag, IconStyle> = {

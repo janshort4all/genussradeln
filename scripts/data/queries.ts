@@ -18,8 +18,9 @@ export const FIELDS: OsmQuery = (t, kind) => kind !== 'node' && t.landuse === 'f
 
 /** Stopps unterwegs (F9) */
 export const POIS: OsmQuery = (t) =>
-	match(t.amenity, /^(cafe|ice_cream|biergarten|toilets|bench|shelter)$/) ||
-	(t.amenity === 'restaurant' && t.beer_garden === 'yes') ||
+	match(t.amenity, /^(cafe|ice_cream|biergarten|toilets|bench|shelter|restaurant)$/) ||
+	(t.amenity === 'pub' && (t.food === 'yes' || t.cuisine !== undefined || t.beer_garden === 'yes')) ||
+	t.shop === 'bakery' ||
 	(t.amenity === 'charging_station' && (t.bicycle === 'yes' || match(t.name, /[Ee]-?[Bb]ike|Fahrrad|Pedelec/))) ||
 	match(t.tourism, /^(viewpoint|picnic_site)$/);
 

@@ -449,9 +449,12 @@ export const LENGTH_STEP = { ratio: 0.05, minM: 500 } as const;
 
 /** Stopps unterwegs (F9): so weit dürfen sie neben dem Weg liegen (Meter) */
 export const STOP_RADIUS_M = {
-	cafe: 200,
-	eis: 200,
-	biergarten: 200,
+	// Zum Einkehren darf es ein Schlenker von bis zu ca. 700 m (hin und zurück) sein (Jan, 14.10.2026: „maximal 500 bis 700 Meter, wenn du was Gutes findest“)
+	cafe: 350,
+	eis: 350,
+	biergarten: 350,
+	restaurant: 350,
+	baeckerei: 350,
 	toilette: 150,
 	aussicht: 150,
 	laden: 150,
@@ -462,7 +465,7 @@ export const STOP_RADIUS_M = {
 /** Bewertung von Stopps nach Merkmalen aus OpenStreetMap (keine Sterne – die gibt es dort nicht) */
 export const STOP_SCORE = {
 	/** Grundwert je Art */
-	base: { cafe: 1, eis: 1, biergarten: 1.2, toilette: 1, aussicht: 1.2, laden: 1, rast: 0.8, bank: 0.5 },
+	base: { cafe: 1, eis: 1, biergarten: 1.2, toilette: 1, aussicht: 1.2, laden: 1, rast: 0.8, bank: 0.5, restaurant: 1.1, baeckerei: 0.9 },
 	/** Sitzplätze draußen / Terrasse */
 	outdoor: 1,
 	/** Lage am Wasser */
@@ -476,6 +479,45 @@ export const STOP_SCORE = {
 	covered: 0.3,
 	/** Abzug je 100 m Entfernung vom Weg */
 	offRoutePer100m: 0.4
+} as const;
+
+/**
+ * Pausen mit Verstand (Jan, 14.10.2026: „niemals nach 2–3 km einkehren“, „bei großen Touren nach 20 km, bei kleineren etwa zur Hälfte“):
+ * Aus allen Orten zum Einkehren werden wenige an sinnvollen Stellen der Strecke gewählt (along.ts → pauseStops).
+ * Hauptpause = Restaurant oder Biergarten bei etwa der Hälfte; kleine Pause = Café, Bäckerei oder Eis, bei längeren Touren am Nachmittag
+ * (bei sehr langen auch am Vormittag). Nichts im ersten Fünftel und im letzten Zehntel, Pausen mindestens 8 km (bzw. ¼ der Strecke) auseinander.
+ */
+export const BREAKS = {
+	/** Tourlängen (km): ab hier zwei bzw. drei Pausen */
+	twoFromKm: 20,
+	threeFromKm: 60,
+	/** Anteil der Strecke, vor dem bzw. nach dem nichts vorgeschlagen wird */
+	skipStartShare: 0.2,
+	skipEndShare: 0.1,
+	/** Hauptpause: Mitte und halbe Breite des Fensters (Anteil der Strecke) */
+	mainCenter: 0.5,
+	mainHalfWidth: 0.12,
+	/** kleine Pause: Mitten (Nachmittag zuerst, bei sehr langen Touren auch Vormittag) und halbe Breite */
+	smallCenters: [0.76, 0.3] as readonly number[],
+	smallHalfWidth: 0.1,
+	/** gibt es im Fenster nichts, wird es so viel breiter (einmal) */
+	widen: 1.7,
+	/** Mindestabstand zwischen zwei Pausen: km bzw. Anteil der Strecke (der kleinere gilt) */
+	minApartKm: 8,
+	minApartShare: 0.25,
+	/** Zuschläge: passende Art, Nähe zur Fenstermitte, geöffnet; Abzug für unbekannte Öffnungszeiten */
+	mainKindBonus: 2.5,
+	smallKindBonus: { cafe: 0.4, baeckerei: 0.3, eis: 0.4 } as Record<string, number>,
+	/** ein Café als Hauptpause nur, wenn es nichts Besseres gibt */
+	cafeAsMainBonus: 0,
+	centerBonus: 2,
+	openBonus: 0.4,
+	unknownHours: -0.2,
+	/** Fahrer startet zwischen diesen Stunden „jetzt“, sonst am nächsten Morgen um defaultStartHour; Tempo für die Ankunftszeit */
+	nowFromHour: 8,
+	nowToHour: 16,
+	defaultStartHour: 10,
+	speedKmh: 15
 } as const;
 
 /** Stopps ausdünnen, damit die Liste übersichtlich bleibt */

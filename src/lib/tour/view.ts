@@ -18,6 +18,8 @@ export interface ViewStop {
 	reasons?: string[];
 	/** fehlt bei Beispieltouren */
 	lngLat?: LngLat;
+	/** z. B. „geöffnet bis 18:00 Uhr“ (nur wenn die Öffnungszeiten bekannt sind und der Ort bei der Ankunft offen hat) */
+	note?: string;
 }
 
 export interface TourView {
