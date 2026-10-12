@@ -52,7 +52,7 @@
 	import Trees from '@lucide/svelte/icons/trees';
 	import Waves from '@lucide/svelte/icons/waves';
 	import X from '@lucide/svelte/icons/x';
-	import type { Map as MapLibreMap, Marker, MarkerOptions } from 'maplibre-gl';
+	import type { GeoJSONSource, Map as MapLibreMap, Marker, MarkerOptions } from 'maplibre-gl';
 	import { stopIcons } from '$lib/components/icons';
 	import { boundsOf, distance, distanceToLine, resample } from '$lib/geo/geo';
 	import { badgeSpots } from './badges';
@@ -281,6 +281,14 @@
 		const m = map;
 		const ids = routes.map((r) => r.id);
 		const changed = ids.join() !== shownRouteIds.join();
+
+		// Gleicher Weg, neuer Verlauf (übernommener Umweg, Jan 14.10.2026: „die Karte wird nicht angepasst“) – nur die Linie tauschen
+		if (!changed) {
+			for (const r of routes) {
+				const source = m.getSource(`route-${r.id}`) as GeoJSONSource | undefined;
+				source?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: r.coordinates } });
+			}
+		}
 
 		if (changed) {
 			for (const id of shownRouteIds) {
