@@ -3,14 +3,15 @@
 	import { resolve } from '$app/paths';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import LocateFixed from '@lucide/svelte/icons/locate-fixed';
+	import Flag from '@lucide/svelte/icons/flag';
 	import MapPin from '@lucide/svelte/icons/map-pin';
+	import Navigation from '@lucide/svelte/icons/navigation';
+	import Repeat from '@lucide/svelte/icons/repeat';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import Undo2 from '@lucide/svelte/icons/undo-2';
-	import Button from '$lib/components/Button.svelte';
 	import ChoiceGroup from '$lib/components/ChoiceGroup.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
+	import StepHeader from '$lib/components/StepHeader.svelte';
 	import { distance } from '$lib/geo/geo';
 	import { currentPosition, PositionError } from '$lib/geo/position';
 	import { inRegion } from '$lib/geocode/photon';
@@ -27,6 +28,11 @@
 
 	let busy = $state(false);
 	let problem = $state('');
+
+	// Der Knopf unten bleibt beim Scrollen stehen und zeigt, was gewählt ist („nach Burg Linn · nur hin“) – wie bei „Eine schöne Runde drehen“
+	const summary = $derived(
+		[draft.destination ? `nach ${draft.destination.name}` : 'Ziel noch offen', draft.returnMode === 'one-way' ? 'nur hin' : 'hin und zurück'].join(' · ')
+	);
 
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
@@ -80,51 +86,109 @@
 <PageHeader
 	title="Wohin möchten Sie?"
 	lead="Wir bauen den schönsten Weg."
+	image="/ziel.jpg"
 	backHref={resolve('/')}
 	backLabel="Zur Startseite"
 />
 
-<form class="sheet" onsubmit={submit} novalidate>
-	<PlaceSearch
-		label="Ihr Ziel"
-		placeholder="z. B. Burg Linn oder eine Adresse"
-		hint="Ort, Ausflugsziel oder Adresse eingeben und dann in der Liste antippen."
-		bind:value={draft.destination}
-		near={draft.startPlace?.lngLat}
-		prominent
-	/>
+<form onsubmit={submit} novalidate>
+	<section class="sheet over" aria-labelledby="goal-title">
+		<StepHeader id="goal-title" number={1} icon={Flag} title="Wohin soll es gehen?" />
+		<PlaceSearch
+			label="Ziel"
+			placeholder="z. B. Burg Linn"
+			bind:value={draft.destination}
+			near={draft.startPlace?.lngLat}
+		/>
+	</section>
 
-	<ChoiceGroup
-		legend="Wo starten Sie?"
-		name="start"
-		bind:value={draft.startMode}
-		choices={[
-			{ value: 'here', label: 'Hier, wo\nich bin', icon: LocateFixed },
-			{ value: 'address', label: 'An einer\nAdresse', icon: MapPin }
-		]}
-	/>
-	{#if draft.startMode === 'address'}
-		<PlaceSearch label="Startpunkt" placeholder="z. B. Ihre Straße und Hausnummer" bind:value={draft.startPlace} />
-	{/if}
+	<section class="sheet" aria-labelledby="start-title">
+		<StepHeader id="start-title" number={2} icon={MapPin} title="Wo starten Sie?" />
+		<ChoiceGroup
+			legend="Wo starten Sie?"
+			hideLegend
+			name="start"
+			columns={2}
+			bind:value={draft.startMode}
+			choices={[
+				{ value: 'here', label: 'Hier, wo\nich bin', icon: Navigation },
+				{ value: 'address', label: 'An einer\nAdresse', icon: MapPin }
+			]}
+		/>
+		{#if draft.startMode === 'address'}
+			<PlaceSearch label="Startpunkt" placeholder="z. B. Ihre Straße und Hausnummer" bind:value={draft.startPlace} />
+		{/if}
+	</section>
 
-	<ChoiceGroup
-		legend="Und zurück?"
-		name="return"
-		bind:value={draft.returnMode}
-		choices={[
-			{ value: 'one-way', label: 'Nur hin\n\u00a0', icon: ArrowRight },
-			{ value: 'other-way', label: 'Hin und zurück\nals Runde', icon: Undo2 }
-		]}
-	/>
+	<section class="sheet" aria-labelledby="return-title">
+		<StepHeader id="return-title" number={3} icon={Repeat} title="Und zurück?" />
+		<ChoiceGroup
+			legend="Und zurück?"
+			hideLegend
+			name="return"
+			columns={2}
+			bind:value={draft.returnMode}
+			choices={[
+				{ value: 'one-way', label: 'Nur hin\n\u00a0', icon: ArrowRight },
+				{ value: 'other-way', label: 'Hin und zurück\nals Runde', icon: Repeat }
+			]}
+		/>
+	</section>
 
-	<p class="problem" role="alert">{problem}</p>
+	<!-- Knopf bleibt beim Scrollen unten über der Leiste stehen (wie auf „Eine schöne Runde drehen“); die Fehlermeldung steht im selben Block -->
+	<div class="cta">
+		<p class="problem" role="alert">{problem}</p>
 
-	<Button variant="brand" type="submit" icon={Sparkles} trailing={ChevronRight} disabled={busy}>
-		{busy ? 'Standort wird bestimmt …' : 'Schönsten Weg finden'}
-	</Button>
+		<button type="submit" class="find" disabled={busy}>
+			<Sparkles size={26} strokeWidth={2.25} aria-hidden="true" />
+			<span class="find-text">
+				<strong>{busy ? 'Standort wird bestimmt …' : 'Schönsten Weg finden'}</strong>
+				<span>{summary}</span>
+			</span>
+			<span class="trailing" aria-hidden="true"><ChevronRight size={28} strokeWidth={2.5} /></span>
+		</button>
+	</div>
 </form>
 
 <style>
+	/* die erste Karte ragt über den unteren Rand des Titelbilds */
+	.over {
+		position: relative;
+		z-index: 1;
+	}
+
+	/* festgesetzt: bleibt beim Scrollen knapp über der unteren Leiste sichtbar (gleich wie „Eine schöne Runde drehen“) */
+	.cta {
+		position: sticky;
+		bottom: calc(var(--bottom-bar-height) + env(safe-area-inset-bottom));
+		z-index: 5;
+		margin: 0 -1rem 1rem;
+		padding: 0.625rem 1rem;
+		background: var(--color-bg);
+		border-top: 1px solid var(--color-border);
+	}
+
+	.cta .problem {
+		margin-bottom: 0.5rem;
+	}
+
+	.find-text {
+		display: grid;
+		justify-items: center;
+		gap: 0.0625rem;
+		min-width: 0;
+	}
+
+	.find-text span {
+		font-size: var(--text-small);
+		font-weight: 400;
+		color: #fff;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	.problem {
 		margin: 0 0 1rem;
 		color: var(--color-orange-dark);
@@ -133,5 +197,52 @@
 
 	.problem:empty {
 		display: none;
+	}
+
+	/* Hauptknopf: Terrakotta wie jede Hauptaktion – weiße Schrift 5 : 1 */
+	.find {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		width: 100%;
+		min-height: 4.25rem;
+		padding: 0.5rem 3rem 0.5rem 1rem;
+		border: 2px solid transparent;
+		border-radius: var(--radius);
+		background: var(--color-orange);
+		box-shadow: 0 3px 0 var(--color-orange-dark);
+		color: #fff;
+		font-family: var(--font-text);
+		font-size: var(--text-large);
+		font-weight: 700;
+		line-height: 1.25;
+		cursor: pointer;
+	}
+
+	.find:hover {
+		background: var(--color-orange-dark);
+	}
+
+	.find:focus-visible {
+		outline: 3px solid var(--color-green);
+		outline-offset: 3px;
+	}
+
+	.find:disabled {
+		cursor: not-allowed;
+		opacity: 0.6;
+	}
+
+	.find :global(svg) {
+		flex: none;
+	}
+
+	.trailing {
+		position: absolute;
+		right: 1rem;
+		display: grid;
+		place-items: center;
 	}
 </style>

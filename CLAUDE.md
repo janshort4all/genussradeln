@@ -42,7 +42,7 @@ beschrieben in `docs/lastenheft.md` → Abschnitt „Bedienung“.
     Zahnrad, Überschrift (höchstens 2 Zeilen), **kurzer** Satz (höchstens 2 Zeilen, ca. 35 Zeichen) und grüner Strich; das erste Element darunter ragt 3 rem ins Bild
     (`.page-header + *` liegt darüber). Die Startseite ist höchstens genauso hoch (kleiner nur bei niedrigen Fenstern). Neue Seiten: nur `<PageHeader title lead backHref backLabel />`,
     nichts selbst am Kopf formatieren. Prüfen: Kopfhöhe aller Seiten messen (soll gleich sein).
-    **Ausnahme Vorschläge (Jan, 14.10.2026):** eigenes Titelbild `static/vorschlaege.jpg` (Luftbild: Radweg im Wald; `image` + `calm` am `PageHeader`: Foto blasser und weniger bunt), damit die Karte
+    **Seite „Zu einem Ziel“ wie „Eine schöne Runde drehen“ (Jan, 14.10.2026):** drei nummerierte Karten (1 Wohin soll es gehen?, 2 Wo starten Sie?, 3 Und zurück?), eigenes Titelbild `static/ziel.jpg` (Foto zweier E-Bikes im Abendlicht, `image` am `PageHeader`), fester Terrakotta-Knopf unten mit der Auswahl in der zweiten Zeile („nach Burg Linn · nur hin“); der Hinweissatz unter dem Suchfeld entfiel (Regel 10a). **Ausnahme Vorschläge (Jan, 14.10.2026):** eigenes Titelbild `static/vorschlaege.jpg` (Luftbild: Radweg im Wald; `image` + `calm` am `PageHeader`: Foto blasser und weniger bunt), damit die Karte
     darunter mehr im Blick steht – dazu heller Rand und Schatten um die Karte. Höhe und Ausfaden bleiben wie überall.
 9c. **Browser/PC (Jan, 14.10.2026: „Startseite nicht browseroptimiert, Titelbild nicht bis zum Rand, ich muss scrollen, um beide Felder zu sehen“):** Titelbilder
     (`PageHeader`, Startseite) reichen auf **jeder** Fenstergröße bis an den Fensterrand; Text und Zahnrad bleiben an der Inhaltsspalte ausgerichtet. Dafür setzt
