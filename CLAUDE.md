@@ -190,7 +190,7 @@ angezeigten Fahrzeiten (vorher „+5 Min.“ bei gleicher Anzeige). **Nachgebess
 +0,7 km, dann noch +0,3 km; jetzt ein Vorschlag +1,0 km). In der großen Karte stehen alle möglichen neuen Wege gestrichelt, solange die Liste offen ist
 (`MapHighlight.line`, Ebene `options` in `RouteMap`). **Größere Vorschläge (Jan, 14.10.2026: „nur Mini-Umfahrungen von 300 m“):** Die Suche schaute nur bis 900 m neben die Strecke – für Vorschläge
 jetzt bis 2,5 km (Abstand zählt schwächer, bis 5 Abschnitte; `THROUGH.offerMaxOffsetM/offerDistancePenaltyM/offerMaxStretches`); die Planung selbst bleibt bei 900 m.
-Gemessen: Vorschläge von 0,3 bis 4,9 km neben den Highlights (3–11 km).
+Gemessen: Vorschläge von 0,3 bis 4,9 km neben den Highlights (3–11 km). **Keine Stummel (Jan, 14.10.2026, Foto bei Großenbaum):** Jeder Vorschlag – auch die Umwege zu Highlights – wird vorher auf der ganzen Tour geprüft (`cleanSplice` in `through.ts`: kein zusätzliches Hin-und-zurück, keine neuen Kreise/Zipfel an den Nahtstellen); ein zusammengefasster Vorschlag, der das nicht schafft, fällt auf das erste Stück zurück. Gemessen: 11 Vorschläge an 5 Runden übernommen, keiner fügt einen Stummel hinzu.
 
 **Mehr Runden beim ersten Mal (Jan, 14.10.2026: „erst nach mehrfachem ‚Andere Runden‘ kommen mehr Vorschläge“):** Findet der erste Durchgang (10 Richtungen)
 weniger als `ROUND.enough` = 3 verschiedene Runden, werden bis zu `ROUND.extraPasses` = 2 weitere Durchgänge mit Richtungen dazwischen gerechnet. Gemessen am Start von Jan

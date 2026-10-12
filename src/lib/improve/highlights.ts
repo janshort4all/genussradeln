@@ -10,6 +10,7 @@ import type { LandmarkKind, NameData, NamedPoint } from '$lib/naming/names';
 import { landmarkTitle } from '$lib/naming/title';
 import { NoRouteError, type RoutePath } from '$lib/routing/graphhopper';
 import { shapeProblem, type PlanDeps } from '$lib/routing/plan';
+import { cleanSplice } from '$lib/routing/through';
 import { overlapShare } from '$lib/scoring/overlap';
 import { analyzeRoute, beautyScore, type RouteStats } from '$lib/scoring/score';
 import { DETOURS } from '$lib/scoring/weights';
@@ -220,6 +221,8 @@ export async function detourTo(
 			(await attempt(chain, DETOURS.outsideFactor)) ?? (await attempt([A, B], DETOURS.corridorOnlyFactor));
 		if (!path) continue;
 
+		// an den Nahtstellen und im Ganzen kein neuer Stummel (Jan, 14.10.2026: nach „Übernehmen“ hingen Stummel an der Tour)
+		if (!cleanSplice(pathOfLeg(leg), from, to, path)) continue;
 		const newLine = path.coordinates.map(([lon, lat]): LngLat => [lon, lat]);
 		const baseLength = cum[to] - cum[from];
 		const extra = path.distance - baseLength;

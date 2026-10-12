@@ -170,6 +170,25 @@ function badShape(piece: RoutePath): boolean {
 	return shape.backtrack > VIA_SEARCH.maxBacktrackM || !!shape.loop || !!shape.spur;
 }
 
+/**
+ * Entsteht durch das Ersetzen irgendwo ein neuer Stummel (Weg hinein und auf demselben Weg zurück)? Geprüft wird der ganze
+ * Weg vorher und nachher (Jan, 14.10.2026: nach „Übernehmen“ hingen Stummel an der Tour) – dazu wie bei der Planung die
+ * Gegend um das neue Stück auf neue Kreise/Zipfel.
+ */
+export function cleanSplice(path: RoutePath, from: number, to: number, piece: RoutePath): boolean {
+	const candidate = splicePath(path, from, to, piece);
+	const before = shapeOf(path);
+	const after = shapeOf(candidate);
+	if (after.backtrack > before.backtrack + VIA_SEARCH.maxBacktrackM) return false;
+	const oldCum = cumulative(lineOf(path));
+	const newCum = cumulative(lineOf(candidate));
+	const end = from + piece.coordinates.length - 1;
+	return !newProblem(
+		shapeOf(slicePath(path, indexAt(oldCum, oldCum[from] - THROUGH.seamM), indexAt(oldCum, oldCum[to] + THROUGH.seamM))),
+		shapeOf(slicePath(candidate, indexAt(newCum, newCum[from] - THROUGH.seamM), indexAt(newCum, newCum[end] + THROUGH.seamM)))
+	);
+}
+
 /** Kommt in `after` ein Stummel, Kreis oder Zipfel dazu, den es in `before` (gleiche Gegend vor dem Ersetzen) nicht gab? */
 function newProblem(before: Shape, after: Shape): boolean {
 	const same = (a?: LngLat, b?: LngLat) => !!a && !!b && distance(a, b) < 150;
@@ -312,7 +331,6 @@ export async function throughVariants(
 	});
 
 	const variants: ThroughVariant[] = [];
-	const oldCum = cumulative(line);
 	for (const [k, passBy] of passBys.entries()) {
 		const found = pieces[k];
 		if (!found || found.coordinates.length < 2) continue;
@@ -328,16 +346,7 @@ export async function throughVariants(
 		// auch an den Nahtstellen kein neuer Stummel/Kreis/Zipfel (GraphHopper setzt Anfang und Ende des Stücks auf den nächsten
 		// Weg – liegt der neben der bisherigen Strecke, entstünde dort ein Haken): Stück samt THROUGH.seamM davor und dahinter mit
 		// derselben Gegend vorher vergleichen (ein Haken, den es dort schon gab, verhindert die Verbesserung nicht)
-		const candidate = splicePath(path, from, to, piece);
-		const newCum = cumulative(lineOf(candidate));
-		const end = from + piece.coordinates.length - 1;
-		const before = shapeOf(
-			slicePath(path, indexAt(oldCum, oldCum[from] - THROUGH.seamM), indexAt(oldCum, oldCum[to] + THROUGH.seamM))
-		);
-		const after = shapeOf(
-			slicePath(candidate, indexAt(newCum, newCum[from] - THROUGH.seamM), indexAt(newCum, newCum[end] + THROUGH.seamM))
-		);
-		if (newProblem(before, after)) continue;
+		if (!cleanSplice(path, from, to, piece)) continue;
 		const old = slicePath(path, from, to);
 		const oldStats = analyzeRoute(old, deps.landscape, deps.roads, deps.fine);
 		const newStats = analyzeRoute(piece, deps.landscape, deps.roads, deps.fine);
@@ -378,6 +387,7 @@ export async function goThrough(
 		// das neue Stück muss deutlich schöner sein als das alte (auf die ganze Tour gerechnet wäre ein schönes Stück von 2 km
 		// in einer 30-km-Runde kaum zu sehen) – und die ganze Tour darf dadurch nicht weniger schön werden
 		if (gain < THROUGH.minPieceGain) continue;
+		if (result.changed && !cleanSplice(result.path, from, to, piece)) continue;
 		const candidate = splicePath(result.path, from, to, piece);
 		if (!accept(candidate)) continue;
 		const candidateStats = analyzeRoute(candidate, deps.landscape, deps.roads, deps.fine);

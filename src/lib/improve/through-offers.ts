@@ -11,7 +11,7 @@ import type { LandmarkKind } from '$lib/naming/names';
 import { landmarkTitle, routeNames } from '$lib/naming/title';
 import type { PlanDeps } from '$lib/routing/plan';
 import type { RouteOptions, RoutePath } from '$lib/routing/graphhopper';
-import { throughVariants, type ThroughVariant } from '$lib/routing/through';
+import { cleanSplice, throughVariants, type ThroughVariant } from '$lib/routing/through';
 import { analyzeRoute, beautyScore, lineOf, type RouteStats } from '$lib/scoring/score';
 import { DETOURS, THROUGH } from '$lib/scoring/weights';
 import { rideMinutes } from '$lib/tour/duration';
@@ -104,7 +104,9 @@ export async function findThroughDetours(tour: PlannedTour, deps: PlanDeps): Pro
 		const taken: [number, number][] = [];
 		for (const first of found.filter((v) => v.gain >= DETOURS.minGain).sort((x, y) => y.gain - x.gain)) {
 			if (taken.some(([f, t]) => first.from <= t && first.to >= f)) continue;
-			const joined = await chained(path, first, deps, options);
+			// zusammengefasst nur, wenn dabei kein Stummel entsteht – sonst das erste Stück allein
+			const all = await chained(path, first, deps, options);
+			const joined = cleanSplice(path, all.from, all.to, all.piece) ? all : first;
 			if (taken.some(([f, t]) => joined.from <= t && joined.to >= f)) continue;
 			taken.push([joined.from, joined.to]);
 			const old = slicePath(path, joined.from, joined.to);
