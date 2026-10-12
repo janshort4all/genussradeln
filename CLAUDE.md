@@ -364,6 +364,25 @@ See, Aussicht), Zielwörter (Biergarten, Café, Eis, Toilette, Ortsnamen über G
 „sportlich“, „zurück“/„Rundtour“. Ergebnis füllt die Knöpfe vor; Unklares bleibt zur Auswahl offen.
 Mit Testsätzen absichern (`parse.test.ts`), z. B. „20 km durchs Grüne zum Biergarten“.
 
+## Android-App (Jan, 14.10.2026: „das Ganze in eine Android-App gießen“)
+
+**Entscheidung:** Capacitor 8 als **dünner Rahmen um die Online-App** (`capacitor.config.ts`: `server.url` = GitHub Pages). Grund: Es gibt viele Updates; die
+Testpersonen sollen **nicht jedes Mal neu installieren**. Jeder Push auf `main` ist beim nächsten Öffnen der App bei allen da (Service Worker und Offline-Karte
+bleiben wie im Browser). **Neu installiert werden muss nur, wenn sich etwas Natives ändert** (`android/`, Plugins, `capacitor.config.ts`). Verworfen: Capacitor mit
+eingebauter App (jedes Update = neue APK), TWA (Adressleiste bleibt ohne Domain-Nachweis auf `github.io/genussradeln`, keine Hintergrund-Navigation), Play Store
+(25 US-Dollar, 14 Tage Testphase mit 12 Personen). Verteilung: **APK per Link** (0 €, „Installation aus unbekannter Quelle“ erlauben).
+- Projekt: `android/` (Gradle, Paket `de.genussradeln.app`), Platzhalterseite `android-shell/index.html` (nur für den allerersten Start ohne Netz),
+  Symbole aus dem Logo (`mipmap-*`, Creme als Hintergrund), Startbild einfarbig Creme, `allowBackup=false`. `allowNavigation` lässt nur eigene Adressen
+  (github.io, Routing-Server, OpenFreeMap) in der Hülle zu, alles andere öffnet extern.
+- **Bauen:** `npm run android:apk` (`scripts/android-build.ps1`) → `android/Genuss-Radeln.apk` (ca. 3,5 MB, signiert). Werkzeuge liegen **außerhalb des Repos** unter
+  `C:\Users\<Name>\Android` (`jdk` = Temurin 21 ARM64, `Sdk` = Plattform 36, Build-Tools 36.0.0, Platform-Tools, `keys\genuss-radeln.jks`). Windows ARM64:
+  Gradle und Build-Tools laufen (x64-Emulation), ein Emulator wäre langsam – getestet wird auf einem echten Handy.
+- **Signierschlüssel** und Passwörter nur in `~/.gradle/gradle.properties` (`GENUSS_KEYSTORE`, `GENUSS_KEY_ALIAS`, `GENUSS_STORE_PASSWORD`, `GENUSS_KEY_PASSWORD`),
+  nie ins Repository. **Schlüssel sichern!** Geht er verloren, lässt sich die App bei den Testpersonen nicht mehr überinstallieren (Signatur muss gleich bleiben).
+- **Noch offen (nächste Schritte):** Standort mit Vordergrunddienst, damit die Navigation bei ausgeschaltetem Bildschirm weiterläuft (Capacitor-Plugin prüfen: aktuelle Doku,
+  Kompatibilität mit Capacitor 8); Ansagen über das Android-TTS statt `speechSynthesis`; „Fahrt speichern/verschicken“ über Dateisystem- und Teilen-Plugin; Bildschirm wach halten.
+  Die Web-App erkennt die Hülle mit `Capacitor.isNativePlatform()` und bleibt im Browser unverändert.
+
 ## Projektstruktur (Ziel)
 
 ```
