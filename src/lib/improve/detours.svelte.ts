@@ -8,6 +8,7 @@ import type { PlannedTour } from '$lib/tour/model';
 import { loadPlanDeps } from './deps';
 import { findDetours, type Detour } from './highlights';
 import { applyOffer } from './offers';
+import { plusText } from './wording';
 
 export class DetoursController {
 	status: 'idle' | 'searching' | 'ready' | 'none' | 'unavailable' | 'error' = $state('idle');
@@ -75,7 +76,7 @@ export class DetoursController {
 	accept(): void {
 		const chosen = this.selected;
 		if (!chosen || !this.tour || !this.deps) return;
-		const text = `${chosen.offer.title} (+${(chosen.offer.extraMeters / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 })} km)`;
+		const text = `${chosen.offer.title} (${plusText(chosen.offer.extraMeters)})`;
 		this.onchange(applyOffer(this.tour, chosen.offer, this.deps), text);
 	}
 }

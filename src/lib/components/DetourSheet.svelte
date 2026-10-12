@@ -27,11 +27,21 @@
 	let { tour, controller, undoText, onundo }: Props = $props();
 
 	const isWater = (kind: string) => kind === 'lake' || kind === 'river';
-	/** „+12 km“ – für die Liste ganz ohne Nachkommastelle, große Umwege sind keine Feinarbeit */
-	const roundKm = (meters: number) => `+${Math.round(meters / 1000)} km`;
-	/** „+50 Min.“ bzw. „+1:10 Std.“ */
+	/**
+	 * „+12 km“ – für die Liste ohne Nachkommastelle, große Umwege sind keine Feinarbeit. Kurze Stücke durch Wald oder am See
+	 * (through-offers.ts) sind oft nur ein paar hundert Meter länger: „+0,6 km“ bzw. „gleich lang“.
+	 */
+	const roundKm = (meters: number) => (meters >= 3000 ? `+${Math.round(meters / 1000)} km` : plusText(meters));
+	/** Durch Wald/Park/am See statt daneben – derselbe Weg, kein Umweg zu einem Ziel */
+	const isThrough = (id: string) => id.startsWith('durch-');
+	/**
+	 * „+50 Min.“ bzw. „+1:10 Std.“ – genau der Unterschied der beiden angezeigten Fahrzeiten (auf 5 Minuten gerundet), damit
+	 * „Bisher“, „Neu“ und das gelbe Feld zusammenpassen; leer, wenn die angezeigte Fahrzeit gleich bleibt
+	 */
 	function plusTime(minutes: number): string {
-		const rounded = Math.max(5, Math.round(minutes / 5) * 5);
+		const round5 = (m: number) => Math.round(m / 5) * 5;
+		const rounded = round5(tour.minutes + minutes) - round5(tour.minutes);
+		if (rounded <= 0) return '';
 		return rounded >= 60 ? `+${Math.floor(rounded / 60)}:${String(rounded % 60).padStart(2, '0')} Std.` : `+${rounded} Min.`;
 	}
 </script>
@@ -101,12 +111,12 @@
 			</div>
 			<span class="arrow" aria-hidden="true"><ArrowRight size={28} strokeWidth={2.5} /></span>
 			<div class="col new">
-				<span class="label">Mit Umweg</span>
+				<span class="label">{isThrough(chosen.highlight.id) ? 'Neu' : 'Mit Umweg'}</span>
 				<span class="value">{kmText(tour.stats.distance + chosen.offer.extraMeters)} km</span>
 				<span class="value">{clockText(tour.minutes + chosen.offer.extraMinutes)}</span>
 			</div>
 		</div>
-		<p class="badge">{plusText(chosen.offer.extraMeters)} · {plusTime(chosen.offer.extraMinutes)}</p>
+		<p class="badge">{[plusText(chosen.offer.extraMeters), plusTime(chosen.offer.extraMinutes)].filter(Boolean).join(' · ')}</p>
 
 		<div class="buttons">
 			<button type="button" class="primary" onclick={() => controller.accept()}>

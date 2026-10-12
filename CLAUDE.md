@@ -169,7 +169,8 @@ oder Seen, wenn es die Option gibt, dadurch zu fahren, soll er das tun“):** Gr
 bequemsten Weg, oft am Rand vorbei. Neuer letzter Schritt für Runden und Zielwege (`routing/through.ts`, `THROUGH` in `weights.ts`): Jeder ausgewählte Weg wird
 alle 200 m geprüft, ob 100–900 m daneben deutlich mehr Wald/Park/Seeufer liegt (`insideness`: Tiefe aus der feinen Karte + Zuschlag am Wasser, Wasser selbst −1);
 Abschnitte ab 800 m werden mit Korridor durch die inneren Punkte (± 200 m, außen × 0,3) und gemiedener bisheriger Strecke (± 30 m, × 0,4 – sonst liegt sie selbst im
-Korridor und GraphHopper bleibt drauf, gemessen) neu gerechnet und eingesetzt (`splicePath` in `improve/slice.ts`), wenn die ganze Tour schöner wird (≥ 0,02),
+Korridor und GraphHopper bleibt drauf, gemessen) neu gerechnet und eingesetzt (`splicePath` in `improve/slice.ts`), wenn das neue Stück deutlich schöner ist als das alte (≥ 0,05, wie bei den Umwegen – auf die ganze
+Tour gerechnet fiel ein schönes Stück von 2 km in 30 km kaum auf, deshalb blieb anfangs eine Rheinufer-Variante liegen) und die Tour insgesamt nicht weniger schön wird,
 das Stück höchstens 30 % bzw. 2 km länger ist, ohne Stummel/Kreis/Zipfel und ohne auf dem Rest der Tour zu fahren. **Nahtstellen:** GraphHopper fährt sonst
 bis zum alten Punkt und kurz zurück (gemessen: 40 m hin und zurück plus „Kreis“ an der Kreuzung) – `trimSeams` verbindet an der Abzweigung; zusätzlich wird das
 Stück samt 600 m davor und dahinter mit derselben Gegend vorher verglichen (nur NEUE Stummel/Kreise/Zipfel verhindern es – ein Haken, den es dort schon gab, nicht;
@@ -178,7 +179,12 @@ im ersten Prüflauf ohne diese Prüfung entstanden 2 Fehler, danach keiner). Run
 dann fielen andere Runden weg, u. a. genau die an den Seen). Nicht beim Wunsch „Felder“. Gemessen: Jans Runde an der Sechs-Seen-Platte führt jetzt am Westufer der Seen
 entlang statt über das Feld (Stück 6,9 → 7,5 km, Ufer 4 % → 33 %, Wald mitten drin 20 % → 39 %); bei Zielwegen meist keine Änderung (die laufen schon über schöne
 Hilfspunkte/Korridore; wo der Wald nur 100 m daneben beginnt, gibt es meist keinen Weg darin). Rechenzeit kaum länger (bis 3 Anfragen je Weg). Vergleich vorher/nachher:
-`src/lib/dev/through-check.ts`. Offen: kleiner Haken oben an einem Hilfspunkt (Runde fährt zum Punkt und auf einem Parallelweg ≈ 150 m daneben zurück – zählt weder als
+`src/lib/dev/through-check.ts`. **Als Vorschlag (Jan, 14.10.2026: „das ist doch der perfekte Fall für einen Routenvorschlag“, „erstmal kein Limit – wenn es
+10 km mehr wären, dann ist das so“):** Was die Planung nicht selbst nimmt (Runde sonst über ± 10 %, Stück länger als erlaubt), erscheint bei „Spannende Umwege suchen“
+neben den Highlights (`improve/through-offers.ts`, Kennung `durch-…`): ohne Längengrenze (`THROUGH.offerMaxExtra*` = ∞) und ohne Mindest-Mehrweg (anders als die
+Umwege zu Highlights, ≥ 3 km), Name nach dem Gewässer/Wald am neuen Stück („Am Rhein entlang“) oder allgemein („Durch den Wald“), im Fenster „Bisher“ → „Neu“
+(statt „Mit Umweg“), kurze Stücke in der Liste mit Nachkommastelle („+0,7 km“, „gleich lang“). Das gelbe Feld zeigt jetzt genau den Unterschied der beiden
+angezeigten Fahrzeiten (vorher „+5 Min.“ bei gleicher Anzeige). Offen: kleiner Haken oben an einem Hilfspunkt (Runde fährt zum Punkt und auf einem Parallelweg ≈ 150 m daneben zurück – zählt weder als
 Zipfel noch als Kreis).
 
 **Warum Park und See nicht gewählt wurden (Analyse 10.10.2026, Crusestraße → Krefeld):** (1) Die Suche nach Hilfspunkten schloss alles

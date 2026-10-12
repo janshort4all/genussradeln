@@ -314,7 +314,7 @@ export const IMPROVE_DIRECT = { maxExtraRatio: 0.12, minGain: 0.04 } as const;
  * dadurch zu fahren, soll er das tun und nicht nur am Rand entlang“). Nach der Auswahl wird jeder Vorschlag alle `stepM`
  * Meter geprüft: Liegt `minOffsetM`…`maxOffsetM` daneben deutlich mehr Wald, Park oder Seeufer (Gewinn ≥ `minGain`,
  * siehe through.ts → insideness)? Abschnitte ab `minStretchM` werden mit einem Korridor durchs Innere (Streifen
- * ± `halfWidthM`, außen × `outsideFactor`) neu gerechnet und übernommen, wenn sie schöner sind (≥ `minBeautyGain`), höchstens
+ * ± `halfWidthM`, außen × `outsideFactor`) neu gerechnet und übernommen, wenn das Stück schöner ist (≥ `minPieceGain`), höchstens
  * `maxExtraRatio` bzw. `maxExtraM` länger, ohne Stummel/Kreis/Zipfel und ohne auf dem Rest der Tour zu fahren.
  */
 export const THROUGH = {
@@ -340,15 +340,23 @@ export const THROUGH = {
 	maxExtraM: 2000,
 	/** Anteil des neuen Stücks, der auf dem Rest der Tour liegen darf */
 	maxOverlap: 0.25,
+	/** so viel schöner muss das neue Stück sein als das ersetzte (Punkte wie beautyScore, wie DETOURS.minGain) */
+	minPieceGain: 0.05,
 	/** so viel Strecke vor und hinter dem neuen Stück wird mit auf Stummel/Kreis/Zipfel geprüft (Nahtstellen) */
 	seamM: 600,
 	/** Nahtstellen glätten: läuft das neue Stück bis zu seamReachM auf dem alten Weg zurück (Abstand < seamNearM), wird dort verbunden */
 	seamReachM: 300,
 	seamNearM: 15,
-	minBeautyGain: 0.02,
 	/** höchstens so viele Abschnitte je Weg, so viele Anfragen gleichzeitig */
 	maxStretches: 3,
-	parallel: 3
+	parallel: 3,
+	/**
+	 * Als Vorschlag bei „Spannende Umwege suchen“ (improve/through-offers.ts) gibt es keine Grenze – dort entscheidet die Person
+	 * (Jan, 14.10.2026: „erstmal kein Limit – wenn ein Umweg durch den Wald oder am See nochmal 10 km mehr wären, dann ist das so“);
+	 * Runden dürfen dann auch über die ± 10 %
+	 */
+	offerMaxExtraRatio: Infinity,
+	offerMaxExtraM: Infinity
 } as const;
 
 

@@ -18,6 +18,7 @@ import { elevationProfile } from '$lib/tour/elevation';
 import { pathOfLeg, type PlannedTour } from '$lib/tour/model';
 import type { Offer } from './offers';
 import { cumulative, slicePath } from './slice';
+import { findThroughDetours } from './through-offers';
 
 export interface Highlight {
 	id: string;
@@ -264,22 +265,20 @@ export async function detourTo(
  * DETOURS.max, die besten zuerst).
  */
 export async function findDetours(tour: PlannedTour, deps: PlanDeps): Promise<Detour[]> {
-	if (!deps.names) return [];
-	const highlights = findHighlights(tour, deps.names);
+	const highlights = deps.names ? findHighlights(tour, deps.names) : [];
 	const results: (Detour | undefined)[] = new Array(highlights.length);
 	let next = 0;
-	await Promise.all(
-		Array.from({ length: Math.min(3, highlights.length) }, async () => {
+	// dazu: dieselbe Tour, aber durch Wald, Park oder am Seeufer statt daneben (Jan, 14.10.2026)
+	const [through] = await Promise.all([
+		findThroughDetours(tour, deps),
+		...Array.from({ length: Math.min(3, highlights.length) }, async () => {
 			while (next < highlights.length) {
 				const i = next++;
 				const found = await detourTo(tour, highlights[i], deps);
 				results[i] = found && { highlight: highlights[i], ...found };
 			}
 		})
-	);
+	]);
 	// die schönsten zuerst
-	return results
-		.filter((d): d is Detour => !!d)
-		.sort((a, b) => b.gain - a.gain)
-		.slice(0, DETOURS.max);
+	return [...results.filter((d): d is Detour => !!d), ...through].sort((a, b) => b.gain - a.gain).slice(0, DETOURS.max);
 }

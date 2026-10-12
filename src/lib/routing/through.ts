@@ -257,22 +257,35 @@ async function mapLimited<T, R>(items: T[], limit: number, fn: (item: T) => Prom
 	return results;
 }
 
+/** Ein Stück durch Wald, Park oder am Seeufer, das die Punkte `from`…`to` des Wegs ersetzen kann */
+export interface ThroughVariant {
+	passBy: PassBy;
+	from: number;
+	to: number;
+	piece: RoutePath;
+	/** Mehrweg in Metern gegenüber dem ersetzten Stück */
+	extra: number;
+	/** um so viel schöner ist das neue Stück als das ersetzte (Punkte wie beautyScore) */
+	gain: number;
+	before: RouteStats;
+	after: RouteStats;
+}
+
 /**
- * Einen Weg durch Wald, Park und an Seeufern entlang statt daran vorbei führen (siehe oben). `accept` prüft die ganze
- * Tour nach jedem Ersetzen (z. B. Länge einer Runde) – sagt sie nein, bleibt der Abschnitt, wie er war.
+ * Für jeden „Vorbei“-Abschnitt (höchstens THROUGH.maxStretches) den Weg durchs Innere rechnen und prüfen: höchstens
+ * `limits` länger, ohne Stummel/Kreis/Zipfel (auch nicht an den Nahtstellen) und ohne auf dem Rest des Wegs zu fahren.
+ * Ob es schöner wird, entscheidet der Aufrufer.
  */
-export async function goThrough(
+export async function throughVariants(
 	path: RoutePath,
 	deps: PlanDeps,
 	options: RouteOptions,
-	accept: (candidate: RoutePath) => boolean = () => true
-): Promise<ThroughResult> {
-	const stats = analyzeRoute(path, deps.landscape, deps.roads, deps.fine);
-	const original: ThroughResult = { path, stats, beauty: beautyScore(stats), changed: 0 };
-	if (!deps.fine) return original;
+	limits: { maxExtraRatio: number; maxExtraM: number } = THROUGH
+): Promise<ThroughVariant[]> {
+	if (!deps.fine) return [];
 	const line = lineOf(path);
 	const passBys = findPassBys(line, deps.fine).slice(0, THROUGH.maxStretches);
-	if (!passBys.length) return original;
+	if (!passBys.length) return [];
 
 	const pieces = await mapLimited(passBys, THROUGH.parallel, async (passBy) => {
 		try {
@@ -289,52 +302,80 @@ export async function goThrough(
 		}
 	});
 
-	// jeden Abschnitt für sich prüfen …
-	const good: { passBy: PassBy; piece: RoutePath }[] = [];
+	const variants: ThroughVariant[] = [];
+	const oldCum = cumulative(line);
 	for (const [k, passBy] of passBys.entries()) {
-		const piece = pieces[k];
-		if (!piece || piece.coordinates.length < 2) continue;
-		const before = slicePath(path, passBy.from, passBy.to).distance;
-		if (piece.distance > before * (1 + THROUGH.maxExtraRatio) || piece.distance - before > THROUGH.maxExtraM) continue;
-		if (badShape(piece)) continue;
-		const pieceLine = lineOf(piece);
+		const found = pieces[k];
+		if (!found || found.coordinates.length < 2) continue;
+		const length = slicePath(path, passBy.from, passBy.to).distance;
+		if (found.distance > length * (1 + limits.maxExtraRatio) || found.distance - length > limits.maxExtraM) continue;
+		if (badShape(found)) continue;
+		const pieceLine = lineOf(found);
 		const rest =
 			overlapShare(pieceLine, line.slice(0, passBy.from + 1)) + overlapShare(pieceLine, line.slice(passBy.to));
 		if (rest > THROUGH.maxOverlap) continue;
-		good.push({ passBy, piece });
-	}
-
-	// … dann von hinten nach vorn einsetzen (die Punkte davor bleiben, wo sie sind), jeweils nur, wenn es schöner wird
-	let result = original;
-	// alles ab hier ist schon ersetzt – ein Abschnitt, der hineinreicht, bleibt, wie er war
-	let limit = Infinity;
-	for (const found of good.sort((a, b) => b.passBy.from - a.passBy.from)) {
-		if (found.passBy.to > limit) continue;
 		// an den Nahtstellen nicht bis zum alten Punkt und zurück fahren
-		const seam = trimSeams(result.path, found.passBy.from, Math.min(found.passBy.to, limit), found.piece);
-		if (seam.to > limit) continue;
-		const passBy = { ...found.passBy, from: seam.from, to: seam.to };
-		const piece = seam.piece;
-		const candidate = splicePath(result.path, passBy.from, passBy.to, piece);
+		const { from, to, piece } = trimSeams(path, passBy.from, passBy.to, found);
 		// auch an den Nahtstellen kein neuer Stummel/Kreis/Zipfel (GraphHopper setzt Anfang und Ende des Stücks auf den nächsten
 		// Weg – liegt der neben der bisherigen Strecke, entstünde dort ein Haken): Stück samt THROUGH.seamM davor und dahinter mit
 		// derselben Gegend vorher vergleichen (ein Haken, den es dort schon gab, verhindert die Verbesserung nicht)
-		const oldCum = cumulative(lineOf(result.path));
+		const candidate = splicePath(path, from, to, piece);
 		const newCum = cumulative(lineOf(candidate));
-		const end = passBy.from + piece.coordinates.length - 1;
+		const end = from + piece.coordinates.length - 1;
 		const before = shapeOf(
-			slicePath(result.path, indexAt(oldCum, oldCum[passBy.from] - THROUGH.seamM), indexAt(oldCum, oldCum[passBy.to] + THROUGH.seamM))
+			slicePath(path, indexAt(oldCum, oldCum[from] - THROUGH.seamM), indexAt(oldCum, oldCum[to] + THROUGH.seamM))
 		);
 		const after = shapeOf(
-			slicePath(candidate, indexAt(newCum, newCum[passBy.from] - THROUGH.seamM), indexAt(newCum, newCum[end] + THROUGH.seamM))
+			slicePath(candidate, indexAt(newCum, newCum[from] - THROUGH.seamM), indexAt(newCum, newCum[end] + THROUGH.seamM))
 		);
 		if (newProblem(before, after)) continue;
+		const old = slicePath(path, from, to);
+		const oldStats = analyzeRoute(old, deps.landscape, deps.roads, deps.fine);
+		const newStats = analyzeRoute(piece, deps.landscape, deps.roads, deps.fine);
+		variants.push({
+			passBy,
+			from,
+			to,
+			piece,
+			extra: piece.distance - old.distance,
+			gain: beautyScore(newStats) - beautyScore(oldStats),
+			before: oldStats,
+			after: newStats
+		});
+	}
+	return variants;
+}
+
+/**
+ * Einen Weg durch Wald, Park und an Seeufern entlang statt daran vorbei führen (siehe oben). `accept` prüft die ganze
+ * Tour nach jedem Ersetzen (z. B. Länge einer Runde) – sagt sie nein, bleibt der Abschnitt, wie er war.
+ */
+export async function goThrough(
+	path: RoutePath,
+	deps: PlanDeps,
+	options: RouteOptions,
+	accept: (candidate: RoutePath) => boolean = () => true
+): Promise<ThroughResult> {
+	const stats = analyzeRoute(path, deps.landscape, deps.roads, deps.fine);
+	const original: ThroughResult = { path, stats, beauty: beautyScore(stats), changed: 0 };
+	const variants = await throughVariants(path, deps, options);
+
+	// von hinten nach vorn einsetzen (die Punkte davor bleiben, wo sie sind), jeweils nur, wenn es schöner wird
+	let result = original;
+	// alles ab hier ist schon ersetzt – ein Abschnitt, der hineinreicht, bleibt, wie er war
+	let limit = Infinity;
+	for (const { from, to, piece, gain } of variants.sort((a, b) => b.from - a.from)) {
+		if (to > limit) continue;
+		// das neue Stück muss deutlich schöner sein als das alte (auf die ganze Tour gerechnet wäre ein schönes Stück von 2 km
+		// in einer 30-km-Runde kaum zu sehen) – und die ganze Tour darf dadurch nicht weniger schön werden
+		if (gain < THROUGH.minPieceGain) continue;
+		const candidate = splicePath(result.path, from, to, piece);
 		if (!accept(candidate)) continue;
 		const candidateStats = analyzeRoute(candidate, deps.landscape, deps.roads, deps.fine);
 		const beauty = beautyScore(candidateStats);
-		if (beauty < result.beauty + THROUGH.minBeautyGain) continue;
+		if (beauty < result.beauty) continue;
 		result = { path: candidate, stats: candidateStats, beauty, changed: result.changed + 1 };
-		limit = passBy.from;
+		limit = from;
 	}
 	return result;
 }
