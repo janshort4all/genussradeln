@@ -379,9 +379,19 @@ eingebauter App (jedes Update = neue APK), TWA (Adressleiste bleibt ohne Domain-
   Gradle und Build-Tools laufen (x64-Emulation), ein Emulator wäre langsam – getestet wird auf einem echten Handy.
 - **Signierschlüssel** und Passwörter nur in `~/.gradle/gradle.properties` (`GENUSS_KEYSTORE`, `GENUSS_KEY_ALIAS`, `GENUSS_STORE_PASSWORD`, `GENUSS_KEY_PASSWORD`),
   nie ins Repository. **Schlüssel sichern!** Geht er verloren, lässt sich die App bei den Testpersonen nicht mehr überinstallieren (Signatur muss gleich bleiben).
-- **Noch offen (nächste Schritte):** Standort mit Vordergrunddienst, damit die Navigation bei ausgeschaltetem Bildschirm weiterläuft (Capacitor-Plugin prüfen: aktuelle Doku,
-  Kompatibilität mit Capacitor 8); Ansagen über das Android-TTS statt `speechSynthesis`; „Fahrt speichern/verschicken“ über Dateisystem- und Teilen-Plugin; Bildschirm wach halten.
-  Die Web-App erkennt die Hülle mit `Capacitor.isNativePlatform()` und bleibt im Browser unverändert.
+- **Alles Native steckt von Anfang an in der APK (Jan, 14.10.2026: „ich will nicht nochmal die APK an alle verschicken müssen, weil Basisfunktionen nicht gehen“).**
+  Die erste Fassung hatte **keine Standort-Berechtigung** im Manifest – die Standortfreigabe kam nie (Capacitor fragt nur, wenn `ACCESS_FINE/COARSE_LOCATION` im Manifest stehen).
+  Jetzt enthalten: Berechtigungen Standort (genau + grob), `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_LOCATION`, `POST_NOTIFICATIONS`, `WAKE_LOCK`, Netzwerkstatus;
+  Plugins `@capacitor-community/background-geolocation` (Dienst mit Benachrichtigung „Die Navigation läuft“ – Standort läuft bei ausgeschaltetem Bildschirm weiter,
+  ohne `ACCESS_BACKGROUND_LOCATION`), `@capacitor/geolocation` (einmalige Position), `@capacitor-community/keep-awake`, `@capacitor-community/text-to-speech`
+  (Ansagen über Android), `@capacitor/share` + `@capacitor/filesystem` (Fahrt/GPX speichern und verschicken über das Teilen-Menü – `<a download>`/`navigator.share` mit Dateien
+  gehen im WebView nicht), `@capacitor/app` (geteilte Links öffnen sich in der App: Intent-Filter für `https://janshort4all.github.io/genussradeln`, Abgleich in `+layout.svelte`).
+  **Wer neue native Fähigkeiten braucht, muss eine neue APK verteilen – deshalb vorher im Manifest/Plugin-Satz prüfen, was die geplanten Funktionen brauchen, und alles in einer APK bündeln.**
+- Die Web-App nutzt das alles über `src/lib/native/index.ts` (`isNative()` = `Capacitor.isNativePlatform()`); im Browser bleiben die alten Wege (`navigator.geolocation`,
+  `speechSynthesis`, Wake Lock, Download). Angepasst: `navigation/device.ts` (Stimme, Bildschirm, Standort, kein Vollbild), `geo/position.ts`, `navigation/ride-file.ts`, `gpx/gpx.ts`,
+  Teilen auf der Tour-Seite. **Auf dem Handy noch nicht geprüft** (kein Emulator auf Windows ARM): Standortfrage, Navigation mit ausgeschaltetem Bildschirm, Ansage, Speichern/Teilen.
+- Bekannt: Der lokale Web-Build (`npm run build`) scheitert auf diesem PC in `vite-plugin-pwa` (`version.json` fehlt), auch ohne die Android-Änderungen; GitHub baut fehlerfrei.
+  Entwicklungsserver, Tests und `npm run check` laufen.
 
 ## Projektstruktur (Ziel)
 

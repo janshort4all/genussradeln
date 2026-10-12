@@ -1,7 +1,12 @@
 package de.genussradeln.app;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -26,5 +31,11 @@ public class MainActivity extends BridgeActivity {
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
             return WindowInsetsCompat.CONSUMED;
         });
+
+        // Ab Android 13 zeigt Android die Benachrichtigung „Die Navigation läuft“ (Standortdienst) nur nach Erlaubnis.
+        if (Build.VERSION.SDK_INT >= 33
+            && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[] { Manifest.permission.POST_NOTIFICATIONS }, 4711);
+        }
     }
 }

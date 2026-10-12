@@ -5,7 +5,9 @@
 	import '../app.css';
 
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { isNative, listenForLinks } from '$lib/native';
 	import { pwaInfo } from 'virtual:pwa-info';
 	import BottomBar from '$lib/components/BottomBar.svelte';
 
@@ -15,6 +17,9 @@
 
 	// In der Navigation keine untere Leiste – dort zählt nur die Strecke
 	const showBottomBar = $derived(!page.route.id?.startsWith('/navigation'));
+
+	// Android-App: ein angetippter Tour-Link (z. B. aus WhatsApp) öffnet sich in der App
+	onMount(() => (isNative() ? listenForLinks((path) => void goto(path)) : undefined));
 
 	onMount(async () => {
 		if (pwaInfo) {

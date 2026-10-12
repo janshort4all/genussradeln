@@ -35,6 +35,7 @@
 	import { loadPois } from '$lib/stops/pois';
 	import { STOP_LABELS } from '$lib/stops/kinds';
 	import { downloadGpx } from '$lib/gpx/gpx';
+	import { isNative, shareLink as shareViaApp } from '$lib/native';
 	import { untrack } from 'svelte';
 	import { shareUrlFor } from '$lib/share/link';
 	import { getTour, removeTour, saveTour } from '$lib/storage/tours';
@@ -215,7 +216,9 @@
 	async function share() {
 		try {
 			if (!(await prepareShare())) return;
-			if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
+			if (isNative()) {
+				await shareViaApp(`Radtour: ${tour.title}`, shareText, shareLink);
+			} else if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
 				await navigator.share({ title: `Radtour: ${tour.title}`, text: shareText, url: shareLink });
 			} else {
 				menuOpen = !menuOpen;
@@ -245,7 +248,7 @@
 				s.lngLat ? [{ lngLat: s.lngLat, name: s.name ?? STOP_LABELS[s.kind], type: STOP_LABELS[s.kind] }] : []
 			)
 		});
-		tell('Die GPX-Datei ist im Ordner „Downloads“.');
+		if (!isNative()) tell('Die GPX-Datei ist im Ordner „Downloads“.');
 	}
 
 	/** „2:50 Std.“ bzw. „45 Min.“ (auf 5 Minuten gerundet; „ca.“ steht in der Bezeichnung) */

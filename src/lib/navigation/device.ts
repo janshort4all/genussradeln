@@ -3,10 +3,11 @@
  * Standort verfolgen – und eine Probefahrt ohne GPS (zum Ausprobieren am PC).
  */
 import { offset, type LngLat } from '$lib/geo/geo';
+import { isNative, keepAwake, speak, stopSpeaking, watchLocation } from '$lib/native';
 import type { Fix } from './guidance';
 import type { RouteTrack } from './track';
 
-/** Deutsche Sprachansagen (Web Speech API) mit kurzem Signalton davor */
+/** Deutsche Sprachansagen (Web Speech API, in der Android-App die Sprachausgabe von Android) mit kurzem Signalton davor */
 export class Voice {
 	private audio?: AudioContext;
 	private voice?: SpeechSynthesisVoice;
@@ -21,7 +22,7 @@ export class Voice {
 		} catch {
 			// ohne Signalton geht es auch
 		}
-		if ('speechSynthesis' in window) {
+		if (!isNative() && 'speechSynthesis' in window) {
 			const pick = () => {
 				const voices = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith('de'));
 				this.voice = voices.find((v) => v.localService) ?? voices[0];
@@ -34,7 +35,12 @@ export class Voice {
 	}
 
 	get canSpeak(): boolean {
-		return typeof window !== 'undefined' && 'speechSynthesis' in window;
+		return isNative() || (typeof window !== 'undefined' && 'speechSynthesis' in window);
+	}
+
+	private cancelSpeech() {
+		if (isNative()) void stopSpeaking().catch(() => {});
+		else if (this.canSpeak) speechSynthesis.cancel();
 	}
 
 	beep() {
@@ -58,10 +64,14 @@ export class Voice {
 	say(text: string, beep = false, force = false) {
 		// `force`: „Nochmal“ spricht auch bei ausgeschaltetem Ton (die Person hat ja gerade danach gefragt)
 		if (this.muted && !force) return;
-		if (this.canSpeak) speechSynthesis.cancel();
+		this.cancelSpeech();
 		clearTimeout(this.pending);
 		if (beep && !this.muted) this.beep();
 		if (!this.canSpeak) return;
+		if (isNative()) {
+			this.pending = setTimeout(() => void speak(text, 0.95).catch(() => {}), beep ? 300 : 0);
+			return;
+		}
 		const utterance = new SpeechSynthesisUtterance(text);
 		utterance.lang = 'de-DE';
 		utterance.rate = 0.95;
@@ -73,7 +83,7 @@ export class Voice {
 	private pending: ReturnType<typeof setTimeout> | undefined;
 
 	stop() {
-		if (this.canSpeak) speechSynthesis.cancel();
+		this.cancelSpeech();
 	}
 }
 
@@ -85,6 +95,14 @@ export type ScreenLock = (() => void) & { active: boolean };
  * (alter Browser, Stromsparmodus), ist `active` falsch – die Seite weist dann darauf hin.
  */
 export async function keepScreenOn(): Promise<ScreenLock> {
+	if (isNative()) {
+		try {
+			const release = await keepAwake();
+			if (release) return Object.assign(release, { active: true });
+		} catch {
+			// dann der Weg über den Browser
+		}
+	}
 	let lock: WakeLockSentinel | undefined;
 	try {
 		lock = await navigator.wakeLock?.request('screen');
@@ -95,6 +113,8 @@ export async function keepScreenOn(): Promise<ScreenLock> {
 }
 
 export async function enterFullscreen() {
+	// in der Android-App gibt es keine Browserleiste, die weg müsste
+	if (isNative()) return;
 	try {
 		if (!document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
 	} catch {
@@ -117,6 +137,20 @@ export type PositionProblem = 'denied' | 'unavailable' | 'unsupported';
  * beim Rechnen und Zeichnen). Gibt eine Funktion zum Beenden zurück.
  */
 export function followPosition(onFix: (fix: Fix) => void, onProblem: (problem: PositionProblem) => void): () => void {
+	if (isNative()) {
+		// Android-App: Standort über einen Dienst, der auch bei ausgeschaltetem Bildschirm weiterläuft
+		let lastFix = 0;
+		return watchLocation(
+			(fix) => {
+				const now = Date.now();
+				const standing = fix.speed !== null && fix.speed < 1;
+				if (now - lastFix < (standing ? 3000 : 800)) return;
+				lastFix = now;
+				onFix(fix);
+			},
+			(denied) => onProblem(denied ? 'denied' : 'unavailable')
+		);
+	}
 	if (!('geolocation' in navigator)) {
 		onProblem('unsupported');
 		return () => {};

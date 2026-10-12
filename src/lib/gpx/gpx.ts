@@ -2,6 +2,7 @@
  * GPX-Export (F12): Tour als Datei für andere Navi-Apps und Fahrradcomputer.
  * GPX 1.1 – ein Track mit Höhen, dazu die Einkehr-Stopps als Wegpunkte.
  */
+import { isNative, shareFile } from '$lib/native';
 
 export interface GpxWaypoint {
 	lngLat: [number, number];
@@ -72,6 +73,11 @@ export function gpxFileName(title: string): string {
 
 /** Datei im Browser herunterladen (Handy: landet im Ordner „Downloads“) */
 export function downloadGpx(input: GpxInput): void {
+	// Android-App: über das Teilen-Menü (Dateien, Drive, WhatsApp …) statt Download
+	if (isNative()) {
+		void shareFile(gpxFileName(input.name), toGpx(input), `Tour: ${input.name}`).catch(() => {});
+		return;
+	}
 	const blob = new Blob([toGpx(input)], { type: 'application/gpx+xml' });
 	const url = URL.createObjectURL(blob);
 	const link = document.createElement('a');

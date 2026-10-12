@@ -4,4 +4,7 @@
     <string name="title_activity_main">Genuss-Radeln</string>
     <string name="package_name">de.genussradeln.app</string>
     <string name="custom_url_scheme">de.genussradeln.app</string>
+    <!-- Benachrichtigung des Standortdienstes während der Navigation -->
+    <string name="capacitor_background_geolocation_notification_icon">drawable/ic_stat_navigation</string>
+    <string name="capacitor_background_geolocation_notification_channel_name">Navigation</string>
 </resources>
