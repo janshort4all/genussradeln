@@ -34,6 +34,7 @@ import { legFromPath, newTourId, type PlannedTour, type RoundWish, type TourRequ
 import { highlightSentence, honestTitles } from './describe';
 import { NoRouteError, type RouteOptions, type RoutePath } from './graphhopper';
 import type { PlanDeps } from './plan';
+import { goThrough } from './through';
 
 /** Zufallszahlen mit festem Startwert (gleiche Suche → gleiche Runden, neue Suche → neue) */
 function random(seed: number) {
@@ -359,6 +360,27 @@ export async function planRound(request: TourRequest, deps: PlanDeps): Promise<P
 	for (const c of candidates) {
 		if (chosen.length >= ROUND.suggestions) break;
 		if (!chosen.some((p) => tooSimilar(c, p))) chosen.push(c);
+	}
+
+	// Durch statt vorbei (Wunsch Jan, 14.10.2026, through.ts): Wald, Parks und Seeufer, an denen eine Runde nur vorbeiführt,
+	// werden durchfahren – solange die Runde ihre Länge behält (± ROUND.tolerance) und nicht denselben Weg zurück fährt.
+	// Nicht beim Wunsch „Felder“ (dort soll sie ja gerade nicht in den Wald).
+	if (wish !== 'fields') {
+		await mapLimited(chosen, 2, async (c) => {
+			const better = await goThrough(
+				c.path,
+				deps,
+				options,
+				(p) => Math.abs(p.distance / target - 1) <= ROUND.tolerance && selfOverlap(lineOf(p)) <= ROUND.maxSelfOverlap
+			);
+			if (!better.changed) return;
+			c.path = better.path;
+			c.line = lineOf(better.path);
+			c.stats = better.stats;
+			c.beauty = better.beauty;
+		});
+		// zwei Runden, die jetzt durch dasselbe Gebiet führen, könnten sich zu ähnlich geworden sein – die schönere bleibt
+		for (let i = chosen.length - 1; i > 0; i--) if (chosen.slice(0, i).some((p) => tooSimilar(chosen[i], p))) chosen.splice(i, 1);
 	}
 
 	// Titel: benannter Höhepunkt und unterscheidende Orte, sonst die Landschaft; Name nach der Richtung

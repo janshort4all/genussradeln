@@ -81,6 +81,11 @@ export class FineMap {
 		return { kind, depth: steps / DEPTH_STEPS.length };
 	}
 
+	/** Liegt der Punkt selbst im Wasser (See, Fluss)? */
+	isWater([lon, lat]: LngLat): boolean {
+		return this.bit(this.water, this.rowOf(lat), this.colOf(lon));
+	}
+
 	/** Liegt Wasser höchstens `radiusCells` Zellen (≈ 21 m je Zelle) vom Punkt entfernt? */
 	nearWater([lon, lat]: LngLat, radiusCells: number): boolean {
 		const row = this.rowOf(lat);

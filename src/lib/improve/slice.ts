@@ -72,6 +72,85 @@ function turnSign(before: number, after: number): number | undefined {
 }
 
 /**
+ * Abbiegehinweise nach dem Ersetzen: davor unverändert, die des neuen Stücks (ohne Start und Ziel), dahinter verschoben.
+ * An den beiden Nahtstellen kommt ein Hinweis aus der Geometrie dazu, wenn der Weg dort abbiegt.
+ */
+function spliceInstructions(
+	old: RouteInstruction[] | undefined,
+	piece: RoutePath,
+	at: (i: number) => LngLat,
+	count: number,
+	from: number,
+	to: number
+): RouteInstruction[] {
+	const n = piece.coordinates.length;
+	const shift = n - (to + 1 - from);
+	const instructions: RouteInstruction[] = (old ?? []).filter((i) => i.index < from);
+	if (from > 0) {
+		const startTurn = turnSign(bearing(at(from - 1), at(from)), bearing(at(from), at(from + 1)));
+		if (startTurn !== undefined) {
+			const street = piece.instructions?.find((i) => i.index === 0)?.street;
+			instructions.push({ index: from, sign: startTurn, ...(street ? { street } : {}) });
+		}
+	}
+	for (const i of piece.instructions ?? []) {
+		if (i.index > 0 && i.index < n - 1 && i.sign !== 4) instructions.push({ ...i, index: i.index + from });
+	}
+	const joint = from + n - 1;
+	if (joint + 1 < count) {
+		const endTurn = turnSign(bearing(at(joint - 1), at(joint)), bearing(at(joint), at(joint + 1)));
+		if (endTurn !== undefined) {
+			const street = (old ?? []).find((i) => i.index === to)?.street;
+			instructions.push({ index: joint, sign: endTurn, ...(street ? { street } : {}) });
+		}
+	}
+	for (const i of (old ?? []).filter((i) => i.index > to)) instructions.push({ ...i, index: i.index + shift });
+	return instructions;
+}
+
+/**
+ * Den Abschnitt `from`…`to` eines GraphHopper-Wegs durch `piece` ersetzen (ohne neu zu rechnen) – wie spliceLeg, aber
+ * für die Planung (alle Angaben je Abschnitt bleiben erhalten, damit sich der Weg wie jeder andere bewerten lässt).
+ * Das Stück beginnt und endet an denselben Punkten wie der ersetzte Abschnitt.
+ */
+export function splicePath(path: RoutePath, from: number, to: number, piece: RoutePath): RoutePath {
+	const coordinates = [...path.coordinates.slice(0, from), ...piece.coordinates, ...path.coordinates.slice(to + 1)];
+	const shift = piece.coordinates.length - (to + 1 - from);
+	const at = (i: number): LngLat => [coordinates[i][0], coordinates[i][1]];
+	let meters = 0;
+	for (let i = 1; i < coordinates.length; i++) meters += distance(at(i - 1), at(i));
+	// Höhenmeter des ersetzten Abschnitts (ungeglättet) abziehen, die des neuen Stücks dazu
+	let oldUp = 0;
+	let oldDown = 0;
+	for (let i = from + 1; i <= to; i++) {
+		const step = path.coordinates[i][2] - path.coordinates[i - 1][2];
+		if (step > 0) oldUp += step;
+		else oldDown -= step;
+	}
+	const oldMeters = slicePath(path, from, to).distance;
+	const d = path.details;
+	const p = piece.details;
+	return {
+		distance: meters,
+		time: Math.max(0, path.time - (path.distance ? (path.time * oldMeters) / path.distance : 0)) + piece.time,
+		ascend: Math.max(0, path.ascend - oldUp + piece.ascend),
+		descend: Math.max(0, path.descend - oldDown + piece.descend),
+		coordinates,
+		instructions: spliceInstructions(path.instructions, piece, at, coordinates.length, from, to),
+		details: {
+			road_class: spliceIntervals(d.road_class, p.road_class, from, to, shift),
+			bike_network: spliceIntervals(d.bike_network, p.bike_network, from, to, shift),
+			surface: spliceIntervals(d.surface, p.surface, from, to, shift),
+			smoothness: spliceIntervals(d.smoothness, p.smoothness, from, to, shift),
+			street_name: spliceIntervals(d.street_name, p.street_name, from, to, shift),
+			average_slope: spliceIntervals(d.average_slope, p.average_slope, from, to, shift),
+			road_environment: spliceIntervals(d.road_environment, p.road_environment, from, to, shift),
+			max_speed: spliceIntervals(d.max_speed, p.max_speed, from, to, shift)
+		}
+	};
+}
+
+/**
  * Den Abschnitt `from`…`to` einer Teilstrecke durch `piece` ersetzen (ohne neu zu rechnen): Koordinaten, Angaben je
  * Abschnitt und Abbiegehinweise werden zusammengesetzt. An den beiden Nahtstellen kommt ein Hinweis aus der Geometrie
  * dazu, wenn der Weg dort abbiegt. Das Stück beginnt und endet an denselben Punkten wie der ersetzte Abschnitt.
@@ -95,24 +174,7 @@ export function spliceLeg(leg: TourLeg, from: number, to: number, piece: RoutePa
 		([f, t]) => [f, t] as [number, number]
 	);
 
-	// Abbiegehinweise: davor unverändert, die des neuen Stücks (ohne Start und Ziel), dahinter verschoben
-	const instructions: RouteInstruction[] = (leg.instructions ?? []).filter((i) => i.index < from);
-	const startTurn = turnSign(bearing(at(from - 1), at(from)), bearing(at(from), at(from + 1)));
-	if (startTurn !== undefined) {
-		const street = piece.instructions?.find((i) => i.index === 0)?.street;
-		instructions.push({ index: from, sign: startTurn, ...(street ? { street } : {}) });
-	}
-	for (const i of piece.instructions ?? []) {
-		if (i.index > 0 && i.index < n - 1 && i.sign !== 4) instructions.push({ ...i, index: i.index + from });
-	}
-	const joint = from + n - 1;
-	const endTurn = turnSign(bearing(at(joint - 1), at(joint)), bearing(at(joint), at(joint + 1)));
-	const behind = (leg.instructions ?? []).filter((i) => i.index > to);
-	if (endTurn !== undefined) {
-		const street = (leg.instructions ?? []).find((i) => i.index === to)?.street;
-		instructions.push({ index: joint, sign: endTurn, ...(street ? { street } : {}) });
-	}
-	for (const i of behind) instructions.push({ ...i, index: i.index + shift });
+	const instructions = spliceInstructions(leg.instructions, piece, at, coordinates.length, from, to);
 
 	return {
 		coordinates,

@@ -49,6 +49,7 @@ import { highlightSentence, honestTitles, sideOf, sideTitle, viaStreetTitle, wit
 import type { NameData } from '$lib/naming/names';
 import { distinctPlaces, highlightOf, landmarkPhrase, landmarkTitle, routeNames, viaPlaces, type RouteNames } from '$lib/naming/title';
 import { NoRouteError, route as routeGraphHopper, type RouteOptions, type RoutePath } from './graphhopper';
+import { goThrough } from './through';
 
 export interface PlanDeps {
 	route: typeof routeGraphHopper;
@@ -943,6 +944,28 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 		if (beautyOf(c) < floor) break;
 		if (!chosen.includes(c) && !chosen.some((p) => tooSimilar(c, p))) chosen.push(c);
 	}
+	// Durch statt vorbei (Wunsch Jan, 14.10.2026, through.ts): Wald, Parks und Seeufer, an denen ein Vorschlag nur
+	// vorbeiführt, werden durchfahren. Jeder Hin- bzw. Rückweg einmal (er kann in mehreren Vorschlägen stecken).
+	const legs = [...new Set(chosen.flatMap((c) => c.legs))];
+	const options = { effort: request.effort, signal: deps.signal };
+	const betterLegs = await mapLimited(legs, 2, async (leg): Promise<LegCandidate> => {
+		const better = await goThrough(leg.path, deps, options);
+		if (!better.changed) return leg;
+		return { ...leg, path: better.path, line: lineOf(better.path), stats: better.stats, beauty: better.beauty, score: leg.score + better.beauty - leg.beauty };
+	});
+	const swap = new Map(legs.map((leg, i) => [leg, betterLegs[i]]));
+	const updated = chosen.map((c): Combination => {
+		const next = c.legs.map((l) => swap.get(l) ?? l);
+		if (next.every((l, i) => l === c.legs[i])) return c;
+		const overlap = next.length > 1 ? overlapShare(next[1].line, next[0].line) : 0;
+		// der Rückweg darf dadurch nicht mehr auf dem Hinweg fahren
+		return overlap > c.overlap + 0.05 ? c : { ...c, legs: next, overlap };
+	});
+	// zwei Vorschläge, die jetzt durch dasselbe Gebiet führen, könnten sich zu ähnlich geworden sein – der schönere bleibt
+	const distinct: Combination[] = [];
+	for (const c of [...updated].sort((a, b) => beautyOf(b) - beautyOf(a))) if (!distinct.some((k) => tooSimilar(c, k))) distinct.push(c);
+	chosen.splice(0, chosen.length, ...updated.filter((c) => distinct.includes(c)));
+
 	// vom längsten (größter Umweg) zum kürzesten
 	const ordered = [...chosen].sort((a, b) => lengthOf(b) - lengthOf(a));
 	const labels = lengthLabels(ordered.length);

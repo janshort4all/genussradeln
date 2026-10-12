@@ -309,6 +309,48 @@ export const WISH_WEIGHTS: Record<'water' | 'forest' | 'fields', [number, number
  */
 export const IMPROVE_DIRECT = { maxExtraRatio: 0.12, minGain: 0.04 } as const;
 
+/**
+ * „Durch statt vorbei“ (Wunsch Jan, 14.10.2026, Sechs-Seen-Platte: „egal ob Wald oder Seen – wenn es die Option gibt,
+ * dadurch zu fahren, soll er das tun und nicht nur am Rand entlang“). Nach der Auswahl wird jeder Vorschlag alle `stepM`
+ * Meter geprüft: Liegt `minOffsetM`…`maxOffsetM` daneben deutlich mehr Wald, Park oder Seeufer (Gewinn ≥ `minGain`,
+ * siehe through.ts → insideness)? Abschnitte ab `minStretchM` werden mit einem Korridor durchs Innere (Streifen
+ * ± `halfWidthM`, außen × `outsideFactor`) neu gerechnet und übernommen, wenn sie schöner sind (≥ `minBeautyGain`), höchstens
+ * `maxExtraRatio` bzw. `maxExtraM` länger, ohne Stummel/Kreis/Zipfel und ohne auf dem Rest der Tour zu fahren.
+ */
+export const THROUGH = {
+	stepM: 200,
+	minOffsetM: 100,
+	maxOffsetM: 900,
+	offsetStepM: 50,
+	/** je so viele Meter Abstand 1 Punkt weniger – nähere Wege gehen vor */
+	distancePenaltyM: 3000,
+	/** Zuschlag „direkt am Wasser“ (Wasser höchstens waterCells × 21 m entfernt) */
+	waterBonus: 0.6,
+	waterCells: 5,
+	minGain: 0.5,
+	minStretchM: 800,
+	/** so weit von Start und Ziel bleibt die Strecke, wie sie ist */
+	freeEndsM: 300,
+	halfWidthM: 200,
+	outsideFactor: 0.3,
+	/** die bisherige Strecke (Streifen ± avoidHalfWidthM, ohne Anfang und Ende) zählt nur × avoidFactor */
+	avoidHalfWidthM: 30,
+	avoidFactor: 0.4,
+	maxExtraRatio: 0.3,
+	maxExtraM: 2000,
+	/** Anteil des neuen Stücks, der auf dem Rest der Tour liegen darf */
+	maxOverlap: 0.25,
+	/** so viel Strecke vor und hinter dem neuen Stück wird mit auf Stummel/Kreis/Zipfel geprüft (Nahtstellen) */
+	seamM: 600,
+	/** Nahtstellen glätten: läuft das neue Stück bis zu seamReachM auf dem alten Weg zurück (Abstand < seamNearM), wird dort verbunden */
+	seamReachM: 300,
+	seamNearM: 15,
+	minBeautyGain: 0.02,
+	/** höchstens so viele Abschnitte je Weg, so viele Anfragen gleichzeitig */
+	maxStretches: 3,
+	parallel: 3
+} as const;
+
 
 /**
  * Spannende Umwege (Jan, 12.10.2026): Highlights in der Nähe der Tour, die nur wegen der Längenvorgabe nicht in der Tour
