@@ -295,6 +295,17 @@ Während der Vorschau zeigt die Karte nur das gewählte Ziel, die übrige Tour b
 Am PC lag die große Karte unter der unteren Leiste (die stehende Kartenspalte bildet eine eigene Ebene) – behoben. Vorgänger (wieder entfernt): „Noch schöner fahren?“ (automatisch, kleine Umwege) und „Stationen tauschen“
 (Orte am Weg mit Ausweichstücken) – beide Jan zu unübersichtlich bzw. zu klein.
 
+### Wie lange die Planung dauert (Messung 14.10.2026, Jan: „dauert lange, Fahrrad ruckelt“)
+
+Gemessen am PC mit dem Online-Server (Duisburg → Krefeld, 41–48 Anfragen, ≈ 1,5–1,9 MB): **6–9 s** gesamt, davon ≈ 5 s Warten auf den Server (Anfragen laufen höchstens
+4 gleichzeitig; der Server hat 2 Kerne und ist dabei ausgelastet: je Anfrage ≈ 90 ms einzeln, 200–1500 ms unter Last, Anfragen mit `areas` am langsamsten) und ≈ 2,7 s Rechnen im Browser
+(am Handy etwa dreimal so lang). Anweisungen/Höhen/Details ändern die Zeit je Anfrage kaum (nur die Größe: 29 KB → 9 KB). **Umgesetzt:** (1) Die Rechnung läuft in einem
+**Web Worker** (`routing/plan.worker.ts`, `planner.ts`, gemeinsame Ladefunktion `plan-deps.ts`; Notweg ohne Worker rechnet auf der Seite): Die Seite wird nicht mehr angehalten (vorher
+Blöcke bis 550 ms am PC → am Handy über 1 s, das Fahrrad im Wartebild blieb stehen); gemessen: 0 lange Aufgaben im Hauptprozess. (2) **Ergebnisse gleicher Wünsche werden gemerkt**
+(Start auf ≈ 100 m gerundet, weil das GPS schwankt; 8 Wünsche, nur im Speicher der laufenden App): zweites Mal 0 ms. **Nicht umgesetzt / Optionen:** den Server von 2 auf 4 Kerne
+vergrößern (Oracle Always Free erlaubt insgesamt 4 OCPUs/24 GB – Instanz in der Konsole ändern, nie „Upgrade“/„Pay As You Go“ anklicken), weniger Kandidaten pro Planung
+(würde die Auswahl verändern), Anweisungen erst für die fertigen Touren holen (spart ≈ 25 % Datenmenge).
+
 ### Merken (F13/F14 – vorgezogen, 11.10.2026)
 
 Das Herz im Tourdetail merkt die Tour auf dem Gerät (`src/lib/storage/tours.ts`, rohes IndexedDB ohne zusätzliche Bibliothek,

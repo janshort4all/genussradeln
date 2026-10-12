@@ -12,14 +12,10 @@
 	import RouteCard from '$lib/components/RouteCard.svelte';
 	import RouteMap from '$lib/map/RouteMap.svelte';
 	import { routeColor } from '$lib/map/colors';
-	import { NoRouteError, route, RoutingUnavailableError } from '$lib/routing/graphhopper';
-	import { planTours, TooCloseError } from '$lib/routing/plan';
-	import { planRound } from '$lib/routing/round';
+	import { NoRouteError, RoutingUnavailableError } from '$lib/routing/graphhopper';
+	import { TooCloseError } from '$lib/routing/plan';
+	import { planTours } from '$lib/routing/planner';
 	import { loadNames } from '$lib/naming/names';
-	import { loadLandscape } from '$lib/scoring/landscape';
-	import { loadStreams } from '$lib/routing/streams';
-	import { loadFineMap } from '$lib/scoring/fine';
-	import { loadRoadMask } from '$lib/scoring/roads';
 	import { tourLine } from '$lib/tour/model';
 	import { session } from '$lib/tour/session.svelte';
 	import { formatDuration } from '$lib/tour/sample';
@@ -90,32 +86,16 @@
 	async function compute() {
 		if (!request) return;
 		status = 'loading';
-		// Landschaftskarte und Namen (Gewässer, Wälder, Orte) – ohne sie geht es auch, nur weniger schön benannt
-		const [landscape, names, roads, fine, streams] = await Promise.all([
-			loadLandscape(asset('/data/landscape.json'), asset('/data/landscape.png')).catch((error) => {
-				console.warn('Landschaftskarte nicht verfügbar:', error);
-				return undefined;
-			}),
-			loadNames(asset('/data/landmarks.json'), asset('/data/places.json')).catch((error) => {
-				console.warn('Namensdaten nicht verfügbar:', error);
-				return undefined;
-			}),
-			loadRoadMask(asset('/data/roads.json'), asset('/data/roads.bin')).catch((error) => {
-				console.warn('Straßenkarte nicht verfügbar:', error);
-				return undefined;
-			}),
-			loadFineMap(asset('/data/fine.json'), asset('/data/fine.bin')).catch((error) => {
-				console.warn('Feine Karte nicht verfügbar:', error);
-				return undefined;
-			}),
-			loadStreams(asset('/data/streams.json')).catch((error) => {
-				console.warn('Gewässerdaten nicht verfügbar:', error);
-				return undefined;
-			})
-		]);
+		// Die Rechnung läuft im Hintergrund (plan.worker.ts): Landschaftskarte, Namen, Straßen laden und Wege bewerten,
+		// ohne die Seite anzuhalten – das Wartebild bleibt flüssig. Gleiche Wünsche sind beim zweiten Mal sofort da.
 		try {
-			const deps = { route, landscape, names, roads, fine, streams };
-			const result = request.round ? await planRound(request, deps) : await planTours(request, deps);
+			const result = await planTours(request, {
+				landscape: [asset('/data/landscape.json'), asset('/data/landscape.png')],
+				names: [asset('/data/landmarks.json'), asset('/data/places.json')],
+				roads: [asset('/data/roads.json'), asset('/data/roads.bin')],
+				fine: [asset('/data/fine.json'), asset('/data/fine.bin')],
+				streams: asset('/data/streams.json')
+			});
 			session.setTours(request, result);
 			tours = result;
 			status = 'done';
