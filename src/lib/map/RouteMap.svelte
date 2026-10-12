@@ -36,6 +36,8 @@
 		/** Wasser (See, Fluss) oder Grün (Wald, Park) */
 		water: boolean;
 		label: string;
+		/** der mögliche neue Weg – in der Liste gestrichelt auf der Karte (Jan, 14.10.2026: „die Umfahrungen werden nicht angezeigt“) */
+		line?: LngLat[];
 	}
 </script>
 
@@ -413,6 +415,32 @@
 			if (wanted.has(h.id) && element && !highlightMarkers.has(h.id))
 				highlightMarkers.set(h.id, createMarker(element, h.lngLat, { anchor: 'bottom', offset: [0, -4] }));
 		}
+	});
+
+	// Alle möglichen neuen Wege gestrichelt, solange die Liste offen ist (große Karte, noch keiner gewählt)
+	$effect(() => {
+		if (!map || !loaded) return;
+		const m = map;
+		const lines = expanded && !preview ? highlights.flatMap((h) => (h.line && h.line.length > 1 ? [h.line] : [])) : [];
+		for (const id of ['options-casing', 'options']) if (m.getLayer(id)) m.removeLayer(id);
+		if (m.getSource('options')) m.removeSource('options');
+		if (!lines.length) return;
+		m.addSource('options', {
+			type: 'geojson',
+			data: {
+				type: 'FeatureCollection',
+				features: lines.map((coordinates) => ({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates } }))
+			},
+			tolerance: 1.5
+		});
+		m.addLayer({ id: 'options-casing', type: 'line', source: 'options', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#FDFBF5', 'line-width': 9 } });
+		m.addLayer({
+			id: 'options',
+			type: 'line',
+			source: 'options',
+			layout: { 'line-join': 'round', 'line-cap': 'butt' },
+			paint: { 'line-color': '#4B5A22', 'line-width': 5, 'line-dasharray': [1.6, 1.1] }
+		});
 	});
 
 	// Vorschau eines Tauschs: Linien und Schilder „Bisher“ / „Neu“, die Karte zeigt die Stelle

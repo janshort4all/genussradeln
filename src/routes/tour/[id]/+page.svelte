@@ -377,7 +377,8 @@
 						id: d.highlight.id,
 						lngLat: d.highlight.marker,
 						water: d.highlight.kind === 'lake' || d.highlight.kind === 'river',
-						label: d.highlight.name
+						label: d.highlight.name,
+						line: d.offer.newLine
 					}))}
 					selectedHighlightId={detours.selectedId}
 					onhighlight={(id) => detours.select(id)}

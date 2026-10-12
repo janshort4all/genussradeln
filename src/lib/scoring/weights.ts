@@ -356,7 +356,10 @@ export const THROUGH = {
 	 * Runden dürfen dann auch über die ± 10 %
 	 */
 	offerMaxExtraRatio: Infinity,
-	offerMaxExtraM: Infinity
+	offerMaxExtraM: Infinity,
+	/** ein Vorschlag nimmt auch weitere solche Stücke bis chainNearM daneben mit (höchstens chainSteps weitere) */
+	chainSteps: 2,
+	chainNearM: 1000
 } as const;
 
 

@@ -10,13 +10,15 @@ import { distanceToLine, type LngLat } from '$lib/geo/geo';
 import type { LandmarkKind } from '$lib/naming/names';
 import { landmarkTitle, routeNames } from '$lib/naming/title';
 import type { PlanDeps } from '$lib/routing/plan';
-import { throughVariants } from '$lib/routing/through';
-import { lineOf, type RouteStats } from '$lib/scoring/score';
+import type { RouteOptions, RoutePath } from '$lib/routing/graphhopper';
+import { throughVariants, type ThroughVariant } from '$lib/routing/through';
+import { analyzeRoute, beautyScore, lineOf, type RouteStats } from '$lib/scoring/score';
 import { DETOURS, THROUGH } from '$lib/scoring/weights';
 import { rideMinutes } from '$lib/tour/duration';
 import { elevationProfile } from '$lib/tour/elevation';
 import { pathOfLeg, type PlannedTour } from '$lib/tour/model';
 import type { Detour } from './highlights';
+import { cumulative, slicePath, splicePath } from './slice';
 
 /** Anteil „laut“: Hauptstraßen, größere Nebenstraßen, Radwege direkt daneben (wie bei den Umwegen) */
 const traffic = (s: RouteStats) => s.major + (s.busy ?? 0) + (s.roadsideNoise ?? s.roadside ?? 0);
@@ -35,18 +37,75 @@ function nameOf(line: LngLat[], before: RouteStats, after: RouteStats, deps: Pla
 	return { name: 'Durchs Grüne', kind: 'park' };
 }
 
+/** Stück `from`…`to` eines Wegs samt Abbiegehinweisen (für die Navigation nach dem Übernehmen) */
+function pieceOf(path: RoutePath, from: number, to: number): RoutePath {
+	return {
+		...slicePath(path, from, to),
+		instructions: (path.instructions ?? []).filter((i) => i.index >= from && i.index <= to).map((i) => ({ ...i, index: i.index - from }))
+	};
+}
+
+/**
+ * Ein Vorschlag soll alles mitnehmen, was an dieser Stelle geht. Sonst gab es nach dem Übernehmen gleich den nächsten
+ * Vorschlag „Am Rhein entlang“ für das Stück daneben (Jan, 14.10.2026: „wenn ich Übernehmen drücke, übernimmt er es nicht“ –
+ * übernommen war es, aber derselbe Name stand wieder in der Liste). Deshalb wird nach dem ersten Stück in der Nähe weiter
+ * gesucht (bis THROUGH.chainSteps Mal) und alles zu einem Vorschlag zusammengefasst.
+ */
+async function chained(
+	path: RoutePath,
+	first: ThroughVariant,
+	deps: PlanDeps,
+	options: RouteOptions
+): Promise<{ from: number; to: number; piece: RoutePath }> {
+	let current = splicePath(path, first.from, first.to, first.piece);
+	// Bereich des neuen Stücks im aktuellen Weg und im ursprünglichen
+	let cur: [number, number] = [first.from, first.from + first.piece.coordinates.length - 1];
+	let orig: [number, number] = [first.from, first.to];
+	for (let step = 0; step < THROUGH.chainSteps; step++) {
+		const cum = cumulative(lineOf(current));
+		let a = cur[0];
+		while (a > 0 && cum[cur[0]] - cum[a] < THROUGH.chainNearM) a--;
+		let b = cur[1];
+		while (b < cum.length - 1 && cum[b] - cum[cur[1]] < THROUGH.chainNearM) b++;
+		const [more] = (
+			await throughVariants(current, deps, options, { maxExtraRatio: THROUGH.offerMaxExtraRatio, maxExtraM: THROUGH.offerMaxExtraM }, { from: a, to: b })
+		)
+			.filter((v) => v.gain >= DETOURS.minGain)
+			.sort((x, y) => y.gain - x.gain);
+		if (!more) break;
+		const shift = more.piece.coordinates.length - (more.to + 1 - more.from);
+		const offset = cur[1] - orig[1];
+		const nextOrig: [number, number] = [more.from < cur[0] ? more.from : orig[0], more.to > cur[1] ? more.to - offset : orig[1]];
+		const nextCur: [number, number] = [Math.min(cur[0], more.from), Math.max(cur[1], more.to) + shift];
+		current = splicePath(current, more.from, more.to, more.piece);
+		cur = nextCur;
+		orig = nextOrig;
+	}
+	return { from: orig[0], to: orig[1], piece: pieceOf(current, cur[0], cur[1]) };
+}
+
 export async function findThroughDetours(tour: PlannedTour, deps: PlanDeps): Promise<Detour[]> {
 	const { effort } = tour.request;
+	const options = { effort, signal: deps.signal };
 	const out: Detour[] = [];
 	for (const [legIndex, leg] of tour.legs.entries()) {
 		const path = pathOfLeg(leg);
 		const line = lineOf(path);
-		const variants = await throughVariants(path, deps, { effort, signal: deps.signal }, {
+		const found = await throughVariants(path, deps, options, {
 			maxExtraRatio: THROUGH.offerMaxExtraRatio,
 			maxExtraM: THROUGH.offerMaxExtraM
 		});
-		for (const v of variants) {
-			const { before, after, gain } = v;
+		const taken: [number, number][] = [];
+		for (const first of found.filter((v) => v.gain >= DETOURS.minGain).sort((x, y) => y.gain - x.gain)) {
+			if (taken.some(([f, t]) => first.from <= t && first.to >= f)) continue;
+			const joined = await chained(path, first, deps, options);
+			if (taken.some(([f, t]) => joined.from <= t && joined.to >= f)) continue;
+			taken.push([joined.from, joined.to]);
+			const old = slicePath(path, joined.from, joined.to);
+			const before = analyzeRoute(old, deps.landscape, deps.roads, deps.fine);
+			const after = analyzeRoute(joined.piece, deps.landscape, deps.roads, deps.fine);
+			const gain = beautyScore(after) - beautyScore(before);
+			const v = { ...joined, passBy: first.passBy, extra: joined.piece.distance - old.distance };
 			if (gain < DETOURS.minGain) continue;
 			if (traffic(after) > Math.max(traffic(before) + DETOURS.trafficSlack, DETOURS.maxTraffic)) continue;
 			const newLine = lineOf(v.piece);

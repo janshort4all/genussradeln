@@ -184,7 +184,11 @@ Hilfspunkte/Korridore; wo der Wald nur 100 m daneben beginnt, gibt es meist kein
 neben den Highlights (`improve/through-offers.ts`, Kennung `durch-…`): ohne Längengrenze (`THROUGH.offerMaxExtra*` = ∞) und ohne Mindest-Mehrweg (anders als die
 Umwege zu Highlights, ≥ 3 km), Name nach dem Gewässer/Wald am neuen Stück („Am Rhein entlang“) oder allgemein („Durch den Wald“), im Fenster „Bisher“ → „Neu“
 (statt „Mit Umweg“), kurze Stücke in der Liste mit Nachkommastelle („+0,7 km“, „gleich lang“). Das gelbe Feld zeigt jetzt genau den Unterschied der beiden
-angezeigten Fahrzeiten (vorher „+5 Min.“ bei gleicher Anzeige). Offen: kleiner Haken oben an einem Hilfspunkt (Runde fährt zum Punkt und auf einem Parallelweg ≈ 150 m daneben zurück – zählt weder als
+angezeigten Fahrzeiten (vorher „+5 Min.“ bei gleicher Anzeige). **Nachgebessert (Jan, 14.10.2026: „Übernehmen übernimmt es nicht“, „die möglichen Umfahrungen werden nicht angezeigt“):**
+Übernommen war es – aber danach bot die Suche das nächste Stück daneben wieder als „Am Rhein entlang“ an. Jetzt sammelt ein Vorschlag alles in der Nähe ein
+(`chained`: nach dem ersten Stück bis 2 × weiter suchen, bis 1 km daneben, `THROUGH.chainSteps/chainNearM`), danach bleibt nichts mehr übrig (gemessen: vorher
++0,7 km, dann noch +0,3 km; jetzt ein Vorschlag +1,0 km). In der großen Karte stehen alle möglichen neuen Wege gestrichelt, solange die Liste offen ist
+(`MapHighlight.line`, Ebene `options` in `RouteMap`). Offen: kleiner Haken oben an einem Hilfspunkt (Runde fährt zum Punkt und auf einem Parallelweg ≈ 150 m daneben zurück – zählt weder als
 Zipfel noch als Kreis).
 
 **Warum Park und See nicht gewählt wurden (Analyse 10.10.2026, Crusestraße → Krefeld):** (1) Die Suche nach Hilfspunkten schloss alles

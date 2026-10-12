@@ -280,11 +280,15 @@ export async function throughVariants(
 	path: RoutePath,
 	deps: PlanDeps,
 	options: RouteOptions,
-	limits: { maxExtraRatio: number; maxExtraM: number } = THROUGH
+	limits: { maxExtraRatio: number; maxExtraM: number } = THROUGH,
+	/** nur Abschnitte, die diese Punkte des Wegs berühren */
+	within?: { from: number; to: number }
 ): Promise<ThroughVariant[]> {
 	if (!deps.fine) return [];
 	const line = lineOf(path);
-	const passBys = findPassBys(line, deps.fine).slice(0, THROUGH.maxStretches);
+	const passBys = findPassBys(line, deps.fine)
+		.filter((p) => !within || (p.to >= within.from && p.from <= within.to))
+		.slice(0, THROUGH.maxStretches);
 	if (!passBys.length) return [];
 
 	const pieces = await mapLimited(passBys, THROUGH.parallel, async (passBy) => {
