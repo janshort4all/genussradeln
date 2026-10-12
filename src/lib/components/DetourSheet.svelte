@@ -58,7 +58,7 @@
 	{/if}
 
 	{#if controller.status === 'idle'}
-		<button type="button" class="primary" onclick={() => controller.find()}>
+		<button type="button" class="primary search" onclick={() => controller.find()}>
 			<Sparkles size={24} strokeWidth={2.25} aria-hidden="true" /> Spannende Umwege suchen
 		</button>
 		<p class="hint">Seen, Flüsse, Wälder und Parks in der Nähe</p>
@@ -174,6 +174,12 @@
 		font-weight: 700;
 		cursor: pointer;
 		box-shadow: 0 3px 0 #18241d;
+	}
+
+	/* „Spannende Umwege suchen“ in Terrakotta, damit er auffällt (Jan, 14.10.2026) – wie auf der Tour-Seite */
+	.primary.search {
+		background: var(--color-orange);
+		box-shadow: 0 3px 0 var(--color-orange-dark);
 	}
 
 	.list {

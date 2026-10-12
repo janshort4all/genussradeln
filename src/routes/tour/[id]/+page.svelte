@@ -458,7 +458,7 @@
 						<span>Fahrt aufzeichnen – für den Test. Die Aufzeichnung bleibt auf Ihrem Handy, bis Sie sie selbst verschicken.</span>
 					</label>
 				</div>
-				<button type="button" class="adjust-button" onclick={findDetours}>
+				<button type="button" class="adjust-button detours" onclick={findDetours}>
 					<Sparkles size={22} strokeWidth={2.25} aria-hidden="true" /> Spannende Umwege suchen
 				</button>
 			{/if}
@@ -922,6 +922,19 @@
 		font: inherit;
 		font-weight: 700;
 		cursor: pointer;
+	}
+
+	/* „Spannende Umwege suchen“ fällt auf (Jan, 14.10.2026): Terrakotta wie jede Hauptaktion, überall gleich */
+	.adjust-button.detours {
+		border-color: var(--color-orange);
+		background: var(--color-orange);
+		color: #fff;
+		box-shadow: 0 3px 0 var(--color-orange-dark);
+	}
+
+	.adjust-button.detours:hover {
+		border-color: var(--color-orange-dark);
+		background: var(--color-orange-dark);
 	}
 
 	.adjust-button:hover {
