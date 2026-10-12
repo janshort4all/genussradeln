@@ -37,6 +37,15 @@ function nameOf(line: LngLat[], before: RouteStats, after: RouteStats, deps: Pla
 	return { name: 'Durchs Grüne', kind: 'park' };
 }
 
+/** Für Vorschläge: ohne Längengrenze, weiter seitlich, mehr Abschnitte (THROUGH.offer…) */
+const OFFER_LIMITS = {
+	maxExtraRatio: THROUGH.offerMaxExtraRatio,
+	maxExtraM: THROUGH.offerMaxExtraM,
+	maxOffsetM: THROUGH.offerMaxOffsetM,
+	distancePenaltyM: THROUGH.offerDistancePenaltyM,
+	maxStretches: THROUGH.offerMaxStretches
+};
+
 /** Stück `from`…`to` eines Wegs samt Abbiegehinweisen (für die Navigation nach dem Übernehmen) */
 function pieceOf(path: RoutePath, from: number, to: number): RoutePath {
 	return {
@@ -68,7 +77,7 @@ async function chained(
 		let b = cur[1];
 		while (b < cum.length - 1 && cum[b] - cum[cur[1]] < THROUGH.chainNearM) b++;
 		const [more] = (
-			await throughVariants(current, deps, options, { maxExtraRatio: THROUGH.offerMaxExtraRatio, maxExtraM: THROUGH.offerMaxExtraM }, { from: a, to: b })
+			await throughVariants(current, deps, options, OFFER_LIMITS, { from: a, to: b })
 		)
 			.filter((v) => v.gain >= DETOURS.minGain)
 			.sort((x, y) => y.gain - x.gain);
@@ -91,10 +100,7 @@ export async function findThroughDetours(tour: PlannedTour, deps: PlanDeps): Pro
 	for (const [legIndex, leg] of tour.legs.entries()) {
 		const path = pathOfLeg(leg);
 		const line = lineOf(path);
-		const found = await throughVariants(path, deps, options, {
-			maxExtraRatio: THROUGH.offerMaxExtraRatio,
-			maxExtraM: THROUGH.offerMaxExtraM
-		});
+		const found = await throughVariants(path, deps, options, OFFER_LIMITS);
 		const taken: [number, number][] = [];
 		for (const first of found.filter((v) => v.gain >= DETOURS.minGain).sort((x, y) => y.gain - x.gain)) {
 			if (taken.some(([f, t]) => first.from <= t && first.to >= f)) continue;

@@ -69,7 +69,12 @@ function pointAt(line: LngLat[], cum: number[], along: number): LngLat {
 }
 
 /** Abschnitte der Linie, die an Wald, Park oder Seeufer vorbeiführen statt hindurch (größte zuerst) */
-export function findPassBys(line: LngLat[], fine: FineMap): PassBy[] {
+export function findPassBys(
+	line: LngLat[],
+	fine: FineMap,
+	/** wie weit seitlich gesucht wird und wie stark Abstand zählt (für Vorschläge weiter als bei der Planung) */
+	reach: { maxOffsetM: number; distancePenaltyM: number } = THROUGH
+): PassBy[] {
 	if (line.length < 3) return [];
 	const cum = cumulative(line);
 	const total = cum[cum.length - 1];
@@ -80,9 +85,9 @@ export function findPassBys(line: LngLat[], fine: FineMap): PassBy[] {
 		const here = insideness(fine, p);
 		let best: Sample | undefined;
 		for (const side of [-90, 90]) {
-			for (let d = THROUGH.minOffsetM; d <= THROUGH.maxOffsetM; d += THROUGH.offsetStepM) {
+			for (let d = THROUGH.minOffsetM; d <= reach.maxOffsetM; d += THROUGH.offsetStepM) {
 				const q = offset(p, dir + side, d);
-				const gain = insideness(fine, q) - d / THROUGH.distancePenaltyM - here;
+				const gain = insideness(fine, q) - d / reach.distancePenaltyM - here;
 				if (gain >= THROUGH.minGain && (!best || gain > best.gain + 0.05)) best = { along, gain, side, inner: q };
 			}
 		}
@@ -280,15 +285,15 @@ export async function throughVariants(
 	path: RoutePath,
 	deps: PlanDeps,
 	options: RouteOptions,
-	limits: { maxExtraRatio: number; maxExtraM: number } = THROUGH,
+	limits: { maxExtraRatio: number; maxExtraM: number; maxOffsetM: number; distancePenaltyM: number; maxStretches: number } = THROUGH,
 	/** nur Abschnitte, die diese Punkte des Wegs berühren */
 	within?: { from: number; to: number }
 ): Promise<ThroughVariant[]> {
 	if (!deps.fine) return [];
 	const line = lineOf(path);
-	const passBys = findPassBys(line, deps.fine)
+	const passBys = findPassBys(line, deps.fine, limits)
 		.filter((p) => !within || (p.to >= within.from && p.from <= within.to))
-		.slice(0, THROUGH.maxStretches);
+		.slice(0, limits.maxStretches);
 	if (!passBys.length) return [];
 
 	const pieces = await mapLimited(passBys, THROUGH.parallel, async (passBy) => {

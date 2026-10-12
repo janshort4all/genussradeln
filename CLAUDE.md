@@ -188,7 +188,13 @@ angezeigten Fahrzeiten (vorher „+5 Min.“ bei gleicher Anzeige). **Nachgebess
 Übernommen war es – aber danach bot die Suche das nächste Stück daneben wieder als „Am Rhein entlang“ an. Jetzt sammelt ein Vorschlag alles in der Nähe ein
 (`chained`: nach dem ersten Stück bis 2 × weiter suchen, bis 1 km daneben, `THROUGH.chainSteps/chainNearM`), danach bleibt nichts mehr übrig (gemessen: vorher
 +0,7 km, dann noch +0,3 km; jetzt ein Vorschlag +1,0 km). In der großen Karte stehen alle möglichen neuen Wege gestrichelt, solange die Liste offen ist
-(`MapHighlight.line`, Ebene `options` in `RouteMap`). Offen: kleiner Haken oben an einem Hilfspunkt (Runde fährt zum Punkt und auf einem Parallelweg ≈ 150 m daneben zurück – zählt weder als
+(`MapHighlight.line`, Ebene `options` in `RouteMap`). **Größere Vorschläge (Jan, 14.10.2026: „nur Mini-Umfahrungen von 300 m“):** Die Suche schaute nur bis 900 m neben die Strecke – für Vorschläge
+jetzt bis 2,5 km (Abstand zählt schwächer, bis 5 Abschnitte; `THROUGH.offerMaxOffsetM/offerDistancePenaltyM/offerMaxStretches`); die Planung selbst bleibt bei 900 m.
+Gemessen: Vorschläge von 0,3 bis 4,9 km neben den Highlights (3–11 km).
+
+**Mehr Runden beim ersten Mal (Jan, 14.10.2026: „erst nach mehrfachem ‚Andere Runden‘ kommen mehr Vorschläge“):** Findet der erste Durchgang (10 Richtungen)
+weniger als `ROUND.enough` = 3 verschiedene Runden, werden bis zu `ROUND.extraPasses` = 2 weitere Durchgänge mit Richtungen dazwischen gerechnet. Gemessen am Start von Jan
+(30 km): 1–2 → 3 Runden, Rechenzeit am PC 3 s → 5,6–9 s (nur dort, wo es zu wenige gibt; Moers/Krefeld unverändert 2–3 s). Prüflauf: keine neuen Fehler. Offen: kleiner Haken oben an einem Hilfspunkt (Runde fährt zum Punkt und auf einem Parallelweg ≈ 150 m daneben zurück – zählt weder als
 Zipfel noch als Kreis).
 
 **Warum Park und See nicht gewählt wurden (Analyse 10.10.2026, Crusestraße → Krefeld):** (1) Die Suche nach Hilfspunkten schloss alles

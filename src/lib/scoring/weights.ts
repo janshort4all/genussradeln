@@ -258,6 +258,12 @@ export const TARGET_SUGGESTIONS = 3;
  */
 export const ROUND = {
 	directions: 10,
+	/**
+	 * Weniger als `enough` verschiedene Runden gefunden? Dann bis zu extraPasses weitere Durchgänge mit Richtungen zwischen den
+	 * bisherigen (Jan, 14.10.2026: gleich beim ersten Mal möglichst viele Vorschläge, nicht erst nach „Andere Runden“)
+	 */
+	enough: 3,
+	extraPasses: 2,
 	/** mit Landschaftswunsch mehr Richtungen probieren (mehr Auswahl für den Wunsch) */
 	wishDirections: 16,
 	tolerance: 0.1,
@@ -357,6 +363,13 @@ export const THROUGH = {
 	 */
 	offerMaxExtraRatio: Infinity,
 	offerMaxExtraM: Infinity,
+	/**
+	 * Vorschläge suchen weiter seitlich (bis offerMaxOffsetM, Abstand zählt schwächer) und mehr Abschnitte – sonst gab es nur
+	 * Mini-Umfahrungen von ein paar hundert Metern (Jan, 14.10.2026)
+	 */
+	offerMaxOffsetM: 2500,
+	offerDistancePenaltyM: 10000,
+	offerMaxStretches: 5,
 	/** ein Vorschlag nimmt auch weitere solche Stücke bis chainNearM daneben mit (höchstens chainSteps weitere) */
 	chainSteps: 2,
 	chainNearM: 1000

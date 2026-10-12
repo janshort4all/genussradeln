@@ -294,9 +294,8 @@ export async function planRound(request: TourRequest, deps: PlanDeps): Promise<P
 	const wish = round.wish;
 	// rundherum ab einem zufälligen Winkel (mit Wunsch mehr Richtungen: mehr Auswahl)
 	const count = wish ? ROUND.wishDirections : ROUND.directions;
-	const headings = Array.from({ length: count }, (_, k) => base + (k * 360) / count);
 
-	const found = await mapLimited(headings, 4, async (heading): Promise<RoundCandidate | undefined> => {
+	const tryHeading = async (heading: number): Promise<RoundCandidate | undefined> => {
 		// Kreisumfang × Umwegfaktor der Straßen ≈ gewünschte Länge
 		let radius = target / (2 * Math.PI * ROUND.roadFactor);
 		for (let attempt = 0; attempt < ROUND.lengthAttempts; attempt++) {
@@ -337,30 +336,47 @@ export async function planRound(request: TourRequest, deps: PlanDeps): Promise<P
 			return { path, line, vias, heading, stats, beauty, overlap, score };
 		}
 		return undefined;
-	});
+	};
 
-	let candidates = found.filter((c): c is RoundCandidate => !!c).sort((a, b) => b.score - a.score);
-	// Wunsch: nur Runden, die ihn wirklich erfüllen – lieber weniger Vorschläge als welche, die nichts damit zu tun haben
-	if (wish) {
-		const shares = candidates.map((c) => wishShare(c.stats, wish));
-		const best = Math.max(0, ...shares);
-		const floor = Math.max(ROUND.wishMin[wish], best * ROUND.wishMin.relative);
-		candidates = candidates.filter((c, i) => {
-			if (shares[i] < floor) return false;
-			// „Am Wasser“ nur mit einem benannten Fluss oder See am Weg – sonst liegt der Weg nur zufällig nahe an irgendeinem Wasser
-			if (wish === 'water' && deps.names) {
-				const names = routeNames(c.line, deps.names, deps.landscape, deps.fine);
-				return names.landmarks.some((l) => (l.kind === 'river' || l.kind === 'lake') && l.share >= NAMING.minLandmarkShare);
-			}
-			return true;
-		});
+	/** Die schönsten, untereinander verschiedenen Runden aus allen bisher gefundenen */
+	const select = (found: RoundCandidate[]): RoundCandidate[] => {
+		let candidates = [...found].sort((a, b) => b.score - a.score);
+		// Wunsch: nur Runden, die ihn wirklich erfüllen – lieber weniger Vorschläge als welche, die nichts damit zu tun haben
+		if (wish) {
+			const shares = candidates.map((c) => wishShare(c.stats, wish));
+			const best = Math.max(0, ...shares);
+			const floor = Math.max(ROUND.wishMin[wish], best * ROUND.wishMin.relative);
+			candidates = candidates.filter((c, i) => {
+				if (shares[i] < floor) return false;
+				// „Am Wasser“ nur mit einem benannten Fluss oder See am Weg – sonst liegt der Weg nur zufällig nahe an irgendeinem Wasser
+				if (wish === 'water' && deps.names) {
+					const names = routeNames(c.line, deps.names, deps.landscape, deps.fine);
+					return names.landmarks.some((l) => (l.kind === 'river' || l.kind === 'lake') && l.share >= NAMING.minLandmarkShare);
+				}
+				return true;
+			});
+		}
+		const picked: RoundCandidate[] = [];
+		for (const c of candidates) {
+			if (picked.length >= ROUND.suggestions) break;
+			if (!picked.some((p) => tooSimilar(c, p))) picked.push(c);
+		}
+		return picked;
+	};
+
+	// Gleich beim ersten Mal möglichst viele Vorschläge (Jan, 14.10.2026: „erst nach mehrfachem ‚neue Runden suchen‘ kommen mehr“):
+	// Sind es zu wenige, werden weitere Richtungen zwischen den bisherigen probiert (bis ROUND.extraPasses Mal)
+	const all: RoundCandidate[] = [];
+	let chosen: RoundCandidate[] = [];
+	for (let pass = 0; pass <= ROUND.extraPasses; pass++) {
+		const shift = (pass * 360) / count / (ROUND.extraPasses + 1);
+		const headings = Array.from({ length: count }, (_, k) => base + shift + (k * 360) / count);
+		const found = await mapLimited(headings, 4, tryHeading);
+		all.push(...found.filter((c): c is RoundCandidate => !!c));
+		chosen = select(all);
+		if (chosen.length >= ROUND.enough) break;
 	}
-	if (!candidates.length) throw new NoRouteError('Keine passende Runde gefunden');
-	const chosen: RoundCandidate[] = [];
-	for (const c of candidates) {
-		if (chosen.length >= ROUND.suggestions) break;
-		if (!chosen.some((p) => tooSimilar(c, p))) chosen.push(c);
-	}
+	if (!chosen.length) throw new NoRouteError('Keine passende Runde gefunden');
 
 	// Durch statt vorbei (Wunsch Jan, 14.10.2026, through.ts): Wald, Parks und Seeufer, an denen eine Runde nur vorbeiführt,
 	// werden durchfahren – solange die Runde ihre Länge behält (± ROUND.tolerance) und nicht denselben Weg zurück fährt.
