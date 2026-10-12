@@ -393,6 +393,22 @@ Vorher: bester Ort je 2 km, die ersten drei in Streckenreihenfolge → oft Bäck
 - Gemessen an 30 Runden (5 Startorte × 10/20/40 km): kein Ort vor 20 % der Strecke, in 20 von 26 Fällen ist die Hauptpause ein Restaurant oder Biergarten (sonst gab es keins); 4 von 30 Touren
   ohne Pause (nichts im Fenster), 17 mit einer, 9 mit zwei. Offen: Zielwege (der Ort am Ziel ist ohnehin das Ziel, die letzten 10 % bleiben leer), Einbau der Hauptpause schon bei der Planung.
 
+### Größeres Gebiet: NRW + Limburg + Gelderland (Jan, Oktober 2026: „NRW plus Grenzland Niederlande … darf auf keinen Fall auf die Performance gehen“)
+
+**Stufe 1 und 2 gemessen, noch nichts umgestellt** (der Live-Dienst läuft unverändert mit dem Auszug Düsseldorf). Ablauf: `scripts/merge-osm.ts` fügt mehrere Geofabrik-Auszüge zu einer Datei
+(`node scripts/merge-osm.ts ziel.osm.pbf nrw.osm.pbf limburg.osm.pbf gelderland.osm.pbf`, 3 Min.; GraphHopper nimmt nur eine Datei und bricht bei doppelten Punktnummern ab – deshalb Bit-Felder
+für Punkt- und Wegnummern, ein JavaScript-`Set` fasst nur 16 Mio. Einträge). Rohdaten in `routing/data/region/` (NRW 872 MB, Limburg 96 MB, Gelderland 186 MB → zusammen 1,1 GB; 115 Mio. Punkte, 18 Mio. Wege).
+`routing/config-region.yml` = gleiche Einstellungen, Datei `region/merged.osm.pbf`, Graph `data/graph-cache-region`, Anschlüsse 8991/8992 (neben dem normalen Graphen).
+- **Import** am PC mit `-Xmx6g`: 160 s, ca. 4 GB belegt. Graph **477 MB** (vorher 92 MB; 5,0 Mio. Knoten, 6,5 Mio. Kanten statt 1,0/1,3), gepackt 241 MB. Höhendaten laden sich selbst nach (CGIAR-Kachel).
+- **Antwortzeiten am PC** (38 Anfragen × 2: direkt, Alternativen, über Punkt, mit Gebiet, `node scripts/bench-routing.mjs <Port> <Name>`): Median 82 ms neu gegenüber 81 ms alt, Summe 7,3 s beide, vier gleichzeitig 0,9 s beide – kein Unterschied.
+  Arbeitsspeicher des Prozesses nach den Anfragen 1,8 GB statt 0,7 GB.
+- **Auf dem Oracle-Server** (gleiche Java-Einstellungen `-Xms3g -Xmx6g -AlwaysPreTouch`, beide nacheinander über denselben SSH-Tunnel, 2 Läufe): nacheinander +4 bis +10 %, vier gleichzeitig +12 bis +20 % (1,8 s statt 1,5–1,6 s)
+  – innerhalb der Grenze von +25 %. Mit nur `-Xms1g` war es +22 bis +30 % (JVM-Einstellungen zählen mit). Speicher des Servers: 10 GB nutzbar, Live-Dienst 3,6 GB; mit dem größeren Graphen bleibt das `-Xms3g` ausreichend. Platz: 19 GB frei.
+  Der Testgraph liegt unbenutzt unter `/home/opc/region-test` (nicht im Live-Dienst; Tarball `/home/opc/graph-cache-region.tar.gz`).
+- Prüfrouten im neuen Graphen: Köln–Bonn, Münster–Coesfeld, Arnhem–Nijmegen, Venlo–Roermond, Maastricht–Aachen (über die Grenze), Dortmund–Siegen (125 km, 2655 m Anstieg), Duisburg–Nijmegen (92 km) – alle ohne Fehler.
+- **Noch offen (Stufe 3):** die Daten der App (`static/data/*`: Landschaft, feine Karte, Straßenmaske, Stopps, Namen, Gewässer, Suche) für das ganze Gebiet in Kacheln, die nur für das Planungsgebiet geladen werden; Hosting auf dem Server.
+  Messlatte: App-Start unverändert, Planung höchstens +10 %, höchstens ca. 5 MB je neuem Gebiet. Umstellen des Live-Dienstes erst danach (Graph tauschen, `config.yml` auf die Datei `merged` setzen; `npm run server -- karte` muss dann die drei Auszüge laden und zusammenfügen).
+
 ### Tour anpassen (F6)
 
 Eine Tour wird intern als Liste von Wegpunkten gespeichert (Start, Zwischenpunkte, Stopps, Ziel).
