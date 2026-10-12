@@ -64,6 +64,12 @@
 		z-index: 1;
 	}
 
+	/* Große Karte darin: muss über der unteren Leiste (z-index 10) liegen, sonst verschwindet ihr Infofenster dahinter
+	   (Jan, 14.10.2026: „das Fensterchen hängt so weit unten, dass ich es nicht anklicken kann“) */
+	:global(.page-header + *:has(.route-map.expanded)) {
+		z-index: 60;
+	}
+
 	.gear {
 		position: absolute;
 		top: 0.5rem;
