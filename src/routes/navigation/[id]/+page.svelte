@@ -39,7 +39,7 @@
 	import { distance } from '$lib/geo/geo';
 	import { TilePrefetcher, tilesAlong } from '$lib/map/prefetch';
 	import { RideRecorder, rideMinutesRecorded, type RideRecord } from '$lib/navigation/recorder';
-	import { recordChoice, setRecordChoice } from '$lib/navigation/record-choice.svelte';
+	import { recordChoice } from '$lib/navigation/record-choice.svelte';
 	import { canShareRide, downloadRide, shareRide } from '$lib/navigation/ride-file';
 	import { removeRide, saveRide } from '$lib/storage/rides';
 	import { tourLine } from '$lib/tour/model';
@@ -475,10 +475,6 @@
 				<li>Der Bildschirm bleibt während der Fahrt an. Mit „Pause“ darf er wieder ausgehen.</li>
 				<li>Gleich fragt das Handy, ob die App Ihren Standort nutzen darf – bitte mit „Erlauben“ antworten.</li>
 			</ul>
-			<label class="record">
-				<input type="checkbox" checked={recordChoice.on} onchange={(e) => setRecordChoice(e.currentTarget.checked)} />
-				<span>Fahrt aufzeichnen – für den Test. Die Aufzeichnung bleibt auf Ihrem Handy, bis Sie sie selbst verschicken.</span>
-			</label>
 			<button type="button" class="go" onclick={() => start(false)}>Navigation starten</button>
 			{#if canSimulate}
 				<button type="button" class="secondary" onclick={() => start(true)}>Probefahrt am PC (ohne GPS)</button>
@@ -689,25 +685,6 @@
 	.facts {
 		font-size: var(--text-large);
 		font-weight: 700;
-	}
-
-	.record {
-		display: flex;
-		gap: 0.75rem;
-		align-items: flex-start;
-		min-height: var(--tap);
-		padding: 0.75rem 0.875rem;
-		border: 2px solid var(--nav-muted);
-		border-radius: var(--radius);
-		color: var(--nav-text);
-	}
-
-	.record input {
-		flex: none;
-		width: 1.75rem;
-		height: 1.75rem;
-		margin: 0.125rem 0 0;
-		accent-color: var(--nav-accent);
 	}
 
 	.record-note {

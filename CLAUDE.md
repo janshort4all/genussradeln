@@ -357,6 +357,18 @@ Gewählter Weg dicker, oben, mit Pfeilen; die anderen dünner. Der Filter Alle/K
 **Überschrift (Jan, 14.10.2026):** bei Runden „5 schöne Routen für Sie gefunden.“ (ohne Zusatzzeile; „Eine schöne Route …“ bei einer), bei Zielwegen „3 Wege nach Kempen“ mit „ab Moers · nur hin“. **Beim Warten kein Titelbild**: nur schmale Zeile mit Zurück-Weg und Zahnrad, das Fahrrad und der Text darunter. **Wartebild (Jan, 14.10.2026):** Während die Wege berechnet werden, fährt ein großes E-Bike in Terrakotta durch eine Landschaft (`RideLoader.svelte`, reines SVG mit CSS-Animation: Räder, Kurbel, Hügel/Bäume/Straße/Wolken in verschiedenen Geschwindigkeiten; bei „weniger Bewegung“ ein Standbild), darunter „Wir suchen schöne Runden …“ (Punkte leuchten nacheinander) und „Das dauert nur einen Moment.“. **Weg antippen (Jan, 14.10.2026):** Tippen auf ein Schild oder eine Linie öffnet ein **Infofenster** unten in der Karte (`RouteMap` Prop `popup`, Snippet `routePopup` in der Seite): Nummer in Wegfarbe, Name, „18,3 km · 1 Std. 15 Min. · flach“, Knopf „Tour ansehen“, Schließen. „Karte ansehen“ an einer Karte öffnet gleich die **große Karte** (`RouteMap.openLargeMap`) mit diesem Weg, eingepasst (`fitRoutes`: in der großen Karte nur der gewählte Weg, unten Platz fürs Fenster) und mit demselben Fenster; ein anderes Schild in der großen Karte setzt die Ansicht auf diesen Weg. Die Zeile „So kurz wie der direkte Weg“ unter den Karten entfiel (bei Runden sinnlos; sonst nur noch „x km länger als der direkte Weg“ ab 300 m). Die Karte steht am Handy **nicht mehr fest** (die Zeichnungen sagen, welcher Weg welcher ist), am PC bleibt sie links stehen.
 `RouteMap` zeichnet bei mehreren Wegen alle und setzt Schilder nur für Wege mit `number`; der Knopf heißt jetzt „Karte vergrößern“.
 
+### Tour-Seite aufgeräumt (Jan, 14.10.2026: „völlig überladen, viel zu viel Text, nicht konsistent“)
+
+Reihenfolge von oben nach unten: Karte → „Mittlere Tour“ + Überschrift → drei Kennzahlen (Strecke, Fahrzeit, Steigungen) → Pluspunkte als kleine **Schilder** (statt Kasten
+mit Blatt und Fließtext) → eventuelle Hinweise zur Tour (gelbes Feld, nur wenn es welche gibt) → **„Tour starten“ in Terrakotta als einzige hervorgehobene Aktion**
+(Regel „höchstens eine“) → zwei gleich aufgebaute Nebenknöpfe „Spannende Umwege“ und „Als GPX-Datei speichern“ (Symbol oben, zwei Zeilen) → „Einkehren unterwegs“.
+Gestrichen: das Symbol neben der Überschrift, der Beschreibungssatz („Zur Hälfte durch die Felder …“), der Hinweis „Bitte Ton laut stellen …“ und das Feld „Fahrt aufzeichnen“.
+**Fahrt wird im Test immer aufgezeichnet**, ohne Auswahlfeld (auch nicht mehr auf dem Startbildschirm der Navigation; `recordChoice.on` ist fest an).
+„Auf den ersten 17 km keine Einkehrmöglichkeit“ und die Toilette stehen jetzt leise unter den Karten bei „Einkehren unterwegs“. **Farbregel:** gefüllt Terrakotta = die eine
+Hauptaktion des jeweiligen Bildschirms (Tour starten; in der großen Karte „Spannende Umwege suchen“, dort gibt es sonst nichts), umrandet = Nebenaktion.
+**Stopp-Karten** (`StopCards.svelte`): Antippen zeigt den Ort auf der Karte (Stecknadel vor den Kilometern), rechts daneben öffnet „Infos“ den Ort in der Karten-App
+(Google-Maps-Suche mit Name und Koordinaten: Öffnungszeiten, Fotos, Bewertungen – nur ein Link, die App ruft nichts von Google ab; in der Android-App öffnet er außerhalb).
+
 ### Tour anpassen (F6)
 
 Eine Tour wird intern als Liste von Wegpunkten gespeichert (Start, Zwischenpunkte, Stopps, Ziel).

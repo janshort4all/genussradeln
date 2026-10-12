@@ -11,12 +11,10 @@
 	import MessageCircle from '@lucide/svelte/icons/message-circle';
 	import Heart from '@lucide/svelte/icons/heart';
 	import Info from '@lucide/svelte/icons/info';
-	import Leaf from '@lucide/svelte/icons/leaf';
 	import MapIcon from '@lucide/svelte/icons/map';
 	import MountainSnow from '@lucide/svelte/icons/mountain-snow';
 	import Share2 from '@lucide/svelte/icons/share-2';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import Volume2 from '@lucide/svelte/icons/volume-2';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import MoreLink from '$lib/components/MoreLink.svelte';
 	import BatteryHint from '$lib/components/BatteryHint.svelte';
@@ -28,7 +26,6 @@
 	import TourScene from '$lib/components/illustrations/TourScene.svelte';
 	import RouteMap from '$lib/map/RouteMap.svelte';
 	import { enterFullscreen, voice } from '$lib/navigation/device';
-	import { recordChoice, setRecordChoice } from '$lib/navigation/record-choice.svelte';
 	import { area } from '$lib/tour/area.svelte';
 	import { DETAIL_ROUTE_COLOR } from '$lib/map/colors';
 	import { foodGapNote, highlightStops, stopsAlongRoute, toiletSentence } from '$lib/stops/along';
@@ -172,11 +169,10 @@
 	const allStops = $derived(tour.map.kind === 'route' ? (foundStops ?? []) : tour.stops);
 	const stops = $derived(highlightStops(allStops));
 	const toilets = $derived(toiletSentence(allStops));
-	/** Hinweise neben den Pluspunkten: schlechter Belag, lange ohne Einkehr */
-	const notes = $derived.by(() => {
-		const gap = tour.map.kind === 'route' && stopsStatus === 'done' ? foodGapNote(allStops, tour.km) : undefined;
-		return [tour.note, tour.caveat, gap].filter((n): n is string => !!n);
-	});
+	/** Hinweise zur Tour selbst (z. B. schlechter Belag) */
+	const notes = $derived([tour.note, tour.caveat].filter((n): n is string => !!n));
+	/** „Auf den ersten 17 km keine Einkehrmöglichkeit“ steht bei „Einkehren unterwegs“, wo es hingehört */
+	const gapNote = $derived.by(() => (tour.map.kind === 'route' && stopsStatus === 'done' ? foodGapNote(allStops, tour.km) : undefined));
 	let mapBox: HTMLDivElement | undefined = $state();
 
 	/**
@@ -395,14 +391,10 @@
 	</div>
 
 	<div class="info-column">
-		<div class="title-row">
-			<span class="round-icon big" aria-hidden="true"><Bike size={30} strokeWidth={2} /></span>
-			<div>
-				{#if tour.kind}<p class="kind">{tour.kind}</p>{/if}
-				<h1>{tour.title}</h1>
-			</div>
-		</div>
-		{#if tour.highlight}<p class="highlight">{tour.highlight}</p>{/if}
+		<header class="title">
+			{#if tour.kind}<p class="kind">{tour.kind}</p>{/if}
+			<h1>{tour.title}</h1>
+		</header>
 
 		<!-- Das Wichtigste auf einen Blick: Zahl groß, Bedeutung darunter -->
 		<dl class="facts">
@@ -420,27 +412,16 @@
 			</div>
 		</dl>
 
-		{#if tour.checks.length || notes.length}
-			<div class="summary-box">
-				<span class="leaf" aria-hidden="true"><Leaf size={34} strokeWidth={1.75} /></span>
-				<div class="summary-content">
-					{#if tour.checks.length}
-						<ul class="checks">
-							{#each tour.checks as check (check)}
-								<li><Check size={22} strokeWidth={3} aria-hidden="true" /> {check}</li>
-							{/each}
-						</ul>
-					{/if}
-					{#if notes.length}
-						<div class="notes">
-							{#each notes as note (note)}
-								<p><Info size={22} strokeWidth={2.25} aria-hidden="true" /> <span>{note}</span></p>
-							{/each}
-						</div>
-					{/if}
-				</div>
-			</div>
+		{#if tour.checks.length}
+			<ul class="chips" aria-label="Das erwartet Sie">
+				{#each tour.checks as check (check)}
+					<li><Check size={20} strokeWidth={3} aria-hidden="true" /> {check}</li>
+				{/each}
+			</ul>
 		{/if}
+		{#each notes as note (note)}
+			<p class="note"><Info size={22} strokeWidth={2.25} aria-hidden="true" /> <span>{note}</span></p>
+		{/each}
 
 		{#if tour.battery}<BatteryHint level={tour.battery} />{/if}
 
@@ -450,22 +431,19 @@
 				<span>Tour starten</span>
 				<ChevronRight size={26} strokeWidth={2.5} aria-hidden="true" />
 			</a>
-			{#if planned && tour.map.kind === 'route'}
-				<div class="start-notes">
-					<p><Volume2 size={22} aria-hidden="true" /> <span>Bitte Ton laut stellen – die App sagt jede Abzweigung an. Beim Start fragt das Handy nach dem Standort: bitte „Erlauben“.</span></p>
-					<label class="record">
-						<input type="checkbox" checked={recordChoice.on} onchange={(e) => setRecordChoice(e.currentTarget.checked)} />
-						<span>Fahrt aufzeichnen – für den Test. Die Aufzeichnung bleibt auf Ihrem Handy, bis Sie sie selbst verschicken.</span>
-					</label>
-				</div>
-				<button type="button" class="adjust-button detours" onclick={findDetours}>
-					<Sparkles size={22} strokeWidth={2.25} aria-hidden="true" /> Spannende Umwege suchen
-				</button>
-			{/if}
 			{#if tour.map.kind === 'route'}
-				<button type="button" class="adjust-button" onclick={saveGpx}>
-					<Download size={22} strokeWidth={2.25} aria-hidden="true" /> Als GPX-Datei speichern
-				</button>
+				<div class="more-actions">
+					{#if planned}
+						<button type="button" class="adjust-button" onclick={findDetours}>
+							<Sparkles size={26} strokeWidth={2.25} aria-hidden="true" />
+							<span>Spannende<br />Umwege</span>
+						</button>
+					{/if}
+					<button type="button" class="adjust-button" onclick={saveGpx}>
+						<Download size={26} strokeWidth={2.25} aria-hidden="true" />
+						<span>Als GPX-Datei<br />speichern</span>
+					</button>
+				</div>
 			{/if}
 		</div>
 
@@ -496,7 +474,12 @@
 				{:else}
 					<p class="muted">Direkt am Weg haben wir kein Café und keinen Biergarten gefunden.</p>
 				{/if}
-				{#if toilets}<p class="muted toilets">{toilets}</p>{/if}
+				{#if gapNote || toilets}
+					<ul class="along-notes">
+						{#if gapNote}<li>{gapNote}</li>{/if}
+						{#if toilets}<li>{toilets}</li>{/if}
+					</ul>
+				{/if}
 			{/if}
 		</section>
 
@@ -692,19 +675,16 @@
 		font-weight: 700;
 	}
 
-	.title-row {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		margin-bottom: 0.5rem;
+	.title {
+		margin: 0.25rem 0 1rem;
 	}
 
-	.title-row h1 {
+	.title h1 {
 		margin: 0;
 	}
 
 	.kind {
-		margin: 0;
+		margin: 0 0 0.125rem;
 		font-weight: 700;
 		color: var(--color-text-muted);
 	}
@@ -718,16 +698,6 @@
 		border-radius: 50%;
 		background: var(--color-green-light);
 		color: var(--color-green);
-	}
-
-	.round-icon.big {
-		width: 3.5rem;
-		height: 3.5rem;
-	}
-
-	.highlight {
-		margin: 0 0 1rem;
-		color: var(--color-text-muted);
 	}
 
 	/* drei Kacheln; bei wenig Platz oder großer Schrift rutschen sie in die nächste Zeile */
@@ -773,72 +743,44 @@
 		font-size: var(--text-small);
 	}
 
-	.summary-box {
+	/* Pluspunkte als kleine Schilder in einer Reihe (bei wenig Platz in mehreren) */
+	.chips {
 		display: flex;
-		gap: 0.75rem;
-		margin: 0 0 1.25rem;
-		padding: 0.875rem 1rem;
-		border-radius: 1rem;
-		background: var(--color-green-light);
-		container-type: inline-size;
-	}
-
-	.leaf {
-		flex: none;
-		color: var(--color-olive);
-	}
-
-	.summary-content {
-		display: grid;
-		gap: 0.75rem;
-		flex: 1;
-		min-width: 0;
-	}
-
-	/* genug Platz: Pluspunkte links, Hinweise rechts mit Trennstrich */
-	@container (min-width: 30rem) {
-		.summary-content {
-			grid-template-columns: 1fr 1fr;
-		}
-
-		.notes {
-			padding-left: 1rem;
-			border-left: 2px solid rgb(40 60 48 / 0.15);
-		}
-	}
-
-	.checks {
-		display: grid;
-		gap: 0.25rem;
-		margin: 0;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin: 0 0 1rem;
 		padding: 0;
 		list-style: none;
 	}
 
-	.checks li {
-		display: flex;
+	.chips li {
+		display: inline-flex;
 		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.checks :global(svg) {
-		flex: none;
+		gap: 0.375rem;
+		padding: 0.25rem 0.75rem;
+		border-radius: 999px;
+		background: var(--color-green-light);
 		color: var(--color-green);
+		font-size: var(--text-small);
+		font-weight: 700;
 	}
 
-	.notes p {
+	.chips :global(svg) {
+		flex: none;
+	}
+
+	.note {
 		display: flex;
 		align-items: flex-start;
 		gap: 0.5rem;
-		margin: 0;
-		color: var(--color-text-muted);
+		margin: 0 0 1rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: var(--radius);
+		background: var(--color-sun-light);
+		font-size: var(--text-small);
 	}
 
-	.notes p + p {
-		margin-top: 0.375rem;
-	}
-
-	.notes :global(svg) {
+	.note :global(svg) {
 		flex: none;
 		margin-top: 0.1em;
 	}
@@ -849,7 +791,7 @@
 		margin-bottom: 1.75rem;
 	}
 
-	/* Hauptaktion: dunkelgrün wie im Entwurf (weiße Schrift 11 : 1) */
+	/* Hauptaktion der Seite: Terrakotta wie jede Hauptaktion der App (weiße Schrift 5 : 1) – genau eine hervorgehobene */
 	.start-button {
 		display: flex;
 		align-items: center;
@@ -858,83 +800,46 @@
 		min-height: 4rem;
 		padding: 0.75rem 1.25rem;
 		border-radius: 1rem;
-		background: var(--color-green);
-		color: var(--color-surface);
+		background: var(--color-orange);
+		color: #fff;
 		font-size: var(--text-large);
 		font-weight: 700;
 		text-decoration: none;
-		box-shadow: 0 3px 0 #18241d;
+		box-shadow: 0 3px 0 var(--color-orange-dark);
 	}
 
 	.start-button:hover {
-		background: #1d2c23;
+		background: var(--color-orange-dark);
 	}
 
-	.start-notes {
+	.start-button:focus-visible {
+		outline: 3px solid var(--color-green);
+		outline-offset: 3px;
+	}
+
+	/* zwei Nebenknöpfe, gleich aufgebaut: Symbol oben, zwei Zeilen Text */
+	.more-actions {
 		display: grid;
-		gap: 0.5rem;
-	}
-
-	.start-notes p {
-		display: flex;
-		gap: 0.5rem;
-		align-items: flex-start;
-		margin: 0;
-		color: var(--color-text-muted);
-	}
-
-	.start-notes p :global(svg) {
-		flex: none;
-		margin-top: 0.2rem;
-		color: var(--color-olive);
-	}
-
-	.record {
-		display: flex;
+		grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
 		gap: 0.75rem;
-		align-items: flex-start;
-		min-height: var(--tap);
-		padding: 0.5rem 0.75rem;
-		border: 2px solid var(--color-border);
-		border-radius: var(--radius);
-		background: var(--color-surface);
-	}
-
-	.record input {
-		flex: none;
-		width: 1.75rem;
-		height: 1.75rem;
-		margin: 0.125rem 0 0;
-		accent-color: var(--color-green);
 	}
 
 	.adjust-button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		min-height: var(--tap);
-		padding: 0.5rem 1rem;
+		display: grid;
+		justify-items: center;
+		align-content: center;
+		gap: 0.25rem;
+		min-height: 5rem;
+		padding: 0.5rem 0.75rem;
 		border: 2px solid var(--color-border);
 		border-radius: 1rem;
 		background: var(--color-surface);
 		color: var(--color-green);
 		font: inherit;
 		font-weight: 700;
+		line-height: 1.2;
+		text-align: center;
 		cursor: pointer;
-	}
-
-	/* „Spannende Umwege suchen“ fällt auf (Jan, 14.10.2026): Terrakotta wie jede Hauptaktion, überall gleich */
-	.adjust-button.detours {
-		border-color: var(--color-orange);
-		background: var(--color-orange);
-		color: #fff;
-		box-shadow: 0 3px 0 var(--color-orange-dark);
-	}
-
-	.adjust-button.detours:hover {
-		border-color: var(--color-orange-dark);
-		background: var(--color-orange-dark);
 	}
 
 	.adjust-button:hover {
@@ -952,8 +857,15 @@
 		margin: 0 0 1.75rem;
 	}
 
-	.toilets {
+	/* leise unter den Karten: lange ohne Einkehr, Toilette */
+	.along-notes {
+		display: grid;
+		gap: 0.25rem;
 		margin: 0.75rem 0 0;
+		padding: 0;
+		list-style: none;
+		color: var(--color-text-muted);
+		font-size: var(--text-small);
 	}
 
 	/* Rückmeldung über der unteren Leiste */
