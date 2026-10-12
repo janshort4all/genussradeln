@@ -15,7 +15,7 @@
 
 <div class="landing">
 <header class="hero">
-	<img class="photo" src={asset('/hero.jpg')} alt="" width="1200" height="600" fetchpriority="high" />
+	<img class="photo" src={asset('/start.jpg')} alt="" width="1200" height="600" fetchpriority="high" />
 	<div class="fade" aria-hidden="true"></div>
 	<!-- Im Titelbild nur der Name (Jan, 14.10.2026: „in Summe zu viel Text“) – die Frage „Was möchten Sie tun?“ steht gleich darunter -->
 	<h1 class="wordmark"><img src={asset('/wordmark.png')} alt="Genuss-Radeln" width="480" height="247" /></h1>
@@ -270,7 +270,8 @@
 		}
 
 		.photo {
-			object-position: 70% 40%;
+			/* breites, flaches Bild: der Ausschnitt zeigt die beiden Radfahrer mit Helmen und Oberkörpern (Helme im Foto bei ca. 23 % der Höhe) */
+			object-position: 70% 24%;
 		}
 
 	}
