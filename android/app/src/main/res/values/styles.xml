@@ -13,6 +13,10 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Hinter den Systemleisten Creme mit dunklen Symbolen (Uhrzeit, Empfang) -->
+        <item name="android:windowBackground">#F7F2E5</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
 

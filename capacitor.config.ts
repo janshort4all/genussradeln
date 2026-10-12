@@ -16,6 +16,10 @@ const config: CapacitorConfig = {
 		// nur die eigene App darf die nativen Funktionen nutzen
 		allowNavigation: ['janshort4all.github.io', '130-61-177-54.sslip.io', 'tiles.openfreemap.org']
 	},
+	plugins: {
+		// Abstände zu den Systemleisten setzt die Hülle selbst (MainActivity), nicht die Web-App
+		SystemBars: { insetsHandling: 'disable' }
+	},
 	android: {
 		allowMixedContent: false
 	}
