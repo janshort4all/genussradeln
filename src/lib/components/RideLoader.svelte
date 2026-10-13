@@ -16,11 +16,16 @@
 		explainAfter = 3
 	}: { title: string; subtitle?: string; explainAfter?: number } = $props();
 
-	/** Was Opi sagt: erst die Erklärung (ab 3 s), dann – wenn es noch dauert – ein Trost (ab 11 s). Anrede „Sie“, kurz und mit einem Augenzwinkern. */
-	const SAYINGS = [
-		'Ja, das dauert. Andere Apps suchen den kürzesten Weg – ich suche Ihnen die schönsten. Gleich mehrere! Schönheit lässt sich nicht hetzen.',
-		'Gleich geschafft! Ich trete schon, so fest ich kann. Der Akku ist voll, nur die Knie sind von gestern.'
+	/**
+	 * Was Opi sagt: erst die Erklärung (ab 3 s), dann – wenn es noch dauert – ein Trost (ab 11 s). Anrede „Sie“, kurz und mit einem Augenzwinkern;
+	 * nie über sein Alter (Jan, 13.10.2026). Ein Wort in { em } wird hervorgehoben.
+	 */
+	type Part = string | { em: string };
+	const SAYINGS: Part[][] = [
+		['Ja, das dauert. Andere Apps schicken Sie auf dem kürzesten Weg durchs Gewerbegebiet – ich suche Ihnen die ', { em: 'schönsten' }, '. Gleich mehrere!'],
+		['Gleich geschafft! Der Akku ist voll, und ich trete schon, ', { em: 'so schnell ich kann' }, '.']
 	];
+	const text = (parts: Part[]) => parts.map((p) => (typeof p === 'string' ? p : p.em)).join('');
 
 	let box: HTMLDivElement | undefined = $state();
 	let svg: SVGSVGElement | undefined = $state();
@@ -42,7 +47,7 @@
 	 */
 	const need = $derived.by(() => {
 		const charsPerBubbleLine = Math.max(14, (Math.min(416, w - 32) - 32) / 8.6);
-		const bubbleLines = Math.ceil(SAYINGS[0].length / charsPerBubbleLine);
+		const bubbleLines = Math.ceil(text(SAYINGS[0]).length / charsPerBubbleLine);
 		const titleLines = Math.ceil((title.length * 15) / Math.max(200, w - 32));
 		return titleLines * 35 + bubbleLines * 25 + 62;
 	});
@@ -313,7 +318,10 @@
 		{#if subtitle && stage === 0}<p class="subtitle">{subtitle}</p>{/if}
 		{#if stage > 0}
 			{#key stage}
-				<p class="bubble" role="status">{SAYINGS[stage - 1]}</p>
+				<div class="bubble" role="status">
+					<p>{#each SAYINGS[stage - 1] as part}{#if typeof part === 'string'}{part}{:else}<em>{part.em}</em>{/if}{/each}</p>
+					<svg class="tail" viewBox="0 0 40 26" aria-hidden="true" focusable="false"><path d="M0 0C11 0 17 11 23 26C27 13 33 4 40 0Z" /></svg>
+				</div>
 			{/key}
 		{/if}
 	</div>
@@ -329,7 +337,7 @@
 		background: linear-gradient(180deg, #afc6d1 0%, #cfdde4 45%, #f3efe2 100%);
 	}
 
-	svg {
+	.scene > svg {
 		position: absolute;
 		inset: 0;
 		display: block;
@@ -376,41 +384,51 @@
 		font-size: var(--text-large);
 	}
 
-	/* Sprechblase: heller Kasten mit Zipfel nach unten zu Opis Kopf; poppt kurz auf */
+	/*
+	 * Sprechblase: gehört zum Bild wie die Wolken – warmes Creme statt reinem Weiß, kein Rand, weicher bläulicher Schatten, Schrift in Taubenblau
+	 * (6,6 : 1), das Wichtige in Terrakotta. Schwebt leicht über Opis Kopf; der Zipfel zeigt auf ihn.
+	 */
 	.bubble {
 		position: relative;
-		max-width: min(26rem, 100%);
-		margin: auto 0 14px;
-		padding: 0.75rem 1rem;
-		border: 2px solid var(--color-green);
-		border-radius: 1.25rem;
-		background: var(--color-surface);
-		color: var(--color-text);
-		font-size: 1.125rem;
-		line-height: 1.35;
-		box-shadow: 0 4px 14px rgb(36 53 57 / 0.2);
+		max-width: min(25rem, 100%);
+		margin: auto 0 22px;
+		padding: 0.875rem 1.375rem 1rem;
+		border-radius: 2rem;
+		background: linear-gradient(180deg, #fffdf8 0%, #f8f1e0 100%);
+		box-shadow:
+			0 10px 26px rgb(50 89 111 / 0.2),
+			0 1px 0 rgb(255 255 255 / 0.9) inset;
+		color: var(--color-text-muted);
 		transform-origin: 50% 100%;
-		animation: pop 0.35s ease-out;
+		animation:
+			pop 0.4s ease-out,
+			float 3.4s ease-in-out 0.4s infinite alternate;
 	}
 
-	.bubble::before,
-	.bubble::after {
-		content: '';
+	.bubble p {
+		margin: 0;
+		font-family: var(--font-title);
+		font-size: 1.1875rem;
+		font-weight: 500;
+		line-height: 1.35;
+		text-wrap: pretty;
+	}
+
+	.bubble em {
+		color: var(--color-orange-dark);
+		font-style: normal;
+		font-weight: 700;
+	}
+
+	/* Zipfel in der Farbe des unteren Blasenrands */
+	.tail {
 		position: absolute;
-		left: 50%;
-		border: 12px solid transparent;
-		border-bottom: 0;
-		transform: translateX(-50%);
-	}
-
-	.bubble::before {
-		bottom: -14px;
-		border-top-color: var(--color-green);
-	}
-
-	.bubble::after {
-		bottom: -10.5px;
-		border-top-color: var(--color-surface);
+		left: calc(50% - 20px);
+		bottom: -22px;
+		width: 40px;
+		height: 26px;
+		fill: #f8f1e0;
+		filter: drop-shadow(0 6px 5px rgb(50 89 111 / 0.14));
 	}
 
 	@media (max-height: 30rem) {
@@ -423,10 +441,13 @@
 		}
 	}
 
-	.tight .bubble {
+	.tight .bubble p {
 		font-size: 1.0625rem;
 		line-height: 1.3;
-		padding: 0.5rem 0.75rem;
+	}
+
+	.tight .bubble {
+		padding: 0.625rem 1rem 0.75rem;
 	}
 
 	/* drei Punkte, die nacheinander aufleuchten */
@@ -529,6 +550,12 @@
 	@keyframes wiggle {
 		to {
 			transform: translateY(1px) rotate(3deg);
+		}
+	}
+
+	@keyframes float {
+		to {
+			translate: 0 -4px;
 		}
 	}
 
