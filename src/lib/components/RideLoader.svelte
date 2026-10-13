@@ -55,6 +55,8 @@
 	 * wird kleiner gesetzt, 3 die sichtbare Überschrift entfällt (bleibt für Vorlesegeräte), 4 Etappe und Zähler – der Balken bleibt immer.
 	 */
 	let level = $state(0);
+	/** Höhe des oberen Blocks (Überschrift, Fortschritt) – die Sprechblase daneben darf nicht hineinragen */
+	let topH = $state(0);
 	/** Breit und flach (PC, Handy quer): Die Sprechblase steht links neben Opis Kopf statt darüber – oben bleibt der Platz für Überschrift und Fortschritt */
 	const side = $derived(w >= 640 && w / h > 1.15);
 	let topEl: HTMLDivElement | undefined = $state();
@@ -65,6 +67,7 @@
 		// die neue Stufe muss gezeichnet sein, bevor gemessen wird
 		await new Promise((r) => setTimeout(r, 40));
 		if (!topEl) return;
+		topH = topEl.offsetHeight;
 		if (topEl.offsetHeight + (side ? 0 : (slotEl?.offsetHeight ?? 0)) + 40 > roomAbove && level < 4) level++;
 	}
 
@@ -572,7 +575,7 @@
 
 	<!-- breit: die Sprechblase links neben Opis Kopf, der Zipfel zeigt auf ihn -->
 	{#if side && message}
-		<div class="side-anchor" style:top="{(top + 20) * scale}px" style:right="calc(50% + {22 * scale + 26}px)">
+		<div class="side-anchor" style:top="{Math.max(topH + 36, (top + 20) * scale - 40)}px" style:right="calc(50% + {22 * scale + 26}px)">
 			{#key messageKey}{@render speech()}{/key}
 		</div>
 	{/if}
@@ -767,6 +770,7 @@
 		font-weight: 500;
 		line-height: 1.35;
 		text-wrap: pretty;
+		hyphens: none;
 	}
 
 	.bubble em {
@@ -791,8 +795,7 @@
 	/* breit: Blase links neben dem Kopf; der Anker verschiebt sie mittig auf Kopfhöhe (der Blase selbst bleiben transform und translate für die Bewegung) */
 	.side-anchor {
 		position: absolute;
-		max-width: min(22rem, 42%);
-		transform: translateY(-50%);
+		max-width: min(26rem, 44%);
 		pointer-events: none;
 	}
 
