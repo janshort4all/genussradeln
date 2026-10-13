@@ -50,9 +50,12 @@ import type { NameData } from '$lib/naming/names';
 import { distinctPlaces, highlightOf, landmarkPhrase, landmarkTitle, routeNames, viaPlaces, type RouteNames } from '$lib/naming/title';
 import { NoRouteError, route as routeGraphHopper, type RouteOptions, type RoutePath } from './graphhopper';
 import { goThrough } from './through';
+import { within, type StageReport } from './progress';
 
 export interface PlanDeps {
 	route: typeof routeGraphHopper;
+	/** meldet, wie weit die Planung ist (nur für das Wartebild) */
+	progress?: (report: StageReport) => void;
 	landscape?: Landscape;
 	/** große Straßen – erkennt Radwege direkt daneben (scoring/roads.ts) */
 	roads?: RoadMask;
@@ -471,6 +474,7 @@ export async function planDirection(
 	const level = DETOUR;
 	const options = { effort: request.effort, signal: deps.signal };
 
+	deps.progress?.({ stage: 'direct', fraction: 0 });
 	const direct = await deps.route([from, to], {
 		...options,
 		alternatives: { maxPaths: 3, maxWeightFactor: level.alternativeFactor, maxShareFactor: 0.7 }
@@ -507,6 +511,7 @@ export async function planDirection(
 		...shore.map((point) => ({ point, side: false })),
 		...(limits.light ? [] : sideVias(from, to).map((point) => ({ point, side: true })))
 	];
+	deps.progress?.({ stage: 'places', fraction: 0.1 });
 	const viaPaths = await mapLimited(vias, 4, async ({ point, side }): Promise<Found | undefined> => {
 		try {
 			const [path] = await deps.route([from, point, to], options);
@@ -554,6 +559,7 @@ export async function planDirection(
 
 	// Einem Gewässer folgen: je Abschnitt eines Bachs/Flusses (≥ 1,5 km) hinein, am Wasser entlang, wieder hinaus
 	if (deps.streams) {
+		deps.progress?.({ stage: 'waters', fraction: 0.4 });
 		const stretches = findStretches(deps.streams, from, to, maxLength, directLine, STREAMS.count);
 		const followed = await mapLimited(stretches, 3, async (stretch): Promise<Found | undefined> => {
 			const entry = stretch.line[0];
@@ -603,6 +609,7 @@ export async function planDirection(
 	// Echte Alternativen: Wege, die den Korridor der besten bekannten Wege meiden. Hilfspunkte und Korridore liefern
 	// meist Abwandlungen desselben Wegs (bei 40 km Hin und zurück sind alle Kandidaten sich zu über 60 % ähnlich) –
 	// hier entsteht gezielt ein anderer Weg, der auch an Seen und Parks vorbeiführen kann, die der erste Weg ausließ.
+	deps.progress?.({ stage: 'alternatives', fraction: 0.65 });
 	for (const p of await alternativePaths(from, to, directDistance, [...paths], maxLength, deps, options))
 		paths.push({ ...p, detour: true });
 
@@ -830,8 +837,10 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 	const end = request.destination.lngLat;
 	if (distance(start, end) < MIN_TRIP_M) throw new TooCloseError('Start und Ziel liegen zu nah beieinander');
 
-	const outbound = await planDirection(start, end, request, deps);
-	const inbound = request.returnMode === 'other-way' ? await planDirection(end, start, request, deps) : undefined;
+	// Fortschritt: Hinweg (und Rückweg) bis 0,75, dann „durch statt vorbei“, dann Auswahl
+	const back = request.returnMode === 'other-way';
+	const outbound = await planDirection(start, end, request, { ...deps, progress: within(deps.progress, 0, back ? 0.4 : 0.75) });
+	const inbound = back ? await planDirection(end, start, request, { ...deps, progress: within(deps.progress, 0.4, 0.75) }) : undefined;
 	const directTotal = outbound.directDistance + (inbound?.directDistance ?? 0);
 
 	/** Hinweg → Vorschlag (bei „auf anderem Weg zurück“ mit passendem kurzen Rückweg) */
@@ -948,6 +957,7 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 	// vorbeiführt, werden durchfahren. Jeder Hin- bzw. Rückweg einmal (er kann in mehreren Vorschlägen stecken).
 	const legs = [...new Set(chosen.flatMap((c) => c.legs))];
 	const options = { effort: request.effort, signal: deps.signal };
+	deps.progress?.({ stage: 'through', fraction: 0.78 });
 	const betterLegs = await mapLimited(legs, 2, async (leg): Promise<LegCandidate> => {
 		const better = await goThrough(leg.path, deps, options);
 		if (!better.changed) return leg;
@@ -966,6 +976,7 @@ export async function planTours(request: TourRequest, deps: PlanDeps): Promise<P
 	for (const c of [...updated].sort((a, b) => beautyOf(b) - beautyOf(a))) if (!distinct.some((k) => tooSimilar(c, k))) distinct.push(c);
 	chosen.splice(0, chosen.length, ...updated.filter((c) => distinct.includes(c)));
 
+	deps.progress?.({ stage: 'finish', fraction: 0.95 });
 	// vom längsten (größter Umweg) zum kürzesten
 	const ordered = [...chosen].sort((a, b) => lengthOf(b) - lengthOf(a));
 	const labels = lengthLabels(ordered.length);

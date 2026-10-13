@@ -15,6 +15,8 @@
 	import { NoRouteError, RoutingUnavailableError } from '$lib/routing/graphhopper';
 	import { TooCloseError } from '$lib/routing/plan';
 	import { planTours } from '$lib/routing/planner';
+	import type { PlanProgress } from '$lib/routing/progress';
+	import { distance } from '$lib/geo/geo';
 	import { tilesUrl } from '$lib/data/config';
 	import { tileStore } from '$lib/data/tiles';
 	import { tileOf } from '$lib/data/grid';
@@ -26,6 +28,12 @@
 	/** Rundtour („Einfach eine schöne Runde drehen“) statt Weg zu einem Ziel */
 	const isRound = $derived(!!request?.round);
 	let tours = $state(session.currentTours);
+	/** Stand der Planung fürs Wartebild (Etappe, Fortschritt, Zahl der gerechneten Wege) */
+	let progress: PlanProgress | undefined = $state();
+	/** weite Strecke: das Wartebild warnt ehrlich vor (Zielwege ab 45 km Luftlinie, Runden ab 50 km) */
+	const long = $derived(
+		!request ? false : request.round ? request.round.km >= 50 : distance(request.start.lngLat, request.destination.lngLat) > 45_000
+	);
 	let status: 'loading' | 'done' | 'missing' | 'unavailable' | 'noroute' | 'tooclose' | 'error' = $state(
 		!session.request ? 'missing' : session.currentTours.length ? 'done' : 'loading'
 	);
@@ -92,7 +100,8 @@
 		// Die Rechnung läuft im Hintergrund (plan.worker.ts): Landschaftskarte, Namen, Straßen laden und Wege bewerten,
 		// ohne die Seite anzuhalten – das Wartebild bleibt flüssig. Gleiche Wünsche sind beim zweiten Mal sofort da.
 		try {
-			const result = await planTours(request, { tiles: tilesUrl() });
+			progress = undefined;
+			const result = await planTours(request, { tiles: tilesUrl() }, (p) => (progress = p));
 			session.setTours(request, result);
 			tours = result;
 			status = 'done';
@@ -128,7 +137,7 @@
 			</div>
 			<!-- Wartebild: ein E-Bike fährt durch die Landschaft, Opi tritt in die Pedale und erklärt nach 3 Sekunden, warum es dauert -->
 			<div class="waiting" aria-busy="true">
-				<RideLoader title={isRound ? 'Wir suchen schöne Runden' : 'Wir suchen die schönsten Wege'} subtitle="Das dauert nur einen Moment." />
+				<RideLoader title={isRound ? 'Wir suchen schöne Runden' : 'Wir suchen die schönsten Wege'} {progress} {long} />
 			</div>
 		</div>
 	{:else}

@@ -1,57 +1,142 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick as afterRender, untrack } from 'svelte';
+	import type { PlanProgress } from '$lib/routing/progress';
+	import { BACK, COFFEE, COFFEE_AT, COFFEE_SECONDS, EXPLAIN, nextQuip, sceneFor, SCENES, stageLabel, STATIONS, textOf, type Part } from './ride-story';
 
 	/**
-	 * Wartebild (Jan, 14.10.2026; Neufassung 13.10.2026: „Fullscreen, ein witziger Opi radelt, nach 3 Sekunden erklärt er in einer Sprechblase,
-	 * warum es bei uns länger dauert“): füllt die ganze Fläche zwischen der Zeile oben und der unteren Leiste. Ein E-Bike in unserem Orange fährt
-	 * eine Landstraße entlang, Hügel, Bäume und Straße ziehen vorbei, die Räder drehen sich, Opi tritt in die Pedale (Beine über SMIL-Pfade,
-	 * die zur Kurbel passen), Schal und Haarbüschel wehen. Die Szene wird je nach Fenstergröße neu aufgespannt (viewBox = Fläche in Einheiten),
-	 * damit sie am Handy hoch und am PC breit ausgefüllt ist; das Rad bleibt dabei immer ganz im Bild.
-	 * Nur Gestaltung – die Überschrift sagt, worauf gewartet wird. Bei „weniger Bewegung“ ein ruhiges Standbild.
+	 * Wartebild (Jan, 14.10.2026; Neufassung 13.10.2026): füllt die ganze Fläche zwischen der Zeile oben und der unteren Leiste. Ein E-Bike in
+	 * unserem Orange fährt eine Landstraße entlang, Opi tritt in die Pedale (Beine über SMIL-Pfade, die zur Kurbel passen), Schal und Haarbüschel
+	 * wehen. Die Szene wird je nach Fenstergröße neu aufgespannt (viewBox = Fläche in Einheiten), damit sie am Handy hoch und am PC breit
+	 * ausgefüllt ist; das Rad bleibt dabei immer ganz im Bild.
+	 *
+	 * Echter Fortschritt (`progress` von der Planung): eine Wegstrecke mit Stationen und Fähnchen zeigt, in welcher Etappe die Suche ist, dazu der
+	 * Zähler gerechneter Wege; die Landschaft wechselt mit den Etappen (Felder, Wald, See, Dorf, Wald, Ziel), der Himmel wird zum Abend hin wärmer,
+	 * Opi winkt bei jedem Wechsel und sagt zu jeder Etappe etwas. Ab 3 s erklärt er, warum es länger dauert; bei langen Wartezeiten macht er
+	 * eine Kaffeepause. Bei „weniger Bewegung“ ein ruhiges Standbild.
+	 * Gestaltung: nichts Hartes – Creme statt Weiß, Taubenblau/Dunkelgrün statt Schwarz, weiche Schatten.
 	 */
 	let {
 		title,
-		subtitle,
-		/** nach so vielen Sekunden meldet sich Opi mit der Sprechblase */
+		progress,
+		/** weite Strecke: ehrlich vorwarnen, dass es länger dauern kann */
+		long = false,
+		/** nach so vielen Sekunden meldet sich Opi mit der Erklärung */
 		explainAfter = 3
-	}: { title: string; subtitle?: string; explainAfter?: number } = $props();
-
-	/**
-	 * Was Opi sagt: erst die Erklärung (ab 3 s), dann – wenn es noch dauert – ein Trost (ab 11 s). Anrede „Sie“, kurz und mit einem Augenzwinkern;
-	 * nie über sein Alter (Jan, 13.10.2026). Ein Wort in { em } wird hervorgehoben.
-	 */
-	type Part = string | { em: string };
-	const SAYINGS: Part[][] = [
-		['Ja, das dauert. Andere Apps schicken Sie auf dem kürzesten Weg durchs Gewerbegebiet – ich suche Ihnen die ', { em: 'schönsten' }, '. Gleich mehrere!'],
-		['Gleich geschafft! Der Akku ist voll, und ich trete schon, ', { em: 'so schnell ich kann' }, '.']
-	];
-	const text = (parts: Part[]) => parts.map((p) => (typeof p === 'string' ? p : p.em)).join('');
+	}: { title: string; progress?: PlanProgress; long?: boolean; explainAfter?: number } = $props();
 
 	let box: HTMLDivElement | undefined = $state();
 	let svg: SVGSVGElement | undefined = $state();
 	let w = $state(360);
 	let h = $state(600);
-	let stage = $state(0); // 0 = noch nichts, 1 = Erklärung, 2 = Trost
+	let elapsed = $state(0); // Sekunden seit Beginn
+	let message: Part[] | undefined = $state();
+	let messageKey = $state(0);
+	let coffee = $state(false);
+	let waving = $state(false);
 
-	/** Maßstab: das Rad (ca. 200 Einheiten breit, Opis Schal inbegriffen) soll gut vier Fünftel der Breite füllen, die Szene höchstens 60 % der Höhe, am PC nicht riesig werden */
-	const scale = $derived(Math.max(0.6, Math.min(w / 235, (h * 0.6) / 200, 2.8)));
+	const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	const fraction = $derived(progress?.fraction ?? 0);
+	const scene = $derived(sceneFor(fraction));
+	const label = $derived(progress ? stageLabel(progress.stage) : 'Karten und Wege vorbereiten');
+	const requests = $derived(progress?.requests ?? 0);
+
+	/** Maßstab: das Rad (ca. 200 Einheiten breit, Opis Schal inbegriffen) soll gut vier Fünftel der Breite füllen (Rest: Luft zum Rand), die Szene höchstens gut die Hälfte der Höhe, am PC nicht riesig werden */
+	const scale = $derived(Math.max(0.6, Math.min(w / 262, (h * 0.54) / 200, 2.8)));
 	const width = $derived(w / scale);
 	const height = $derived(h / scale);
 	const top = $derived(height - 200); // Oberkante der Szene (darüber ist Himmel)
 	const copies = $derived(Array.from({ length: Math.ceil(width / 360) + 1 }, (_, i) => i * 360));
-	/** Abstand der Köpfe von der Oberkante der Fläche (px): bis hierher reicht der Platz für Überschrift und Sprechblase */
+	/** Abstand der Köpfe von der Oberkante der Fläche (px): bis hierher reicht der Platz für Überschrift, Fortschritt und Sprechblase */
 	const roomAbove = $derived(Math.max(0, (top - 8) * scale));
 	/**
-	 * Reicht der Platz über Opis Kopf für Überschrift und Sprechblase zugleich? Grob geschätzt aus der Breite (Zeichen je Zeile).
-	 * Wenn nicht, spricht nur Opi (die Überschrift bleibt für Vorlesegeräte).
+	 * Reicht der Platz über Opis Kopf? Die Höhen von Überschrift + Fortschritt (oben) und Sprechblase (unten, für die längste Erklärung
+	 * freigehalten) werden gemessen. Ist es zu eng, wird nach und nach gespart: 1 der Hinweis „Weite Strecke“ entfällt, 2 die Sprechblase
+	 * wird kleiner gesetzt, 3 die sichtbare Überschrift entfällt (bleibt für Vorlesegeräte), 4 Etappe und Zähler – der Balken bleibt immer.
 	 */
-	const need = $derived.by(() => {
-		const charsPerBubbleLine = Math.max(14, (Math.min(416, w - 32) - 32) / 8.6);
-		const bubbleLines = Math.ceil(text(SAYINGS[0]).length / charsPerBubbleLine);
-		const titleLines = Math.ceil((title.length * 15) / Math.max(200, w - 32));
-		return titleLines * 35 + bubbleLines * 25 + 62;
+	let level = $state(0);
+	/** Breit und flach (PC, Handy quer): Die Sprechblase steht links neben Opis Kopf statt darüber – oben bleibt der Platz für Überschrift und Fortschritt */
+	const side = $derived(w >= 640 && w / h > 1.15);
+	let topEl: HTMLDivElement | undefined = $state();
+	let slotEl: HTMLDivElement | undefined = $state();
+
+	async function fit() {
+		await afterRender();
+		// die neue Stufe muss gezeichnet sein, bevor gemessen wird
+		await new Promise((r) => setTimeout(r, 40));
+		if (!topEl) return;
+		if (topEl.offsetHeight + (side ? 0 : (slotEl?.offsetHeight ?? 0)) + 40 > roomAbove && level < 4) level++;
+	}
+
+	$effect(() => {
+		// andere Fenstergröße: wieder mit allem anfangen
+		void roomAbove;
+		void w;
+		level = 0;
 	});
-	const tight = $derived(roomAbove < need);
+
+	$effect(() => {
+		void [level, roomAbove, w, label, requests, long, side];
+		void fit();
+	});
+
+	function say(parts: Part[] | undefined) {
+		message = parts;
+		messageKey++;
+		spokeAt = elapsed;
+		spokeStage = progress?.stage;
+	}
+	let spokeAt = 0;
+	let spokeStage: string | undefined;
+	let explained = false;
+	const said = new Set<string>();
+
+	function startCoffee() {
+		coffee = true;
+		waving = false;
+		say(COFFEE);
+		svg?.pauseAnimations();
+		setTimeout(() => {
+			coffee = false;
+			if (!reduced) svg?.unpauseAnimations();
+			say(BACK);
+		}, COFFEE_SECONDS * 1000);
+	}
+
+	/** Jede Sekunde: zur rechten Zeit etwas sagen, Kaffeepause einlegen */
+	function tick() {
+		elapsed++;
+		void fit(); // Sicherheitsnetz: Zeilenumbrüche können sich auch ohne Größenänderung der Fläche verschieben (Schrift, Zähler)
+		if (coffee) return;
+		if ((COFFEE_AT as readonly number[]).includes(elapsed)) return startCoffee();
+		if (!explained) {
+			if (elapsed >= explainAfter) {
+				explained = true;
+				say(EXPLAIN);
+			}
+			return;
+		}
+		const age = elapsed - spokeAt;
+		const stageChanged = progress && progress.stage !== spokeStage;
+		if (age >= 10 || (stageChanged && age >= 5)) {
+			const next = progress && nextQuip(progress.stage, said);
+			if (next) say(next);
+			else if (age >= 14) say(undefined); // nichts Neues: Opi schweigt und radelt
+		}
+	}
+
+	// Beim Wechsel der Landschaft winkt Opi kurz
+	let lastScene: string | undefined;
+	$effect(() => {
+		const now = scene;
+		untrack(() => {
+			if (lastScene && lastScene !== now && !coffee && !reduced) {
+				waving = true;
+				setTimeout(() => (waving = false), 2200);
+			}
+			lastScene = now;
+		});
+	});
 
 	onMount(() => {
 		const measure = () => {
@@ -65,14 +150,20 @@
 		measure();
 		const observer = new ResizeObserver(measure);
 		if (box) observer.observe(box);
+		const fitObserver = new ResizeObserver(() => void fit());
+		if (topEl) fitObserver.observe(topEl);
+		if (slotEl) fitObserver.observe(slotEl);
 		window.addEventListener('resize', measure);
-		const timers = [setTimeout(() => (stage = 1), explainAfter * 1000), setTimeout(() => (stage = 2), (explainAfter + 8) * 1000)];
+		// die Schrift ändert die Zeilenumbrüche: nach dem Laden neu messen
+		void document.fonts?.ready.then(() => (level = 0));
+		const clock = setInterval(tick, 1000);
 		// SMIL (Beine, Kurbel) lässt sich nicht per CSS abschalten
-		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) svg?.pauseAnimations();
+		if (reduced) svg?.pauseAnimations();
 		return () => {
 			observer.disconnect();
+			fitObserver.disconnect();
 			window.removeEventListener('resize', measure);
-			timers.forEach(clearTimeout);
+			clearInterval(clock);
 		};
 	});
 
@@ -122,16 +213,29 @@
 	const farLeg = frames(leg, 180);
 	const nearShoe = frames(shoe, 0);
 	const farShoe = frames(shoe, 180);
+
+	// Bäume im Wald (x, Maßstab, Art) und Wimpel am Straßenrand (x, Farbe)
+	const FOREST_TREES: [number, number, 'c' | 'b'][] = [
+		[12, 0.9, 'c'],
+		[42, 1, 'b'],
+		[72, 1.15, 'c'],
+		[104, 0.8, 'b'],
+		[134, 1, 'c'],
+		[166, 1.2, 'b'],
+		[198, 0.95, 'c'],
+		[228, 1.05, 'b'],
+		[258, 1.2, 'c'],
+		[292, 0.9, 'b'],
+		[322, 1.1, 'c'],
+		[350, 0.85, 'b']
+	];
+	const PENNANTS = Array.from({ length: 16 }, (_, i) => ({ x: 24 + i * 21, color: ['#dd8258', '#f1b34c', '#768641', '#32596f'][i % 4] }));
 </script>
 
-<div class="scene" bind:this={box}>
-	<svg
-		bind:this={svg}
-		viewBox="0 0 {width} {height}"
-		preserveAspectRatio="xMidYMax meet"
-		aria-hidden="true"
-		focusable="false"
-	>
+<div class="scene" class:coffee class:waving bind:this={box}>
+	<!-- Himmel am Abend: wärmer, je weiter die Suche ist -->
+	<div class="dusk" style:opacity={fraction}></div>
+	<svg bind:this={svg} viewBox="0 0 {width} {height}" preserveAspectRatio="xMidYMax meet" aria-hidden="true" focusable="false">
 		<defs>
 			<path id="rl-far" d="M0 118 Q45 92 90 110 T180 106 T270 112 T360 118 V176 H0 Z" />
 			<path id="rl-mid" d="M0 140 Q60 116 120 134 T240 128 T360 140 V176 H0 Z" />
@@ -157,34 +261,125 @@
 					<ellipse cx="9" cy="-9" rx="16" ry="10" />
 				</g>
 			</g>
-			<g id="rl-trees">
-				<g transform="translate(34 164)">
-					<rect x="-2" y="-14" width="4" height="16" fill="#7a6a45" />
-					<circle cx="0" cy="-26" r="14" fill="#4f7a3e" />
-					<circle cx="-9" cy="-18" r="9" fill="#4f7a3e" />
-					<circle cx="9" cy="-18" r="9" fill="#4f7a3e" />
+
+			<!-- Bausteine der Landschaften -->
+			<g id="rl-broad">
+				<rect x="-2" y="-14" width="4" height="16" fill="#7a6a45" />
+				<circle cx="0" cy="-26" r="14" fill="#4f7a3e" />
+				<circle cx="-9" cy="-18" r="9" fill="#4f7a3e" />
+				<circle cx="9" cy="-18" r="9" fill="#4f7a3e" />
+			</g>
+			<g id="rl-broad2">
+				<rect x="-2" y="-14" width="4" height="16" fill="#7a6a45" />
+				<circle cx="0" cy="-26" r="14" fill="#5d8a47" />
+				<circle cx="-9" cy="-18" r="9" fill="#5d8a47" />
+				<circle cx="9" cy="-18" r="9" fill="#5d8a47" />
+			</g>
+			<g id="rl-conifer">
+				<rect x="-1.5" y="-4" width="3" height="6" fill="#7a6a45" />
+				<path d="M0 -50 L11 -26 L-11 -26 Z M0 -38 L14 -12 L-14 -12 Z M0 -24 L17 2 L-17 2 Z" fill="#2f5236" />
+			</g>
+
+			<!-- Felder: Getreide- und Wiesenstreifen, einzelne Bäume -->
+			<g id="rl-s-fields">
+				<g transform="translate(14 148)">
+					<path d="M0 16 L84 16 L74 0 L10 0 Z" fill="#e3cf8c" />
+					<path d="M16 0 L12 16 M32 0 L30 16 M48 0 L48 16 M64 0 L66 16" stroke="#c9b062" stroke-width="1.6" />
 				</g>
-				<g transform="translate(118 164) scale(0.75)">
-					<rect x="-2" y="-14" width="4" height="16" fill="#7a6a45" />
-					<circle cx="0" cy="-26" r="14" fill="#5d8a47" />
-					<circle cx="-9" cy="-18" r="9" fill="#5d8a47" />
-					<circle cx="9" cy="-18" r="9" fill="#5d8a47" />
+				<g transform="translate(150 150)">
+					<path d="M0 14 L70 14 L62 0 L8 0 Z" fill="#a9c36e" />
+					<path d="M14 0 L10 14 M28 0 L26 14 M42 0 L42 14 M54 0 L56 14" stroke="#8fae58" stroke-width="1.6" />
 				</g>
-				<g transform="translate(206 164)">
-					<rect x="-1.5" y="-4" width="3" height="6" fill="#7a6a45" />
-					<path d="M0 -50 L11 -26 L-11 -26 Z M0 -38 L14 -12 L-14 -12 Z M0 -24 L17 2 L-17 2 Z" fill="#2f5236" />
+				<g transform="translate(250 148)">
+					<path d="M0 16 L80 16 L70 0 L10 0 Z" fill="#e8d596" />
+					<path d="M16 0 L12 16 M32 0 L30 16 M48 0 L48 16 M62 0 L64 16" stroke="#c9b062" stroke-width="1.6" />
 				</g>
-				<g transform="translate(296 164) scale(0.9)">
-					<rect x="-2" y="-14" width="4" height="16" fill="#7a6a45" />
-					<circle cx="0" cy="-26" r="14" fill="#4f7a3e" />
-					<circle cx="-9" cy="-18" r="9" fill="#4f7a3e" />
-					<circle cx="9" cy="-18" r="9" fill="#4f7a3e" />
+				<use href="#rl-broad" transform="translate(34 164)" />
+				<use href="#rl-broad2" transform="translate(118 164) scale(0.75)" />
+				<use href="#rl-conifer" transform="translate(206 164)" />
+				<use href="#rl-broad" transform="translate(300 164) scale(0.9)" />
+			</g>
+
+			<!-- Wald: dicht an dicht -->
+			<g id="rl-s-forest">
+				{#each FOREST_TREES as [x, s, kind] (x)}
+					<use href={kind === 'c' ? '#rl-conifer' : x % 2 ? '#rl-broad' : '#rl-broad2'} transform="translate({x} 164) scale({s})" />
+				{/each}
+			</g>
+
+			<!-- See mit Schilf, Ente und Spiegelungen -->
+			<g id="rl-s-lake">
+				<ellipse cx="150" cy="158" rx="136" ry="11" fill="#8db7cb" />
+				<ellipse cx="150" cy="156" rx="122" ry="7.5" fill="#a6cbdb" />
+				<path d="M70 156h24M128 159h34M196 155h22M104 153h14" stroke="#fdfbf5" stroke-width="1.8" opacity="0.7" stroke-linecap="round" />
+				<g stroke="#6f8b45" stroke-width="2" stroke-linecap="round">
+					<path d="M22 164v-16M27 164v-20M32 164v-14M280 164v-15M285 164v-19M290 164v-13" />
 				</g>
+				<g fill="#7a5a3c">
+					<ellipse cx="27" cy="143.5" rx="2" ry="4" />
+					<ellipse cx="285" cy="144.5" rx="2" ry="4" />
+				</g>
+				<g transform="translate(176 157)">
+					<ellipse rx="6.5" ry="3.6" fill="#f7f2e5" />
+					<circle cx="5" cy="-3.4" r="2.5" fill="#f7f2e5" />
+					<path d="M7.2 -3.4l3.2 .9-3.2 .9z" fill="#f1b34c" />
+				</g>
+				<use href="#rl-broad" transform="translate(326 164) scale(0.9)" />
+				<use href="#rl-conifer" transform="translate(8 164) scale(0.8)" />
+			</g>
+
+			<!-- Dorf: Häuser mit roten Dächern und ein Kirchturm -->
+			<g id="rl-s-village">
+				{#each [40, 118, 262, 330] as x (x)}
+					<g transform="translate({x} 164)">
+						<rect x="-15" y="-21" width="30" height="21" fill="#f7f2e5" />
+						<path d="M-18 -21 L0 -36 L18 -21Z" fill="#b0552f" />
+						<rect x="-3.5" y="-12" width="7" height="12" fill="#7a6a45" />
+						<rect x="7" y="-17" width="6" height="6" fill="#afc6d1" />
+						<rect x="-13" y="-17" width="6" height="6" fill="#afc6d1" />
+					</g>
+				{/each}
+				<g transform="translate(192 164)">
+					<rect x="-16" y="-20" width="32" height="20" fill="#efe6cf" />
+					<rect x="-7" y="-52" width="14" height="32" fill="#efe6cf" />
+					<path d="M-9 -52 L0 -74 L9 -52Z" fill="#8e4425" />
+					<path d="M0 -74v-8M-3 -79h6" stroke="#f1b34c" stroke-width="1.6" />
+					<path d="M-3 -34h6v9h-6z" fill="#6c8a9b" />
+					<rect x="-4" y="-12" width="8" height="12" fill="#7a6a45" />
+				</g>
+				<use href="#rl-broad2" transform="translate(80 164) scale(0.7)" />
+				<use href="#rl-broad" transform="translate(300 164) scale(0.75)" />
+			</g>
+
+			<!-- Ziel: Wimpelkette am Straßenrand und eine Zielflagge -->
+			<g id="rl-s-finish">
+				{#each [24, 108, 192, 276] as x (x)}
+					<rect x={x - 1.5} y="118" width="3" height="46" fill="#7a6a45" />
+				{/each}
+				<path d="M24 121 Q66 134 108 121 T192 121 T276 121" stroke="#7a6a45" stroke-width="1.4" fill="none" />
+				{#each PENNANTS.slice(0, 13) as p (p.x)}
+					<path d="M{p.x} {121 + 6.5 * Math.sin(((p.x - 24) / 84) * Math.PI)} l7 0 l-3.5 12 z" fill={p.color} />
+				{/each}
+				<g transform="translate(330 164)">
+					<rect x="-1.5" y="-52" width="3" height="52" fill="#7a6a45" />
+					<g transform="translate(1.5 -52)">
+						{#each [0, 1, 2, 3, 4, 5] as i (i)}
+							{#each [0, 1, 2] as j (j)}
+								<rect x={i * 5} y={j * 5} width="5" height="5" fill={(i + j) % 2 ? '#243539' : '#f7f2e5'} />
+							{/each}
+						{/each}
+					</g>
+				</g>
+				<use href="#rl-broad2" transform="translate(150 164) scale(0.8)" />
 			</g>
 		</defs>
 
 		<g transform="translate(0 {top})">
-			<circle cx={width - 60} cy="44" r="19" fill="#f1b34c" />
+			<!-- Sonne: sinkt mit dem Fortschritt, wird orange -->
+			<g class="sun" style:transform="translate(0px, {fraction * 62}px)">
+				<circle cx={width - 60} cy="44" r="19" fill="#f1b34c" />
+				<circle cx={width - 60} cy="44" r="19" fill="#e98a4a" opacity={fraction} />
+			</g>
 			<g class="layer clouds">
 				{#each copies as x (x)}<use href="#rl-clouds" {x} />{/each}
 			</g>
@@ -195,9 +390,11 @@
 				{#each copies as x (x)}<use href="#rl-mid" {x} />{/each}
 			</g>
 			<rect y="164" {width} height="12" fill="#8fa55a" />
-			<g class="layer trees">
-				{#each copies as x (x)}<use href="#rl-trees" {x} />{/each}
-			</g>
+			{#each SCENES as kind (kind)}
+				<g class="layer trees scenery" class:on={scene === kind}>
+					{#each copies as x (x)}<use href="#rl-s-{kind}" {x} />{/each}
+				</g>
+			{/each}
 			<rect y="170" {width} height="30" fill="#5b666a" />
 			<line class="dashes" x1="-90" x2={width + 90} y1="193" y2="193" stroke="#f7f2e5" stroke-width="3" stroke-dasharray="40 40" stroke-linecap="round" />
 
@@ -281,6 +478,26 @@
 					<!-- Arm zum Lenker -->
 					<path d="M142 48L166 62L186 77" stroke="#768641" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round" />
 					<circle cx="188" cy="78" r="5.5" fill="#f1c9a5" />
+					<!-- der andere Arm: winkt beim Wechsel der Landschaft -->
+					<g class="gesture wave-arm">
+						<g class="swing">
+							<path d="M142 48L162 38L174 16" stroke="#768641" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+							<circle cx="175.5" cy="13" r="5.5" fill="#f1c9a5" />
+						</g>
+					</g>
+					<!-- … und trinkt bei der Kaffeepause einen Schluck -->
+					<g class="gesture coffee-arm">
+						<path d="M142 50L156 62L168 46" stroke="#768641" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+						<circle cx="169.5" cy="43.5" r="5.5" fill="#f1c9a5" />
+						<g transform="translate(172 36) rotate(-10)">
+							<path d="M-7 0h14v9a7 7 0 0 1-7 7a7 7 0 0 1-7-7z" fill="#f7f2e5" />
+							<path d="M-7 4h14" stroke="#afc6d1" stroke-width="3" />
+							<path d="M7 3h3a3.2 3.2 0 0 1 0 6.4h-3" stroke="#f7f2e5" stroke-width="2" fill="none" />
+							<ellipse cy="0.6" rx="7" ry="1.8" fill="#6b4a36" />
+							<path class="steam" d="M-2 -4c-3 -4 3 -6 0 -10" stroke="#fdfbf5" stroke-width="1.8" fill="none" stroke-linecap="round" />
+							<path class="steam late" d="M3 -4c-3 -4 3 -6 0 -10" stroke="#fdfbf5" stroke-width="1.8" fill="none" stroke-linecap="round" />
+						</g>
+					</g>
 					<!-- Kopf (etwas größer als natürlich: Opi darf komisch aussehen) -->
 					<g transform="translate(140 40) scale(1.18) translate(-140 -40)">
 						<g class="tuft">
@@ -311,21 +528,62 @@
 		</g>
 	</svg>
 
-	<div class="overlay" class:tight style:height="{roomAbove}px">
-		<h2 class="title" class:quiet={tight && stage > 0}>
-			{title}<span class="dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>
-		</h2>
-		{#if subtitle && stage === 0}<p class="subtitle">{subtitle}</p>{/if}
-		{#if stage > 0}
-			{#key stage}
-				<div class="bubble" role="status">
-					<p>{#each SAYINGS[stage - 1] as part}{#if typeof part === 'string'}{part}{:else}<em>{part.em}</em>{/if}{/each}</p>
-					<svg class="tail" viewBox="0 0 40 26" aria-hidden="true" focusable="false"><path d="M0 0C11 0 17 11 23 26C27 13 33 4 40 0Z" /></svg>
+	<div class="overlay" class:tight={level >= 2} style:height="{roomAbove}px">
+		<div class="top" bind:this={topEl}>
+			<h2 class="title" class:quiet={level >= 3}>{title}</h2>
+
+			<!-- die Wegstrecke der Suche: Stationen = Etappen, Fähnchen = fertig; darunter die Etappe und der Zähler -->
+			<div class="progress">
+				<div
+					class="track"
+					role="progressbar"
+					aria-label="Fortschritt der Suche"
+					aria-valuemin="0"
+					aria-valuemax="100"
+					aria-valuenow={Math.round(fraction * 100)}
+				>
+					<div class="fill" style:width="{Math.max(3, fraction * 100)}%"></div>
+					{#each STATIONS as s (s)}
+						<span class="station" class:done={fraction >= s} style:left="{s * 100}%"></span>
+					{/each}
+					<svg class="goal" viewBox="0 0 22 26" aria-hidden="true" focusable="false">
+						<path d="M3 24V2" stroke="#283c30" stroke-width="2.4" stroke-linecap="round" />
+						<path d="M3.5 3C9 0 12 6 18 3V13C12 16 9 10 3.5 13Z" fill={fraction >= 0.97 ? '#768641' : '#dd8258'} />
+					</svg>
 				</div>
-			{/key}
+				<p class="stage" role="status" class:quiet={level >= 4}>
+					<span class="label">{label}</span>
+					{#if requests > 0}<span class="count">{requests} Wege geprüft</span>{/if}
+				</p>
+				{#if long && level < 1}<p class="hint">Weite Strecke – das kann bis zu einer Minute dauern.</p>{/if}
+			</div>
+		</div>
+
+		<!-- Platz für die Sprechblase (hochkant): gemessen wird die längste (Erklärung); die echte Blase sitzt unten in diesem Platz, direkt über Opi -->
+		{#if !side}
+			<div class="slot" bind:this={slotEl}>
+				<div class="bubble ghost" aria-hidden="true">
+					<p>{textOf(EXPLAIN)}</p>
+				</div>
+				{#if message}{#key messageKey}{@render speech()}{/key}{/if}
+			</div>
 		{/if}
 	</div>
+
+	<!-- breit: die Sprechblase links neben Opis Kopf, der Zipfel zeigt auf ihn -->
+	{#if side && message}
+		<div class="side-anchor" style:top="{(top + 20) * scale}px" style:right="calc(50% + {22 * scale + 26}px)">
+			{#key messageKey}{@render speech()}{/key}
+		</div>
+	{/if}
 </div>
+
+{#snippet speech()}
+	<div class="bubble live" class:side role="status">
+		<p>{#each message ?? [] as part}{#if typeof part === 'string'}{part}{:else}<em>{part.em}</em>{/if}{/each}</p>
+		<svg class="tail" viewBox="0 0 40 26" aria-hidden="true" focusable="false"><path d="M0 0C11 0 17 11 23 26C27 13 33 4 40 0Z" /></svg>
+	</div>
+{/snippet}
 
 <style>
 	/* füllt die Fläche, die der Aufrufer gibt (der braucht position: relative und eine Höhe, z. B. flex: 1) */
@@ -337,6 +595,15 @@
 		background: linear-gradient(180deg, #afc6d1 0%, #cfdde4 45%, #f3efe2 100%);
 	}
 
+	/* Abendhimmel: legt sich mit dem Fortschritt weich über den blauen */
+	.dusk {
+		position: absolute;
+		inset: 0;
+		/* oben bleibt es blau, nur der Horizont glüht (Blau und Orange direkt gemischt würden grau) */
+		background: linear-gradient(180deg, rgb(244 190 150 / 0) 0%, rgb(244 190 150 / 0) 38%, rgb(244 190 150 / 0.5) 72%, rgb(250 216 152 / 0.85) 100%);
+		transition: opacity 2.5s ease;
+	}
+
 	.scene > svg {
 		position: absolute;
 		inset: 0;
@@ -345,7 +612,7 @@
 		height: 100%;
 	}
 
-	/* Überschrift oben, Sprechblase unten – beides zwischen Oberkante und Opis Kopf */
+	/* Überschrift, Fortschritt oben, Sprechblase unten – alles zwischen Oberkante und Opis Kopf */
 	.overlay {
 		position: absolute;
 		inset: 0 0 auto 0;
@@ -369,8 +636,23 @@
 		text-wrap: balance;
 	}
 
+	.top {
+		display: grid;
+		justify-items: center;
+		gap: 0.5rem;
+		width: 100%;
+	}
+
+	.slot {
+		position: relative;
+		display: flex;
+		justify-content: center;
+		width: 100%;
+	}
+
 	/* nur für Vorlesegeräte sichtbar */
-	.title.quiet {
+	.title.quiet,
+	.stage.quiet {
 		position: absolute;
 		width: 1px;
 		height: 1px;
@@ -378,10 +660,83 @@
 		clip-path: inset(50%);
 	}
 
-	.subtitle {
+	/* Wegstrecke: weiche, dunkelgrüne Spur auf dem Himmel, Füllung von Terrakotta zu Sonnengelb */
+	.progress {
+		display: grid;
+		justify-items: center;
+		gap: 0.375rem;
+		width: min(30rem, 100%);
+	}
+
+	.track {
+		position: relative;
+		width: min(21rem, calc(100% - 1.5rem));
+		height: 0.75rem;
+		margin-right: 1.5rem;
+		border-radius: 999px;
+		background: rgb(40 60 48 / 0.16);
+		box-shadow: inset 0 1px 3px rgb(40 60 48 / 0.18);
+	}
+
+	.fill {
+		height: 100%;
+		border-radius: inherit;
+		background: linear-gradient(90deg, #dd8258, #f1b34c);
+		transition: width 0.9s ease;
+	}
+
+	.station {
+		position: absolute;
+		top: 50%;
+		width: 0.5rem;
+		height: 0.5rem;
+		border-radius: 50%;
+		background: rgb(253 251 245 / 0.75);
+		box-shadow: 0 0 0 2px rgb(40 60 48 / 0.18);
+		transform: translate(-50%, -50%);
+		transition: background 0.6s ease;
+	}
+
+	.station.done {
+		background: #768641;
+	}
+
+	.goal {
+		position: absolute;
+		right: -1.75rem;
+		bottom: -0.1rem;
+		width: 1.375rem;
+		height: 1.625rem;
+	}
+
+	.stage {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 0.125rem 0.75rem;
 		margin: 0;
-		color: var(--color-text);
-		font-size: var(--text-large);
+		color: var(--color-green);
+		font-size: 1.0625rem;
+		line-height: 1.3;
+	}
+
+	.label {
+		font-weight: 700;
+		white-space: nowrap;
+	}
+
+	.count {
+		font-weight: 500;
+		white-space: nowrap;
+		opacity: 0.85;
+	}
+
+	.hint {
+		margin: 0;
+		color: var(--color-green);
+		font-size: 1.0625rem;
+		line-height: 1.3;
+		opacity: 0.9;
 	}
 
 	/*
@@ -391,7 +746,7 @@
 	.bubble {
 		position: relative;
 		max-width: min(25rem, 100%);
-		margin: auto 0 22px;
+		margin: 0 0 22px;
 		padding: 0.875rem 1.375rem 1rem;
 		border-radius: 2rem;
 		background: linear-gradient(180deg, #fffdf8 0%, #f8f1e0 100%);
@@ -408,7 +763,7 @@
 	.bubble p {
 		margin: 0;
 		font-family: var(--font-title);
-		font-size: 1.1875rem;
+		font-size: 1.125rem;
 		font-weight: 500;
 		line-height: 1.35;
 		text-wrap: pretty;
@@ -418,6 +773,40 @@
 		color: var(--color-orange-dark);
 		font-style: normal;
 		font-weight: 700;
+	}
+
+	/* die unsichtbare Blase hält nur den Platz frei; die echte sitzt unten in diesem Platz */
+	.bubble.ghost {
+		visibility: hidden;
+		animation: none;
+	}
+
+	.slot .bubble.live {
+		position: absolute;
+		inset: auto 0 0;
+		width: fit-content;
+		margin: 0 auto 22px;
+	}
+
+	/* breit: Blase links neben dem Kopf; der Anker verschiebt sie mittig auf Kopfhöhe (der Blase selbst bleiben transform und translate für die Bewegung) */
+	.side-anchor {
+		position: absolute;
+		max-width: min(22rem, 42%);
+		transform: translateY(-50%);
+		pointer-events: none;
+	}
+
+	.side-anchor .bubble {
+		margin: 0 24px 0 0;
+		transform-origin: 100% 50%;
+	}
+
+	.bubble.side .tail {
+		left: auto;
+		right: -33px;
+		bottom: auto;
+		top: calc(50% - 13px);
+		transform: rotate(-90deg);
 	}
 
 	/* Zipfel in der Farbe des unteren Blasenrands */
@@ -432,10 +821,6 @@
 	}
 
 	@media (max-height: 30rem) {
-		.subtitle {
-			display: none;
-		}
-
 		.title {
 			font-size: 1.375rem;
 		}
@@ -443,25 +828,17 @@
 
 	.tight .bubble p {
 		font-size: 1.0625rem;
-		line-height: 1.3;
+		line-height: 1.25;
 	}
 
 	.tight .bubble {
-		padding: 0.625rem 1rem 0.75rem;
+		padding: 0.5rem 0.875rem 0.625rem;
 	}
 
-	/* drei Punkte, die nacheinander aufleuchten */
-	.dots i {
-		font-style: normal;
-		animation: blink 1.2s infinite;
-	}
-
-	.dots i:nth-child(2) {
-		animation-delay: 0.2s;
-	}
-
-	.dots i:nth-child(3) {
-		animation-delay: 0.4s;
+	@media (max-width: 24rem) {
+		.overlay {
+			padding-inline: 0.5rem;
+		}
 	}
 
 	/* Hügel, Bäume und Straße ziehen nach links vorbei – je näher, desto schneller */
@@ -479,6 +856,20 @@
 
 	.layer.trees {
 		animation-duration: 4.2s;
+	}
+
+	/* die Landschaften überblenden sich weich */
+	.scenery {
+		opacity: 0;
+		transition: opacity 1.6s ease;
+	}
+
+	.scenery.on {
+		opacity: 1;
+	}
+
+	.sun {
+		transition: transform 2.5s ease;
 	}
 
 	.dashes {
@@ -512,6 +903,44 @@
 		transform-box: fill-box;
 		transform-origin: left center;
 		animation: wiggle 0.55s ease-in-out infinite alternate;
+	}
+
+	/* Gesten: der andere Arm erscheint zum Winken bzw. für den Kaffee */
+	.gesture {
+		opacity: 0;
+		transition: opacity 0.25s ease;
+	}
+
+	.waving .wave-arm,
+	.coffee .coffee-arm {
+		opacity: 1;
+	}
+
+	.swing {
+		transform-origin: 142px 48px;
+	}
+
+	.waving .swing {
+		animation: wave 0.34s ease-in-out infinite alternate;
+	}
+
+	.steam {
+		animation: steam 1.6s ease-out infinite;
+	}
+
+	.steam.late {
+		animation-delay: 0.8s;
+	}
+
+	/* Kaffeepause: Opi hält an, alles steht still */
+	.coffee .layer,
+	.coffee .dashes,
+	.coffee .spin,
+	.coffee .bike,
+	.coffee .scarf,
+	.coffee .tuft,
+	.coffee .mustache {
+		animation-play-state: paused;
 	}
 
 	@keyframes slide {
@@ -553,6 +982,26 @@
 		}
 	}
 
+	@keyframes wave {
+		from {
+			transform: rotate(-9deg);
+		}
+		to {
+			transform: rotate(13deg);
+		}
+	}
+
+	@keyframes steam {
+		from {
+			opacity: 0.9;
+			transform: translateY(0);
+		}
+		to {
+			opacity: 0;
+			transform: translateY(-7px);
+		}
+	}
+
 	@keyframes float {
 		to {
 			translate: 0 -4px;
@@ -566,17 +1015,6 @@
 		}
 	}
 
-	@keyframes blink {
-		0%,
-		60%,
-		100% {
-			opacity: 0.25;
-		}
-		30% {
-			opacity: 1;
-		}
-	}
-
 	@media (prefers-reduced-motion: reduce) {
 		.layer,
 		.dashes,
@@ -585,9 +1023,17 @@
 		.scarf,
 		.tuft,
 		.mustache,
-		.dots i,
+		.swing,
+		.steam,
 		.bubble {
 			animation: none;
+		}
+
+		.fill,
+		.dusk,
+		.sun,
+		.scenery {
+			transition: none;
 		}
 	}
 </style>

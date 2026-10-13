@@ -8,6 +8,7 @@ import type { PlannedTour, TourRequest } from '$lib/tour/model';
 import { NoRouteError, route, RoutingUnavailableError } from './graphhopper';
 import { planTours, TooCloseError, type PlanDeps } from './plan';
 import { planRound } from './round';
+import type { PlanProgress, StageReport } from './progress';
 
 /** Adresse der Kartenkacheln (die Hauptseite kennt den Unterpfad der App, der Hintergrundprozess nicht) */
 export interface DataUrls {
@@ -24,8 +25,30 @@ export async function loadPlanDeps(urls: DataUrls, request: TourRequest): Promis
 	return { route, landscape: area?.landscape, names: area?.names, roads: area?.roads, fine: area?.fine, streams: area?.streams };
 }
 
-export async function planWithData(request: TourRequest, urls: DataUrls): Promise<PlannedTour[]> {
-	const deps = await loadPlanDeps(urls, request);
+/** Zähler um den Routenplaner: meldet bei jeder fertigen Anfrage und bei jeder Etappe den Stand an die Seite (nie rückwärts) */
+function tracked(deps: PlanDeps, onProgress: (p: PlanProgress) => void): PlanDeps {
+	let state: PlanProgress = { stage: 'direct', fraction: 0, requests: 0 };
+	const emit = () => onProgress({ ...state });
+	return {
+		...deps,
+		route: async (...args) => {
+			try {
+				return await deps.route(...args);
+			} finally {
+				state = { ...state, requests: state.requests + 1 };
+				emit();
+			}
+		},
+		progress: (r: StageReport) => {
+			state = { ...state, stage: r.stage, fraction: Math.max(state.fraction, r.fraction) };
+			emit();
+		}
+	};
+}
+
+export async function planWithData(request: TourRequest, urls: DataUrls, onProgress?: (p: PlanProgress) => void): Promise<PlannedTour[]> {
+	const loaded = await loadPlanDeps(urls, request);
+	const deps = onProgress ? tracked(loaded, onProgress) : loaded;
 	return request.round ? planRound(request, deps) : planTours(request, deps);
 }
 

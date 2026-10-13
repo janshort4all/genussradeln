@@ -295,7 +295,20 @@ export async function planRound(request: TourRequest, deps: PlanDeps): Promise<P
 	// rundherum ab einem zufälligen Winkel (mit Wunsch mehr Richtungen: mehr Auswahl)
 	const count = wish ? ROUND.wishDirections : ROUND.directions;
 
+	// Fortschritt: je ausprobierter Richtung ein Stück (der erste Durchgang reicht bis 0,78; weitere Durchgänge nur, wenn zu wenige Runden da sind)
+	let tried = 0;
+	const reportTried = () => deps.progress?.({ stage: 'directions', fraction: Math.min(0.78, (0.78 * tried) / count) });
+	deps.progress?.({ stage: 'directions', fraction: 0 });
+
 	const tryHeading = async (heading: number): Promise<RoundCandidate | undefined> => {
+		try {
+			return await tryHeadingInner(heading);
+		} finally {
+			tried++;
+			reportTried();
+		}
+	};
+	const tryHeadingInner = async (heading: number): Promise<RoundCandidate | undefined> => {
 		// Kreisumfang × Umwegfaktor der Straßen ≈ gewünschte Länge
 		let radius = target / (2 * Math.PI * ROUND.roadFactor);
 		for (let attempt = 0; attempt < ROUND.lengthAttempts; attempt++) {
@@ -382,6 +395,7 @@ export async function planRound(request: TourRequest, deps: PlanDeps): Promise<P
 	// werden durchfahren – solange die Runde ihre Länge behält (± ROUND.tolerance) und nicht denselben Weg zurück fährt.
 	// Nicht beim Wunsch „Felder“ (dort soll sie ja gerade nicht in den Wald).
 	if (wish !== 'fields') {
+		deps.progress?.({ stage: 'through', fraction: 0.8 });
 		await mapLimited(chosen, 2, async (c) => {
 			const better = await goThrough(
 				c.path,
@@ -399,6 +413,7 @@ export async function planRound(request: TourRequest, deps: PlanDeps): Promise<P
 		for (let i = chosen.length - 1; i > 0; i--) if (chosen.slice(0, i).some((p) => tooSimilar(chosen[i], p))) chosen.splice(i, 1);
 	}
 
+	deps.progress?.({ stage: 'finish', fraction: 0.95 });
 	// Titel: benannter Höhepunkt und unterscheidende Orte, sonst die Landschaft; Name nach der Richtung
 	const named: (RouteNames | undefined)[] = chosen.map((c) =>
 		deps.names ? routeNames(c.line, deps.names, deps.landscape, deps.fine) : undefined
