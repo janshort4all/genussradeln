@@ -119,11 +119,17 @@
 	<p>Bitte sagen Sie uns zuerst, wohin Sie möchten.</p>
 	<Button variant="primary" href={resolve('/ziel')}>Ziel wählen</Button>
 {:else}
-	<!-- Beim Warten kein Titelbild: nur das Fahrrad und der Text darunter (Jan, 14.10.2026) – oben bleiben Zurück-Weg und Zahnrad -->
+	<!-- Beim Warten füllt das Wartebild alles zwischen der Zeile oben (Zurück-Weg, Zahnrad) und der unteren Leiste (Jan, 13.10.2026) -->
 	{#if status === 'loading'}
-		<div class="slim">
-			<BackLink href={isRound ? resolve('/runde') : resolve('/ziel')} label="Wunsch ändern" />
-			<MoreLink />
+		<div class="screen">
+			<div class="slim">
+				<BackLink href={isRound ? resolve('/runde') : resolve('/ziel')} label="Wunsch ändern" />
+				<MoreLink />
+			</div>
+			<!-- Wartebild: ein E-Bike fährt durch die Landschaft, Opi tritt in die Pedale und erklärt nach 3 Sekunden, warum es dauert -->
+			<div class="waiting" aria-busy="true">
+				<RideLoader title={isRound ? 'Wir suchen schöne Runden' : 'Wir suchen die schönsten Wege'} subtitle="Das dauert nur einen Moment." />
+			</div>
 		</div>
 	{:else}
 	<PageHeader
@@ -139,14 +145,7 @@
 	{/if}
 
 	{#if status === 'loading'}
-		<!-- Wartebild: ein orangefarbenes E-Bike fährt durch die Landschaft, der Text steht darunter -->
-		<div class="waiting" role="status">
-			<div class="stage"><RideLoader /></div>
-			<p class="first">
-				<strong>{isRound ? 'Wir suchen schöne Runden' : 'Wir suchen die schönsten Wege'}<span class="dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></strong>
-			</p>
-			<p class="second">Das dauert nur einen Moment.</p>
-		</div>
+		<!-- das Wartebild steht oben schon in .screen -->
 	{:else if status === 'unavailable'}
 		<div class="message" role="alert">
 			<p>
@@ -272,79 +271,28 @@
 		margin-bottom: 1rem;
 	}
 
+	/* Wartebild: ganze Fläche zwischen der Zeile oben und der unteren Leiste (die Seite hat unten schon den Platz der Leiste frei) */
+	.screen {
+		display: flex;
+		flex-direction: column;
+		min-height: calc(100svh - var(--bottom-bar-height) - env(safe-area-inset-bottom) - 0.5rem);
+	}
+
 	/* schmale Zeile oben beim Warten: Zurück-Weg links, Zahnrad rechts */
 	.slim {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 0.5rem;
-		margin-bottom: 0.75rem;
+		margin-bottom: 0.5rem;
 	}
 
-	/* Wartebild */
+	/* bis an den Fensterrand und bis zur Leiste */
 	.waiting {
-		display: grid;
-		gap: 0.25rem;
-		justify-items: center;
-		margin: 0.5rem 0 1rem;
-		text-align: center;
-	}
-
-	.stage {
-		width: 100%;
-		height: clamp(13rem, 38vh, 20rem);
-		margin-bottom: 1rem;
-		overflow: hidden;
-		border-radius: 1.5rem;
-		background: var(--color-blue-light);
-		box-shadow: 0 4px 14px rgb(36 53 57 / 0.12);
-	}
-
-	.waiting p {
-		margin: 0;
-	}
-
-	.first {
-		color: var(--color-green);
-		font-family: var(--font-title);
-		font-size: var(--text-h2);
-		line-height: 1.2;
-	}
-
-	.second {
-		color: var(--color-text-muted);
-		font-size: var(--text-large);
-	}
-
-	/* drei Punkte, die nacheinander aufleuchten */
-	.dots i {
-		font-style: normal;
-		animation: blink 1.2s infinite;
-	}
-
-	.dots i:nth-child(2) {
-		animation-delay: 0.2s;
-	}
-
-	.dots i:nth-child(3) {
-		animation-delay: 0.4s;
-	}
-
-	@keyframes blink {
-		0%,
-		60%,
-		100% {
-			opacity: 0.25;
-		}
-		30% {
-			opacity: 1;
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.dots i {
-			animation: none;
-		}
+		position: relative;
+		flex: 1;
+		min-height: 0;
+		margin-inline: calc(-1 * var(--bleed));
 	}
 
 	/* Infofenster über der Karte: Nummer in der Wegfarbe, Name, drei Zahlen, ein großer Knopf */
