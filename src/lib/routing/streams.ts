@@ -26,20 +26,6 @@ export function parseStreams(json: { lines: [string, string][] }): Watercourse[]
 	return json.lines.map(([name, encoded]) => ({ name, line: decodePolyline(encoded) }));
 }
 
-let loading: Promise<Watercourse[]> | undefined;
-
-/** Gewässerverläufe einmalig laden (ca. 100 KB) */
-export function loadStreams(url: string): Promise<Watercourse[]> {
-	loading ??= fetch(url)
-		.then((r) => {
-			if (!r.ok) throw new Error('Gewässerdaten nicht gefunden');
-			return r.json();
-		})
-		.then(parseStreams);
-	loading.catch(() => (loading = undefined));
-	return loading;
-}
-
 /** Lage eines Punkts entlang der Luftlinie Start → Ziel (0 = Start, 1 = Ziel) */
 function alongAxis(point: LngLat, from: LngLat, to: LngLat): number {
 	const kx = Math.cos((from[1] * Math.PI) / 180);

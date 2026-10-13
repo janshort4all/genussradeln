@@ -60,16 +60,3 @@ export class PoiIndex {
 		return out;
 	}
 }
-
-let loading: Promise<PoiIndex> | undefined;
-
-/** Lädt die Stopp-Datei einmalig (im Browser) */
-export function loadPois(url: string): Promise<PoiIndex> {
-	loading ??= (async () => {
-		const response = await fetch(url);
-		if (!response.ok) throw new Error('Stopp-Daten nicht gefunden');
-		return new PoiIndex(parsePois(await response.json()));
-	})();
-	loading.catch(() => (loading = undefined));
-	return loading;
-}

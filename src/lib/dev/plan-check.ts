@@ -7,22 +7,17 @@
  *
  * Aufruf im Browser auf http://localhost:5173 (lokales GraphHopper muss laufen), z. B. in der Konsole:
  *   const m = await import('/src/lib/dev/plan-check.ts'); await m.runPlanCheck({ pairs: 40 })
- * Standardmäßig mit den Kacheln (static/tiles, `npm run tiles`); `{ tiles: false }` rechnet mit den alten Gesamt-Dateien (static/data)
- * zum Vergleich. Gemessen wird die Planung getrennt vom Laden der Karten (`loadMs`).
+ * Karten aus den Kacheln (static/tiles, `npm run tiles`); `{ wide: true }` nimmt die Orte aus allen Kacheln (ganzes Gebiet) statt nur
+ * aus der Ortsliste in static/data. Gemessen wird die Planung getrennt vom Laden der Karten (`loadMs`).
  */
 import { planningArea } from '$lib/data/area';
 import { tileStore } from '$lib/data/tiles';
 import { distance, type LngLat } from '$lib/geo/geo';
-import { loadNames } from '$lib/naming/names';
 import { lengthLabels, planTours, TooCloseError } from '$lib/routing/plan';
 import { planRound, roundShapeProblem } from '$lib/routing/round';
 import { NoRouteError, route, type RoutePath } from '$lib/routing/graphhopper';
 import { findBacktrack, findLoop, findSpur, separatedFrom } from '$lib/scoring/backtrack';
-import { loadStreams } from '$lib/routing/streams';
-import { loadFineMap } from '$lib/scoring/fine';
-import { loadLandscape } from '$lib/scoring/landscape';
 import { overlapShare } from '$lib/scoring/overlap';
-import { loadRoadMask } from '$lib/scoring/roads';
 import { beautyScore } from '$lib/scoring/score';
 import { DETOUR, DIVERSITY_MAX_OVERLAP, ROUND, ROUND_MAX_OVERLAP, VIA_SEARCH } from '$lib/scoring/weights';
 import type { PlannedTour, ReturnMode, TourRequest } from '$lib/tour/model';
@@ -44,9 +39,8 @@ export interface CheckResult {
 	perCase: { case: string; count: number; km: number[]; beauty: number[] }[];
 	/** Planung ohne das Laden der Karten */
 	averageMs: number;
-	/** Zeit für das Laden und Zusammensetzen der Kacheln (nur mit Kacheln) */
+	/** Zeit für das Laden und Zusammensetzen der Kacheln */
 	loadMs?: number;
-	tiles?: boolean;
 }
 
 /** Zufallszahlen mit festem Startwert – derselbe Lauf ist wiederholbar */
@@ -256,18 +250,8 @@ function checkRounds(c: Case, tours: PlannedTour[], problems: CheckProblem[]) {
 }
 
 export async function runPlanCheck(
-	options: { pairs?: number; seed?: number; tiles?: boolean; wide?: boolean; onProgress?: (done: number, total: number) => void } = {}
+	options: { pairs?: number; seed?: number; wide?: boolean; onProgress?: (done: number, total: number) => void } = {}
 ): Promise<CheckResult> {
-	const useTiles = options.tiles ?? true;
-	const old = useTiles
-		? undefined
-		: await Promise.all([
-				loadLandscape('/data/landscape.json', '/data/landscape.png'),
-				loadNames('/data/landmarks.json', '/data/places.json'),
-				loadRoadMask('/data/roads.json', '/data/roads.bin'),
-				loadFineMap('/data/fine.json', '/data/fine.bin'),
-				loadStreams('/data/streams.json')
-			]);
 	let loadMs = 0;
 	const cases = await makeCases(options.pairs ?? 30, options.seed ?? 1, options.wide);
 	const problems: CheckProblem[] = [];
@@ -286,14 +270,10 @@ export async function runPlanCheck(
 		};
 		let t0 = performance.now();
 		try {
-			let deps;
-			if (old) deps = { route, landscape: old[0], names: old[1], roads: old[2], fine: old[3], streams: old[4] };
-			else {
-				const area = await tileStore('/tiles').area(planningArea(request));
-				deps = { route, landscape: area.landscape, names: area.names, roads: area.roads, fine: area.fine, streams: area.streams };
-				loadMs += performance.now() - t0;
-				t0 = performance.now(); // die Zeit der Planung ohne das Laden
-			}
+			const area = await tileStore('/tiles').area(planningArea(request));
+			const deps = { route, landscape: area.landscape, names: area.names, roads: area.roads, fine: area.fine, streams: area.streams };
+			loadMs += performance.now() - t0;
+			t0 = performance.now(); // die Zeit der Planung ohne das Laden
 			const tours = c.roundKm ? await planRound(request, deps) : await planTours(request, deps);
 			times.push({ case: `${c.name} [${c.returnMode}]`, ms: performance.now() - t0 });
 			plans++;
@@ -329,7 +309,6 @@ export async function runPlanCheck(
 		slowest: times.slice(0, 5).map((t) => ({ ...t, ms: Math.round(t.ms) })),
 		averageMs: Math.round(times.reduce((s, t) => s + t.ms, 0) / (times.length || 1)),
 		loadMs: Math.round(loadMs),
-		tiles: useTiles,
 		perCase
 	};
 }

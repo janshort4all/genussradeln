@@ -98,18 +98,3 @@ export class FineMap {
 		return false;
 	}
 }
-
-let loading: Promise<FineMap> | undefined;
-
-/** Feine Karte einmalig laden (ca. 1 MB gepackt, 10 MB entpackt) */
-export function loadFineMap(metaUrl: string, binUrl: string): Promise<FineMap> {
-	loading ??= (async () => {
-		const [metaResponse, binResponse] = await Promise.all([fetch(metaUrl), fetch(binUrl)]);
-		if (!metaResponse.ok || !binResponse.ok || !binResponse.body) throw new Error('Feine Karte nicht gefunden');
-		const meta: FineMeta = await metaResponse.json();
-		const unpacked = binResponse.body.pipeThrough(new DecompressionStream('deflate-raw'));
-		return new FineMap(meta, new Uint8Array(await new Response(unpacked).arrayBuffer()));
-	})();
-	loading.catch(() => (loading = undefined));
-	return loading;
-}

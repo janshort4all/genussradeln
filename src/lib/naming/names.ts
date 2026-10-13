@@ -85,19 +85,3 @@ export function parseLandmarks(json: { names: [string, LandmarkKind][]; points: 
 export function parsePlaces(json: { places: [number, number, number, string][] }): NamedPoint[] {
 	return json.places.map(([lon, lat, rank, name]) => ({ lngLat: [lon / 1e4, lat / 1e4], name, kind: rank }));
 }
-
-let loading: Promise<NameData> | undefined;
-
-/** Lädt Orientierungspunkte und Orte einmalig (im Browser) */
-export function loadNames(landmarksUrl: string, placesUrl: string): Promise<NameData> {
-	loading ??= (async () => {
-		const [l, p] = await Promise.all([fetch(landmarksUrl), fetch(placesUrl)]);
-		if (!l.ok || !p.ok) throw new Error('Namensdaten nicht gefunden');
-		return {
-			landmarks: new NameIndex(parseLandmarks(await l.json())),
-			places: new NameIndex(parsePlaces(await p.json()))
-		};
-	})();
-	loading.catch(() => (loading = undefined));
-	return loading;
-}

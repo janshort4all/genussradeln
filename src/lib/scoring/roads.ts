@@ -42,19 +42,3 @@ export class RoadMask {
 		return (this.bits[offset + (i >> 3)] & (1 << (i & 7))) !== 0;
 	}
 }
-
-let loading: Promise<RoadMask> | undefined;
-
-/** Lädt die Straßenkarte einmalig (im Browser; ca. 230 KB, gepackt) */
-export function loadRoadMask(metaUrl: string, binUrl: string): Promise<RoadMask> {
-	loading ??= (async () => {
-		const [metaResponse, binResponse] = await Promise.all([fetch(metaUrl), fetch(binUrl)]);
-		if (!metaResponse.ok || !binResponse.ok || !binResponse.body) throw new Error('Straßenkarte nicht gefunden');
-		const meta: RoadMaskMeta = await metaResponse.json();
-		const unpacked = binResponse.body.pipeThrough(new DecompressionStream('deflate-raw'));
-		const bits = new Uint8Array(await new Response(unpacked).arrayBuffer());
-		return new RoadMask(meta, bits);
-	})();
-	loading.catch(() => (loading = undefined));
-	return loading;
-}

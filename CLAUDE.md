@@ -11,7 +11,7 @@ beschrieben in `docs/lastenheft.md` → Abschnitt „Bedienung“.
 
 ## Rahmen des Tests
 
-- 5–10 Testpersonen, Region **Niederrhein / Duisburg** (Regierungsbezirk Düsseldorf), überwiegend **Android**.
+- 5–10 Testpersonen, Schwerpunkt **Niederrhein / Duisburg**, überwiegend **Android**. **Kartengebiet seit 13.10.2026: ganz Nordrhein-Westfalen plus die niederländischen Provinzen Limburg und Gelderland** (Jan: „Grenzland Niederlande“).
 - **Kein Konto**, keine Nutzungsdaten. Alles bleibt auf dem Gerät; geteilte Touren stecken im Link.
 - **Betriebskosten möglichst 0 €.** Keine kostenpflichtigen APIs, kein Google.
 - Testdauer 6–8 Wochen, Start sobald alle 16 Funktionen (F1–F16) fertig sind.
@@ -88,9 +88,9 @@ Alle Werte als CSS-Variablen in `src/app.css`:
 | --- | --- |
 | Frontend | SvelteKit + TypeScript, `adapter-static`, PWA via `@vite-pwa/sveltekit` |
 | Karte | MapLibre GL JS, Kacheln von OpenFreeMap (Stil „liberty“ als Basis, eigener ruhiger Stil später) |
-| Routing | GraphHopper (Open Source, selbst gehostet), OSM-Auszug Regierungsbezirk Düsseldorf von Geofabrik |
+| Routing | GraphHopper (Open Source, selbst gehostet), OSM-Auszüge NRW + Limburg + Gelderland von Geofabrik (`npm run routing:region` fügt sie zusammen) |
 | Schönheit | GraphHopper-Custom-Model „genuss“ + Nachbewertung der Kandidaten im Client (siehe unten) |
-| Daten (Stopps, Landschaft, Namen) | Aus der OSM-Regionsdatei von Geofabrik (dieselbe wie fürs Routing) per `npm run data` → `static/data/`. Kein Overpass (überlastet) |
+| Daten (Stopps, Landschaft, Namen) | Aus der OSM-Regionsdatei von Geofabrik (dieselbe wie fürs Routing) per `npm run tiles` → Kacheln (`static/tiles/`, online auf dem Server unter `/daten/`); Straßensuche per `npm run data` → `static/data/search/`. Kein Overpass (überlastet) |
 | Speicherung | IndexedDB auf dem Gerät (z. B. `idb-keyval`), kein Backend |
 | Sprachansagen | Web Speech API (`speechSynthesis`, `lang="de-DE"`) + kurzer Signalton |
 | Hosting App | GitHub Pages oder Cloudflare Pages |
@@ -395,7 +395,8 @@ Vorher: bester Ort je 2 km, die ersten drei in Streckenreihenfolge → oft Bäck
 
 ### Größeres Gebiet: NRW + Limburg + Gelderland (Jan, Oktober 2026: „NRW plus Grenzland Niederlande … darf auf keinen Fall auf die Performance gehen“)
 
-**Stufe 1 und 2 gemessen, noch nichts umgestellt** (der Live-Dienst läuft unverändert mit dem Auszug Düsseldorf). Ablauf: `scripts/merge-osm.ts` fügt mehrere Geofabrik-Auszüge zu einer Datei
+**Seit 13.10.2026 live** (Jan: „ja umstellen“): Wegenetz auf dem Server getauscht (alter Graph liegt als `graph-cache.duesseldorf` daneben), Kacheln unter `/daten/`, App veröffentlicht. Von außen geprüft:
+Moers → Venlo 40,8 km, Venlo → Roermond, Maastricht → Aachen, Duisburg → Nijmegen 92 km, Köln → Bonn; in der echten App „3 Wege nach Venlo ab Moers“ (43–48 km). Ablauf der Vorbereitung: `scripts/merge-osm.ts` fügt mehrere Geofabrik-Auszüge zu einer Datei
 (`node scripts/merge-osm.ts ziel.osm.pbf nrw.osm.pbf limburg.osm.pbf gelderland.osm.pbf`, 3 Min.; GraphHopper nimmt nur eine Datei und bricht bei doppelten Punktnummern ab – deshalb Bit-Felder
 für Punkt- und Wegnummern, ein JavaScript-`Set` fasst nur 16 Mio. Einträge). Rohdaten in `routing/data/region/` (NRW 872 MB, Limburg 96 MB, Gelderland 186 MB → zusammen 1,1 GB; 115 Mio. Punkte, 18 Mio. Wege).
 `routing/config-region.yml` = gleiche Einstellungen, Datei `region/merged.osm.pbf`, Graph `data/graph-cache-region`, Anschlüsse 8991/8992 (neben dem normalen Graphen).
@@ -424,10 +425,10 @@ für Punkt- und Wegnummern, ein JavaScript-`Set` fasst nur 16 Mio. Einträge). R
   **Lange Ziele:** Moers → Köln (≈ 60 km) braucht lokal 50 s (nur hin) bis 106 s (Rückweg anders) – die Planung wächst mit der Entfernung (Anfragen am PC ≈ 240 ms, online ≈ 80 ms); Kacheln für solche Ziele: 40–80 Stück (Ellipse), ca. 3–6 MB.
 - **Eingabeseiten:** Start/Ziel müssen in einer Kachel mit Daten liegen (`TileStore.covers`, statt der alten Rechteck-Prüfung); die Ortssuche (Photon) ist auf `REGION` (4,95…9,55 Ost, 50,3…52,6 Nord) begrenzt.
 - **Noch offen:** (a) **Straßen und Hausnummern** (`static/data/search/`) gibt es noch nur für den Regierungsbezirk Düsseldorf – außerhalb sucht Photon (2–4 s): geplant pro Ort/Kachel geteilt, nach Nähe zum Start geladen
-  (Adressen: NRW hat ≈ 8 Mio. Adressen, der Bau muss sie beim Einlesen gleich zusammenfassen statt zu sammeln). (b) Die alten Gesamt-Dateien `static/data/{landscape,fine,roads,pois,landmarks,streams}.*` sind nach dem Umstellen überflüssig (stecken aber noch im Offline-Speicher,
-  `globPatterns` in `vite.config.ts`). (c) Umstellen des Live-Dienstes (Wegenetz tauschen, App veröffentlichen) – siehe unten. (d) Niederländische Straßennamen spricht die deutsche Sprachausgabe falsch aus.
-- **Umstellen (noch nicht geschehen):** Graph auf dem Server tauschen (fertig hochgeladen unter `/home/opc/region-test/data/graph-cache-region`; alter Graph bleibt als `graph-cache.duesseldorf`), `config.yml` zeigt auf `data/region/merged.osm.pbf` (`npm run server -- karte` lädt
-  die Auszüge, fügt sie zusammen und lädt sie hoch), Kacheln hochladen, App veröffentlichen (Push auf `main`). Reihenfolge: Wegenetz (für die alte App unsichtbar, Obermenge) → Kacheln → App.
+  (Adressen: NRW hat ≈ 8 Mio. Adressen, der Bau muss sie beim Einlesen gleich zusammenfassen statt zu sammeln). (b) Die alten Gesamt-Dateien `static/data/{landscape,fine,roads,pois,landmarks,streams}.*` und ihre Lader sind entfernt (steckten sonst als 2,6 MB im Offline-Speicher jedes Handys); `npm run data` baut nur noch Ortsliste und Straßensuche.
+  (c) Niederländische Straßennamen spricht die deutsche Sprachausgabe falsch aus.
+- **Aufräumen später:** Auf dem Server liegen noch `/home/opc/region-test` (Testgraph, 0,5 GB + Tarball 0,24 GB, `region-test.log`) und `graph-cache.duesseldorf` (alter Graph, Rückfall); nach ein paar Wochen Betrieb löschen.
+  Für spätere Erneuerungen der Karte: `npm run server -- karte` (lädt die Geofabrik-Auszüge, fügt zusammen, lädt hoch, rechnet das Wegenetz neu; Datei `data/region/merged.osm.pbf` ist auf dem Server noch **nicht** vorhanden – beim ersten Mal wird sie mit hochgeladen), dann `npm run tiles` und `npm run server -- daten`.
 
 ### Tour anpassen (F6)
 
@@ -603,12 +604,14 @@ npm install          # Abhängigkeiten installieren (einmalig bzw. nach Änderun
 npm run dev          # App lokal unter http://localhost:5173
 npm run check        # TypeScript- und Svelte-Prüfung
 npm test             # Unit-Tests (Vitest, Dateien *.test.ts in src/)
-npm run data         # Landschaft, Stopps, Orts- und Gewässernamen aus der OSM-Regionsdatei → static/data/ (ca. 1 Min.)
+npm run tiles        # Kartendaten der Planung als Kacheln aus der OSM-Regionsdatei → static/tiles/ (NRW + NL: ca. 4,5 Min., 12 MB)
+npm run data         # Ortsliste und Straßen-/Hausnummern-Suche → static/data/ (nur noch Düsseldorf)
 npm run build        # statischer Build nach build/
 npm run preview      # fertigen Build lokal ansehen
 npm run icons        # Logo und App-Symbole aus assets/logo-original.png neu erzeugen
 
-npm run server -- status|deploy|karte|logs   # Routing-Server online verwalten (routing/SERVER.md)
+npm run server -- status|deploy|karte|daten|logs   # Routing-Server online verwalten (routing/SERVER.md); daten = Kacheln hochladen
+npm run routing:region  # Geofabrik-Auszüge NRW + Limburg + Gelderland laden und zusammenfügen (routing/data/region/merged.osm.pbf)
 npm run dev:handy       # App im WLAN fürs Handy bereitstellen (Planung über den PC)
 
 npm run routing:setup   # einmalig: GraphHopper + OSM-Auszug nach routing/data/ laden (Java 17+ nötig)

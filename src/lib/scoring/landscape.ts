@@ -10,8 +10,6 @@ export const GREEN = 2;
 export const FOREST = 3;
 export const WATER = 4;
 
-const CLASS_BY_NAME: Record<string, number> = { none: NONE, fields: FIELDS, green: GREEN, forest: FOREST, water: WATER };
-
 export interface LandscapeMeta {
 	west: number;
 	north: number;
@@ -171,35 +169,4 @@ export class Landscape {
 		this.beautySums.set(key, sum);
 		return sum;
 	}
-}
-
-let loading: Promise<Landscape> | undefined;
-
-/** Lädt die Landschaftskarte einmalig (im Browser) */
-export function loadLandscape(metaUrl: string, imageUrl: string): Promise<Landscape> {
-	loading ??= (async () => {
-		const [metaResponse, imageResponse] = await Promise.all([fetch(metaUrl), fetch(imageUrl)]);
-		if (!metaResponse.ok || !imageResponse.ok) throw new Error('Landschaftskarte nicht gefunden');
-		const meta: LandscapeMeta = await metaResponse.json();
-		const bitmap = await createImageBitmap(await imageResponse.blob(), {
-			colorSpaceConversion: 'none',
-			premultiplyAlpha: 'none'
-		});
-		const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-		const context = canvas.getContext('2d', { willReadFrequently: true })!;
-		context.drawImage(bitmap, 0, 0);
-		const rgba = context.getImageData(0, 0, bitmap.width, bitmap.height).data;
-		const cells = new Uint8Array(bitmap.width * bitmap.height);
-		// Graustufe → Index → Klasse über die Namen in landscape.json (ältere Karten: 0/85/170/255 ohne Felder)
-		const step = meta.step ?? 85;
-		const names = meta.classes ?? { 0: 'none', 1: 'green', 2: 'forest', 3: 'water' };
-		const classOf = Object.entries(names).reduce<number[]>((acc, [index, name]) => {
-			acc[Number(index)] = CLASS_BY_NAME[name] ?? NONE;
-			return acc;
-		}, []);
-		for (let i = 0; i < cells.length; i++) cells[i] = classOf[Math.round(rgba[i * 4] / step)] ?? NONE;
-		return new Landscape(meta, cells);
-	})();
-	loading.catch(() => (loading = undefined));
-	return loading;
 }
